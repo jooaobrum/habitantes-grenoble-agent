@@ -21,6 +21,9 @@ Load a skill by referencing it in chat: `#file:skills/<name>/SKILL.md`
 | Review code quality | `coding-guidelines` · `python-dev` |
 | Apply the right design pattern for new code | `python-patterns` |
 | Create a new reviewer subagent | `subagent-creator` |
+| Enforce commit message standards | `github-commit-assistant` |
+| Guide for kanban board | `github-kanban-assistant` |
+
 
 ## Spec template
 
