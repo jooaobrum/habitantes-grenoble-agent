@@ -37,19 +37,19 @@
 
 ## Phase 3: RAG Pipeline Evaluation
 
-- [ ] **T3.1 — Create golden dataset**
-  `tests/eval/golden_dataset.json` — 20+ evaluation cases covering ≥ 10 categories, including 2+ no-results cases. Each case: `{question, expected_category, expected_doc_ids, expected_answer_keywords}`.
+- [x] **T3.1 — Create golden dataset**
+  `tests/eval/golden_dataset.json` — 20+ evaluation cases covering ≥ 10 categories, including 2+ no-results cases. Each case: `{question, expected_category, expected_thread_ids, expected_answer_keywords}`.
   **Done when:** `golden_dataset.json` is valid JSON; `len(cases) >= 20`; ≥ 10 categories covered; ≥ 2 no-results cases.
 
-- [ ] **T3.2 — Implement retrieval metrics**
+- [x] **T3.2 — Implement retrieval metrics**
   `api/src/habitantes/eval/metrics.py` — pure functions: `recall_at_k(retrieved, relevant, k)`, `context_precision(retrieved, relevant)`. No LLM needed.
   **Done when:** `pytest tests/unit/test_metrics.py` passes; no real services needed.
 
-- [ ] **T3.3 — Implement E2E metrics**
+- [x] **T3.3 — Implement E2E metrics**
   `api/src/habitantes/eval/metrics.py` — LLM-as-judge functions: `answer_relevance(question, answer)`, `faithfulness(answer, context)`, `semantic_similarity(answer, reference)`. Uses OpenAI direct call (not LangChain).
   **Done when:** LLM judge mocked in unit tests; all 5 metric functions exist in `metrics.py`.
 
-- [ ] **T3.4 — Eval runner + report + CI gate**
+- [x] **T3.4 — Eval runner + report + CI gate**
   `tests/eval/run_eval.py` — loads golden dataset, runs retrieval + generation pipeline, computes all metrics, writes `tests/eval/report.json`, exits 0 if all targets met, exits 1 otherwise.
   **Done when:** `python tests/eval/run_eval.py` exits 0; `report.json` written with all metric scores.
 

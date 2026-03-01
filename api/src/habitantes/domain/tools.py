@@ -383,6 +383,7 @@ def hybrid_search(
                 "question": pl.get("question", ""),
                 "answer": pl.get("answer", ""),
                 "source": pl.get("subcategory") or str(pl.get("thread_id", "")),
+                "thread_id": pl.get("thread_id"),
                 "date": pl.get("thread_start", ""),
                 "category": pl.get("category", ""),
                 "score": float(p.score),

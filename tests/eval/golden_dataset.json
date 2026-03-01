@@ -1,0 +1,715 @@
+[
+    {
+        "question": "Vou enviar certidão e comprovantes do Brasil pra Ameli: eles aceitam documentos em português ou preciso fazer tradução juramentada pro francês?",
+        "expected_category": "Visa & Residency",
+        "expected_thread_ids": [
+            205
+        ],
+        "expected_answer_keywords": [
+            "Ameli",
+            "não aceita",
+            "português",
+            "tradução",
+            "francês",
+            "tradução juramentada"
+        ]
+    },
+    {
+        "question": "Meu récépissé venceu e não aparece nenhum horário pra RDV/retirada do titre de séjour em Isère. Tem algum e-mail da préfecture ou alguma forma de conseguir uma data urgente?",
+        "expected_category": "Visa & Residency",
+        "expected_thread_ids": [
+            1252,
+            1140,
+            857
+        ],
+        "expected_answer_keywords": [
+            "récépissé expirado",
+            "sem vaga",
+            "préfecture",
+            "e-mail",
+            "pref-rdv-sejour@isere.gouv.fr",
+            "retirada",
+            "urgence",
+            "titre de séjour"
+        ]
+    },
+    {
+        "question": "Consigo assinar contrato de trabalho (CDI/CDD) ou fazer estágio/alternance apresentando só o récépissé enquanto espero o titre de séjour?",
+        "expected_category": "Visa & Residency",
+        "expected_thread_ids": [
+            1140,
+            857,
+            1252
+        ],
+        "expected_answer_keywords": [
+            "récépissé",
+            "estágio",
+            "alternance",
+            "contrato de trabalho",
+            "CDI",
+            "CDD",
+            "mesmos direitos",
+            "titre de séjour",
+            "préfecture"
+        ]
+    },
+    {
+        "question": "Quero usar só banco online na França (tipo Boursorama/N26). Isso costuma dar problema no dia a dia ou em caso de fraude/uso indevido do cartão? Eles reembolsam fácil?",
+        "expected_category": "Banking & Finance",
+        "expected_thread_ids": [
+            1664,
+            655
+        ],
+        "expected_answer_keywords": [
+            "banco online",
+            "Boursorama",
+            "fraude",
+            "uso indevido",
+            "cartão",
+            "reembolso",
+            "segurança",
+            "estorno"
+        ]
+    },
+    {
+        "question": "Preciso colocar dinheiro em espécie na conta: tem como depositar cash no N26 ou no Boursorama na França? Como normalmente o pessoal faz?",
+        "expected_category": "Banking & Finance",
+        "expected_thread_ids": [
+            830,
+            1664,
+            1207
+        ],
+        "expected_answer_keywords": [
+            "depósito em espécie",
+            "dinheiro",
+            "N26",
+            "não é possível",
+            "Boursorama",
+            "correio",
+            "banco parceiro",
+            "transferência"
+        ]
+    },
+    {
+        "question": "Estou procurando apartamento em Grenoble e o “dono” quer que eu pague a reserva adiantada via cupom PCS/Neosurf. Isso é golpe? Como o pessoal identifica e evita esse tipo de fraude de aluguel?",
+        "expected_category": "Housing & CAF",
+        "expected_thread_ids": [
+            320,
+            1250,
+            1327
+        ],
+        "expected_answer_keywords": [
+            "golpe",
+            "aluguel",
+            "pagamento adiantado",
+            "cupom",
+            "PCS",
+            "Neosurf",
+            "brouteurs",
+            "denunciar",
+            "cuidado"
+        ]
+    },
+    {
+        "question": "Na CAF, consigo declarar online que estou temporariamente fora do endereço e que volto em julho? Preciso anexar algum documento provando o retorno e atualizar o endereço depois?",
+        "expected_category": "Housing & CAF",
+        "expected_thread_ids": [
+            2495,
+            446,
+            1095
+        ],
+        "expected_answer_keywords": [
+            "CAF",
+            "declaração online",
+            "não reside",
+            "retornará",
+            "julho",
+            "justificativa",
+            "documentos comprobatórios",
+            "atualizar endereço",
+            "contato CAF"
+        ]
+    },
+    {
+        "question": "Não tenho fiador francês para alugar apartamento. O Visale realmente funciona como garant? É comum pedir para o chefe/orientador ser fiador na França?",
+        "expected_category": "Housing & CAF",
+        "expected_thread_ids": [
+            1994,
+            226
+        ],
+        "expected_answer_keywords": [
+            "Visale",
+            "Action Logement",
+            "garantia",
+            "fiador",
+            "garant",
+            "aluguel",
+            "chefe",
+            "orientador",
+            "estrangeiros"
+        ]
+    },
+    {
+        "question": "Ainda não recebi meu número definitivo da Sécurité Sociale. Enquanto isso, preciso pagar as consultas do próprio bolso e pedir reembolso depois? Estou coberto de alguma forma?",
+        "expected_category": "Health & Insurance",
+        "expected_thread_ids": [
+            2410,
+            1146
+        ],
+        "expected_answer_keywords": [
+            "Sécurité Sociale",
+            "número provisório",
+            "número definitivo",
+            "pagar antecipado",
+            "reembolso",
+            "cobertura",
+            "Ameli"
+        ]
+    },
+    {
+        "question": "Preciso fazer exame de sangue em Grenoble: sem mutuelle vou ter que pagar tudo? A mutuelle ou o CROUS costumam cobrir esse tipo de exame?",
+        "expected_category": "Health & Insurance",
+        "expected_thread_ids": [
+            264,
+            497
+        ],
+        "expected_answer_keywords": [
+            "exame de sangue",
+            "mutuelle",
+            "reembolso",
+            "CROUS",
+            "pagamento",
+            "seguro complementar"
+        ]
+    },
+    {
+        "question": "Quero encontrar um médecin traitant em Grenoble que esteja aceitando novos pacientes. Vale mais a pena ligar direto no consultório ou procurar pelo Doctolib?",
+        "expected_category": "Health & Insurance",
+        "expected_thread_ids": [
+            2334,
+            497,
+            2215
+        ],
+        "expected_answer_keywords": [
+            "médecin traitant",
+            "médico generalista",
+            "Doctolib",
+            "novos pacientes",
+            "ligar consultório",
+            "rdv"
+        ]
+    },
+    {
+        "question": "Depois da entrevista do Campus France e de enviar o dossiê pra ENSAG, normalmente ainda tem entrevista direto com a escola? E o nível de francês exigido pesa mais na escrita (mémoire) do que na parte oral?",
+        "expected_category": "University & Studies",
+        "expected_thread_ids": [
+            595,
+            1861
+        ],
+        "expected_answer_keywords": [
+            "Campus France",
+            "ENSAG",
+            "entrevista",
+            "dossiê",
+            "nível de francês",
+            "B2",
+            "mémoire",
+            "M1",
+            "trabalhos escritos"
+        ]
+    },
+    {
+        "question": "Sou da Polytech Grenoble: eu sou automaticamente aluna da UGA também? Tem alguma exceção tipo GEM?",
+        "expected_category": "University & Studies",
+        "expected_thread_ids": [
+            1574
+        ],
+        "expected_answer_keywords": [
+            "Polytech Grenoble",
+            "UGA",
+            "Université Grenoble Alpes",
+            "faz parte",
+            "GEM",
+            "Grenoble École de Management",
+            "exceção"
+        ]
+    },
+    {
+        "question": "A taxa CVEC dá pra pagar em dinheiro presencialmente ou o pagamento é só online? Se eu tiver dificuldade, o CROUS ajuda com alguma alternativa?",
+        "expected_category": "University & Studies",
+        "expected_thread_ids": [
+            2652
+        ],
+        "expected_answer_keywords": [
+            "CVEC",
+            "pagamento online",
+            "site oficial",
+            "CROUS",
+            "orientação",
+            "não é padrão",
+            "inscrição"
+        ]
+    },
+    {
+        "question": "Se eu perder o emprego na França, eu só consigo pedir o seguro-desemprego (chômage) se meu visto estiver válido e vinculado ao Pôle Emploi? Como funciona esse vínculo?",
+        "expected_category": "Work & Internship",
+        "expected_thread_ids": [
+            1745,
+            463
+        ],
+        "expected_answer_keywords": [
+            "Pôle Emploi",
+            "visto válido",
+            "vínculo",
+            "chômage",
+            "seguro-desemprego",
+            "direito",
+            "trabalho"
+        ]
+    },
+    {
+        "question": "Quero complementar renda com pequenos trabalhos em Grenoble (mudança, montagem de móveis). Além do Pôle Emploi, quais aplicativos ou sites são usados na França para achar esses jobs rápidos?",
+        "expected_category": "Work & Internship",
+        "expected_thread_ids": [
+            2661,
+            463
+        ],
+        "expected_answer_keywords": [
+            "aplicativos",
+            "pequenos trabalhos",
+            "mudança",
+            "montagem de móveis",
+            "Stootie",
+            "Frizbiz",
+            "AlloVoisins",
+            "Pôle Emploi",
+            "sites de emprego"
+        ]
+    },
+    {
+        "question": "Perdi meus documentos brasileiros aqui na França (RG/CNH). Preciso fazer BO no Brasil e também declarar na polícia francesa antes de pedir segunda via/novo documento no consulado ou na ANEF?",
+        "expected_category": "Documents & Bureaucracy",
+        "expected_thread_ids": [
+            1644,
+            2438,
+            2409
+        ],
+        "expected_answer_keywords": [
+            "perda",
+            "furto",
+            "roubo",
+            "boletim de ocorrência",
+            "delegacia",
+            "polícia",
+            "consulado",
+            "Embaixada",
+            "ANEF",
+            "segunda via"
+        ]
+    },
+    {
+        "question": "Para dirigir e/ou comprar carro na França, a PID (permissão internacional) já basta ou também pedem tradução juramentada da CNH? Isso muda se eu comprar em concessionária versus particular?",
+        "expected_category": "Documents & Bureaucracy",
+        "expected_thread_ids": [
+            2409,
+            609,
+            2414
+        ],
+        "expected_answer_keywords": [
+            "PID",
+            "permissão internacional",
+            "dirigir",
+            "tradução juramentada",
+            "CNH",
+            "concessionária",
+            "particular",
+            "transferência do veículo"
+        ]
+    },
+    {
+        "question": "Preciso de traduções oficiais: tem indicação de tradutor juramentado em Grenoble e também alguém que faça juramentada para espanhol? Onde o pessoal costuma encontrar esses contatos?",
+        "expected_category": "Documents & Bureaucracy",
+        "expected_thread_ids": [
+            2414,
+            2202
+        ],
+        "expected_answer_keywords": [
+            "tradutor juramentado",
+            "Grenoble",
+            "tradução oficial",
+            "espanhol",
+            "indicação",
+            "Delphine",
+            "WhatsApp",
+            "qualificação"
+        ]
+    },
+    {
+        "question": "Para fazer PACS, existe tempo mínimo morando junto no mesmo endereço? Que tipos de comprovantes de residência conjunta costumam valer (contrato, contas) e o consulado entra em algo tipo certificado de coutume?",
+        "expected_category": "Documents & Bureaucracy",
+        "expected_thread_ids": [
+            2321,
+            2496,
+            1993
+        ],
+        "expected_answer_keywords": [
+            "PACS",
+            "tempo mínimo",
+            "vida em comum",
+            "comprovante de residência",
+            "contrato de aluguel",
+            "contas",
+            "prefeitura",
+            "certificat de coutume",
+            "consulado"
+        ]
+    },
+    {
+        "question": "Moro num estúdio pequeno (tipo 12m²) em Grenoble e queria ter noção de gastos: quanto costuma vir de energia (gás + eletricidade) por mês e o que mais influencia (consumo, classe energética do imóvel)?",
+        "expected_category": "Daily Life & Services",
+        "expected_thread_ids": [
+            2631,
+            1132
+        ],
+        "expected_answer_keywords": [
+            "conta de energia",
+            "12m²",
+            "50 a 70 euros",
+            "mês",
+            "gás",
+            "eletricidade",
+            "consumo",
+            "classificação energética",
+            "contrato"
+        ]
+    },
+    {
+        "question": "Preciso de itens bem específicos em Grenoble: onde compro cartolina (papelaria) e onde acho componentes eletrônicos tipo resistores? Tem lojas na região/Échirolles que vendem isso?",
+        "expected_category": "Daily Life & Services",
+        "expected_thread_ids": [
+            950,
+            2664
+        ],
+        "expected_answer_keywords": [
+            "cartolina",
+            "papelaria",
+            "Grenoble",
+            "componentes eletrônicos",
+            "resistores",
+            "Pro Électro Pièces",
+            "Échirolles",
+            "rua Fernand Pelloutier"
+        ]
+    },
+    {
+        "question": "Vou viajar dentro da França de trem/FlixBus e não sei que documento levar: o titre de séjour de estudante já basta ou é melhor levar o passaporte também? E se eu for fazer conexão pra fora da França, muda?",
+        "expected_category": "Travel & Transport",
+        "expected_thread_ids": [
+            229,
+            67
+        ],
+        "expected_answer_keywords": [
+            "titre de séjour",
+            "passaporte",
+            "viagem interna",
+            "FlixBus",
+            "SNCF",
+            "fora da França",
+            "levar ambos",
+            "documento de identidade"
+        ]
+    },
+    {
+        "question": "Estou planejando ir de Grenoble até o aeroporto de Orly: a melhor combinação é TGV até Paris (Gare de Lyon) e depois metrô/ônibus? Existe alternativa mais barata tipo ônibus e o trajeto sempre tem conexão em Paris?",
+        "expected_category": "Travel & Transport",
+        "expected_thread_ids": [
+            1861,
+            229
+        ],
+        "expected_answer_keywords": [
+            "Grenoble",
+            "Orly",
+            "TGV",
+            "Paris",
+            "Gare de Lyon",
+            "metrô",
+            "ônibus",
+            "conexão",
+            "não tem trem direto"
+        ]
+    },
+    {
+        "question": "Quero medir meu nível antes de fazer TCF/DELF: tem algum site gratuito e confiável (tipo TV5Monde) e quais dicas ajudam a simular prova (tempo, provas antigas, livros)?",
+        "expected_category": "Integration & Language",
+        "expected_thread_ids": [
+            1551,
+            2608,
+            2037
+        ],
+        "expected_answer_keywords": [
+            "TV5Monde",
+            "teste de francês",
+            "TCF",
+            "DELF B1",
+            "provas antigas",
+            "temporizador",
+            "livros preparatórios",
+            "simulados"
+        ]
+    },
+    {
+        "question": "Em Grenoble (ou online), o que vale mais a pena: fazer curso intensivo no CUEF/UGA (tipo DUEF) ou pegar aulas com professor particular (ex.: @abc.poliglota / professora da Alliance)?",
+        "expected_category": "Integration & Language",
+        "expected_thread_ids": [
+            2848,
+            1527,
+            2194
+        ],
+        "expected_answer_keywords": [
+            "CUEF",
+            "UGA",
+            "DUEF",
+            "curso intensivo",
+            "diploma reconhecido",
+            "professor particular",
+            "online",
+            "@abc.poliglota",
+            "Aliança Francesa"
+        ]
+    },
+    {
+        "question": "Onde em Grenoble eu consigo resolver tudo para esportes de inverno: alugar equipamento de ski e também fazer pequenos consertos de snowboard (tipo parafuso/ajuste)?",
+        "expected_category": "Ski & Trekking",
+        "expected_thread_ids": [
+            1145,
+            1177
+        ],
+        "expected_answer_keywords": [
+            "La boîte à ski",
+            "Boîte à ski",
+            "aluguel de esqui",
+            "esquis",
+            "botas",
+            "snowboard",
+            "parafuso",
+            "fixação",
+            "conserto"
+        ]
+    },
+    {
+        "question": "Para quem quer só passear na montanha sem esqui: é seguro fazer trilha sozinho(a) perto de Grenoble e quais lugares em Chamrousse combinam hiking leve com parada para café/lanche?",
+        "expected_category": "Ski & Trekking",
+        "expected_thread_ids": [
+            2756,
+            2375
+        ],
+        "expected_answer_keywords": [
+            "seguro",
+            "trilha",
+            "sozinha",
+            "muitas pessoas",
+            "sinal de celular",
+            "Chamrousse",
+            "Plateau de l'Arselle",
+            "Domaine Nordique",
+            "Le Chalet",
+            "café"
+        ]
+    },
+    {
+        "question": "Se eu quiser uma atividade diferente no inverno em Grenoble: onde dá pra patinar no gelo e, se eu for fazer via ferrata na Bastille, como funciona aluguel de equipamento e contratação de instrutor?",
+        "expected_category": "Ski & Trekking",
+        "expected_thread_ids": [
+            2278,
+            1145
+        ],
+        "expected_answer_keywords": [
+            "patinação no gelo",
+            "pista",
+            "via ferrata",
+            "Bastille",
+            "aluguel de equipamento",
+            "lojas especializadas",
+            "instrutor",
+            "contratar separadamente"
+        ]
+    },
+    {
+        "question": "Onde em Grenoble dá pra comprar couve (tipo pra fazer feijoada/caldo verde) e outros produtos portugueses/brasileiros? Tem opção fresca e congelada?",
+        "expected_category": "Food & Restaurants",
+        "expected_thread_ids": [
+            460,
+            585,
+            1165
+        ],
+        "expected_answer_keywords": [
+            "Transmontano",
+            "couve",
+            "fresca",
+            "congelada",
+            "NOSSO",
+            "produtos portugueses",
+            "brasileiros",
+            "requeijão",
+            "coxinha",
+            "risoles"
+        ]
+    },
+    {
+        "question": "Quais são os melhores lugares pra comprar frutas e legumes bons em Grenoble e arredores (ex.: Echirolles/Chavant)? Vale ligar antes pra confirmar itens como mamão?",
+        "expected_category": "Food & Restaurants",
+        "expected_thread_ids": [
+            1570,
+            1525
+        ],
+        "expected_answer_keywords": [
+            "Grand Frais",
+            "Echirolles",
+            "Sélection Fruits",
+            "Chavant",
+            "frutas",
+            "legumes",
+            "mamão",
+            "ligar antes",
+            "mais barato",
+            "Intermarché",
+            "Casino"
+        ]
+    },
+    {
+        "question": "Se eu quiser comprar massa de pastel (ou algo bem parecido) em Grenoble, onde costuma ter? Algum mercado ou região específica tipo Les Halles Sainte-Claire?",
+        "expected_category": "Food & Restaurants",
+        "expected_thread_ids": [
+            1510,
+            1570
+        ],
+        "expected_answer_keywords": [
+            "massa para pastel",
+            "Les Halles Sainte-Claire",
+            "Grenoble",
+            "mercado",
+            "ingredientes brasileiros"
+        ]
+    },
+    {
+        "question": "Onde dá pra comprar requeijão e outros “achados” brasileiros em Grenoble (tipo salgados prontos)? Precisa correr porque o estoque acaba rápido?",
+        "expected_category": "Food & Restaurants",
+        "expected_thread_ids": [
+            1165,
+            585,
+            2403
+        ],
+        "expected_answer_keywords": [
+            "NOSSO",
+            "requeijão",
+            "estoque",
+            "acaba rápido",
+            "coxinha",
+            "risoles",
+            "Picard",
+            "congelados"
+        ]
+    },
+    {
+        "question": "Se eu estiver morando perto da gare (estação de trem) ou do parque Paul Mistral, quais cuidados práticos devo ter à noite? É pior em quais horários/locais (tipo tram/portas/ruas específicas)?",
+        "expected_category": "Neighbourhood & Safety",
+        "expected_thread_ids": [
+            2692,
+            405,
+            270,
+            372
+        ],
+        "expected_answer_keywords": [
+            "gare",
+            "Paul Mistral",
+            "noite",
+            "cautela",
+            "furtos",
+            "tram",
+            "perto das portas",
+            "batedores de carteira",
+            "tram A",
+            "Place Saint Bruno"
+        ]
+    },
+    {
+        "question": "Quais bairros ou regiões em Grenoble é melhor evitar para morar (ex.: Saint-Bruno, Echirolles) e por quê? Esses problemas são frequentes ou mais “estigma”?",
+        "expected_category": "Neighbourhood & Safety",
+        "expected_thread_ids": [
+            2683,
+            1340,
+            270
+        ],
+        "expected_answer_keywords": [
+            "evitar",
+            "morar",
+            "Saint-Bruno",
+            "Echirolles",
+            "incidentes",
+            "não é exclusivo",
+            "estigma",
+            "Place Saint Bruno",
+            "tráfico",
+            "bairro mais pobre",
+            "Berriat"
+        ]
+    },
+    {
+        "question": "É tranquilo subir a Bastille de noite? Qual caminho é mais seguro (rota iluminada da bicicleta) e o que evitar (parte da floresta)?",
+        "expected_category": "Neighbourhood & Safety",
+        "expected_thread_ids": [
+            1313,
+            405,
+            372
+        ],
+        "expected_answer_keywords": [
+            "Bastille",
+            "Bastilha",
+            "noite",
+            "rota da bicicleta",
+            "iluminada",
+            "lanterna",
+            "evitar floresta",
+            "ficar atento",
+            "furtos"
+        ]
+    },
+    {
+        "question": "Em Fontaine, como descobrir quais bairros são mais perigosos/complicados? Existe algum contato oficial tipo Mairie/CCAS pra orientar?",
+        "expected_category": "Neighbourhood & Safety",
+        "expected_thread_ids": [
+            2430,
+            2683
+        ],
+        "expected_answer_keywords": [
+            "Fontaine",
+            "bairros perigosos",
+            "Mairie de Fontaine",
+            "telefone",
+            "CCAS",
+            "segurança",
+            "orientação",
+            "moradia"
+        ]
+    },
+    {
+        "question": "Se eu vir situações “estranhas” na rua (tipo dois caras numa moto) em Grenoble, isso costuma ser assalto ou mais furto? Tem alguma linha/área com mais batedor de carteira?",
+        "expected_category": "Neighbourhood & Safety",
+        "expected_thread_ids": [
+            372,
+            405,
+            270
+        ],
+        "expected_answer_keywords": [
+            "moto",
+            "assalto raro",
+            "furtos",
+            "batedor de carteira",
+            "tram A",
+            "noite",
+            "vigilância",
+            "Place Saint Bruno",
+            "perto da estação"
+        ]
+    }
+]
