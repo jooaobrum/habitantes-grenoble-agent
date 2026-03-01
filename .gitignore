@@ -211,3 +211,6 @@ artifacts/
 data/
 infra/qdrant_storage/
 .env
+
+.claude/checkpoints/
+.claude/SUGGESTIONS.md

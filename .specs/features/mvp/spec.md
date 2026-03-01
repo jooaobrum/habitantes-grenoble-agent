@@ -97,8 +97,6 @@ ChatResponse:
 ### 3) Safety & compliance
 
 **Refusal / escalation rules:**
-- Legal advice → "Para questões legais, consulte um advogado ou associação de apoio."
-- Medical emergencies → "Em caso de emergência, ligue 15 (SAMU) ou 112."
 - Out-of-scope → polite decline + redirect to supported topics
 
 **Sensitive data handling:**
@@ -110,7 +108,15 @@ ChatResponse:
 
 **Offline metrics + targets:**
 - Retrieval recall@5 ≥ 0.70 on eval set
+- Context precision ≥ 0.60 on eval set
 - Answer relevance (LLM-as-judge) ≥ 0.80 on eval set
+- Faithfulness (LLM-as-judge) ≥ 0.80 on eval set
+- Semantic similarity ≥ 0.70 on eval set
+
+**Evaluation gate (Phase 3 → Phase 4):**
+- Golden dataset must exist with ≥ 20 cases covering ≥ 10 categories
+- All offline metrics must meet targets before infrastructure work begins
+- `python tests/eval/run_eval.py` must exit 0
 
 **Online metrics + targets:**
 - User satisfaction (thumbs up rate) ≥ 85% in first month
