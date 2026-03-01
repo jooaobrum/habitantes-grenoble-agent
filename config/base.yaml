@@ -1,0 +1,37 @@
+# ── Global Defaults ──────────────────────────────────────────────────────────
+llm:
+  model_name: "gpt-4o-mini"
+  embedding_model_name: "intfloat/multilingual-e5-small"
+
+vector_store:
+  qdrant_url: "http://qdrant:6333"
+
+api:
+  rate_limit_per_hour: 100
+  eval_gate_enabled: true
+
+telegram:
+  api_url: "http://api:8000"
+
+# ── Environment Specifics ─────────────────────────────────────────────────────
+environments:
+  dev:
+    vector_store:
+      collection_name: "dev_base"
+    api:
+      log_level: "DEBUG"
+      eval_gate_enabled: false
+
+  qa:
+    vector_store:
+      collection_name: "qa_base"
+    api:
+      log_level: "INFO"
+      eval_gate_enabled: true
+
+  prod:
+    vector_store:
+      collection_name: "prod_base"
+    api:
+      log_level: "WARNING"
+      eval_gate_enabled: true
