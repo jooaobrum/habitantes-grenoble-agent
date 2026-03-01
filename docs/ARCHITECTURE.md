@@ -80,7 +80,7 @@ Knowledge-based chatbot serving Brazilian expats in Grenoble via Telegram. Handl
 │                       │  Qdrant (Vector Store)                  │     │
 │                       │                                          │     │
 │                       │  Collection: qa_base                     │     │
-│                       │  - Dense vectors (384d)                  │     │
+│                       │  - Dense vectors (1024d)                 │     │
 │                       │  - Sparse vectors (BM25)                 │     │
 │                       │  - Metadata: source, date, category      │     │
 │                       └──────────────────────────────────────────┘     │
@@ -115,7 +115,7 @@ Response → FastAPI → Telegram → User
 ```
 Query text
   ↓
-├─→ SentenceTransformer-PT → Dense vector (384d)
+├─→ SentenceTransformer-PT → Dense vector (1024d)
 │
 └─→ BM25-PT → Sparse vector
   ↓

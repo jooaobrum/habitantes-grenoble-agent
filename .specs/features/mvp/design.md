@@ -22,7 +22,7 @@ class AgentState(TypedDict):
 
     # ── Classification ──
     intent: str          # greeting | qa | feedback | out_of_scope
-    category: str        # visa | housing | healthcare | banking | transport | education | caf | general
+    category: str        # unused (kept in state for future use)
 
     # ── Retrieval ──
     context_chunks: list[dict]   # [{text, source, date, category, score}]
@@ -36,7 +36,7 @@ class AgentState(TypedDict):
     history: list[dict]          # last 5 messages [{role, content}]
 
     # ── Observability ──
-    timings: dict[str, float]    # {intent_ms, category_ms, search_ms, generation_ms}
+    timings: dict[str, float]    # {intent_ms, search_ms, generation_ms}
     error: dict | None           # {error_code, message, retryable} or None
 ```
 
@@ -48,19 +48,12 @@ START
   ▼
 classify_intent
   │
-  ├── intent == "greeting"      → generate_greeting → END
-  ├── intent == "out_of_scope"  → generate_decline  → END
-  ├── intent == "feedback"      → log_feedback       → END
+  ├── intent == "greeting"      → generate_greeting      → END
+  ├── intent == "out_of_scope"  → generate_decline       → END
+  ├── intent == "feedback"      → log_feedback            → END
+  ├── intent == "qa" + short    → generate_clarification  → END
   │
-  ▼ (intent == "qa")
-classify_category
-  │
-  ▼
-route
-  │
-  ├── route == "clarify"   → generate_clarification → END
-  │
-  ▼ (route == "rag")
+  ▼ (intent == "qa" + message long enough)
 hybrid_search (Tool)
   │
   ▼
@@ -75,11 +68,8 @@ Each node is a **pure function**: `(AgentState) → dict` (partial state update)
 def classify_intent(state: AgentState) -> dict:
     """Returns: {intent: str, timings: {...}}"""
 
-def classify_category(state: AgentState) -> dict:
-    """Returns: {category: str, timings: {...}}"""
-
 def route(state: AgentState) -> str:
-    """Conditional edge: returns 'rag' | 'clarify' | 'direct'"""
+    """Conditional edge (qa path): returns 'rag' | 'clarify' based on message length"""
 
 def generate_response(state: AgentState) -> dict:
     """Returns: {answer: str, sources: list, confidence: float, timings: {...}}"""
@@ -243,13 +233,13 @@ The ingestion pipeline is complete and separate from inference:
 3. `2-generate_synthesis_from_qa.py` — Generate synthesized answers
 4. `3-build_qdrant_collection.py` — Build Qdrant collection (dense + sparse)
 
-Collection: `qa_base` with dense (384d, E5-small) + sparse (BM25 hashing) vectors.
+Collection: `qa_base` with dense (1024d, E5-large) + sparse (BM25 hashing) vectors.
 
 ## Key Technical Decisions
 
 | Component | Choice | Notes |
 |-----------|--------|-------|
-| Dense embedding | `intfloat/multilingual-e5-small` (384d) | Matches ingestion |
+| Dense embedding | `intfloat/multilingual-e5-large` (1024d) | Matches ingestion |
 | Sparse embedding | BM25 hashing trick (262k dim) | Matches ingestion |
 | Fusion | Reciprocal Rank Fusion (RRF) | Standard hybrid approach |
 | Query prefix | `"query: "` (E5 convention) | Ingestion uses `"passage: "` |

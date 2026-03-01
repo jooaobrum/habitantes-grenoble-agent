@@ -7,6 +7,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+class CategoryEntry(BaseModel):
+    """Single category: Portuguese display name + English Qdrant filter value."""
+
+    pt_name: str  # shown to users
+    en_name: str  # used for Qdrant category filter (must match ingestion payload)
+
+
 class LLMConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     model_name: str = "gpt-4o-mini"
@@ -29,7 +36,7 @@ class ApiConfig(BaseModel):
 
 class TelegramConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
-    bot_token: str = Field(..., alias="TELEGRAM_BOT_TOKEN")
+    bot_token: str = Field(default="", alias="TELEGRAM_BOT_TOKEN")
     api_url: str = "http://api:8000"
 
 
@@ -48,6 +55,7 @@ class Settings(BaseSettings):
     vector_store: VectorStoreConfig
     api: ApiConfig
     telegram: TelegramConfig
+    categories: list[CategoryEntry] = []
     app_env: str = Field("dev", alias="APP_ENV")
 
 
@@ -67,8 +75,13 @@ def load_settings() -> Settings:
     Load settings from YAML, apply environment overrides from YAML,
     and then override with terminal/system environment variables.
     """
-    # 1. Load Base YAML
+    # 0. Load .env file into os.environ so secrets are available below
+    from dotenv import load_dotenv
+
     root_dir = Path(__file__).parents[3]
+    load_dotenv(root_dir / ".env", override=False)
+
+    # 1. Load Base YAML
     config_path = root_dir / "config" / "base.yaml"
 
     with open(config_path, "r") as f:

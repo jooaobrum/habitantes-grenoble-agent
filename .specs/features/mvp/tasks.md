@@ -12,26 +12,26 @@
 
 ## Phase 2: Domain Layer
 
-- [ ] **T2.1 — State & schemas**
+- [x] **T2.1 — State & schemas**
   `domain/state.py` — `AgentState` TypedDict per design.md.
   `domain/schemas.py` — `ChatRequest`, `ChatResponse`, `FeedbackRequest`, `Source`, `HealthResponse`.
   **Done when:** all types importable, Pydantic validation works, tests pass.
 
-- [ ] **T2.2 — Prompts**
+- [x] **T2.2 — Prompts**
   `domain/prompts/intent.py` — intent classification prompt (greeting/qa/feedback/out_of_scope).
   `domain/prompts/category.py` — category classification prompt (8 categories).
   `domain/prompts/synthesis.py` — answer synthesis prompt (Portuguese, grounded, with sources).
   **Done when:** all prompts render correctly with sample data.
 
-- [ ] **T2.3 — Nodes**
+- [x] **T2.3 — Nodes**
   `domain/nodes.py` — pure functions: `classify_intent`, `classify_category`, `route`, `generate_response`, `generate_greeting`, `generate_decline`, `generate_clarification`, `log_feedback`.
   **Done when:** each node tested with mocked LLM, returns correct state updates.
 
-- [ ] **T2.4 — Tools (hybrid search)**
+- [x] **T2.4 — Tools (hybrid search)**
   `domain/tools.py` — `hybrid_search` thin wrapper: embeds query (dense + sparse), queries Qdrant, returns `{chunks: [...]}` or `{error: {...}}`. Lazy model loading via factory.
   **Done when:** tool returns typed results with mock Qdrant, error path tested.
 
-- [ ] **T2.5 — Agent graph**
+- [x] **T2.5 — Agent graph**
   `domain/agent.py` — LangGraph `StateGraph` wiring all nodes + tools per design.md graph. In-memory short-term memory (last 5 msgs per chat_id).
   **Done when:** graph compiles, full happy-path flow works with mocked tools/LLM.
 

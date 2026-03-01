@@ -1,7 +1,7 @@
 # ── Global Defaults ──────────────────────────────────────────────────────────
 llm:
   model_name: "gpt-4o-mini"
-  embedding_model_name: "intfloat/multilingual-e5-small"
+  embedding_model_name: "intfloat/multilingual-e5-large"
 
 vector_store:
   qdrant_url: "http://qdrant:6333"
@@ -13,25 +13,61 @@ api:
 telegram:
   api_url: "http://api:8000"
 
+# ── Categories (single source of truth) ──────────────────────────────────────
+# pt_name: shown to users (Portuguese)
+# en_name: used for Qdrant category filter (must match ingestion payload)
+categories:
+  - pt_name: "Visto & Residência"
+    en_name: "Visa & Residency"
+  - pt_name: "Bancos & Finanças"
+    en_name: "Banking & Finance"
+  - pt_name: "Moradia & CAF"
+    en_name: "Housing & CAF"
+  - pt_name: "Saúde & Seguros"
+    en_name: "Health & Insurance"
+  - pt_name: "Universidade & Estudos"
+    en_name: "University & Studies"
+  - pt_name: "Trabalho & Estágio"
+    en_name: "Work & Internship"
+  - pt_name: "Documentos & Burocracia"
+    en_name: "Documents & Bureaucracy"
+  - pt_name: "Vida Diária & Serviços"
+    en_name: "Daily Life & Services"
+  - pt_name: "Viagem & Transporte"
+    en_name: "Travel & Transport"
+  - pt_name: "Integração & Idioma"
+    en_name: "Integration & Language"
+  - pt_name: "Ski & Trilhas"
+    en_name: "Ski & Trekking"
+  - pt_name: "Alimentação & Restaurantes"
+    en_name: "Food & Restaurants"
+  - pt_name: "Esportes & Atividades"
+    en_name: "Sports & Activities"
+  - pt_name: "Vida Noturna & Eventos"
+    en_name: "Nightlife & Events"
+  - pt_name: "Bairros & Segurança"
+    en_name: "Neighbourhood & Safety"
+  - pt_name: "Compra & Venda"
+    en_name: "Marketplace & Buy/Sell"
+  - pt_name: "Cabelo & Beleza"
+    en_name: "Hair & Beauty"
+  - pt_name: "Pets & Animais"
+    en_name: "Pets & Animals"
+  - pt_name: "Telefone & Telecom"
+    en_name: "Phone & Telecom"
+
 # ── Environment Specifics ─────────────────────────────────────────────────────
 environments:
   dev:
     vector_store:
-      collection_name: "dev_base"
+      collection_name: "habitantes_chat_kb_hybrid_2"
     api:
       log_level: "DEBUG"
       eval_gate_enabled: false
 
-  qa:
-    vector_store:
-      collection_name: "qa_base"
-    api:
-      log_level: "INFO"
-      eval_gate_enabled: true
-
   prod:
     vector_store:
-      collection_name: "prod_base"
+      collection_name: "habitantes_chat_kb_hybrid_2"
     api:
       log_level: "WARNING"
       eval_gate_enabled: true
