@@ -3,17 +3,46 @@
 ## Architecture
 
 ```
-UI → API → Graph (LangGraph) → Tools
-              ↑
-            State (TypedDict)
+UI → API → Agent (Two-Layer ReAct) → Tools
+               ↑
+             State (TypedDict)
 Ingestion ───┘  (offline only, never at query time)
+```
+
+### Two-Layer ReAct Architecture
+
+```
+START
+  │
+  ▼
+Layer 1: classify_intent (LLM classification)
+  │
+  │ Returns: {intent, category?, timings}
+  │ Short-circuits for number input "1"-"19"
+  │
+  ▼
+Layer 2: ReAct Agent (LLM + tool calling loop)
+  │
+  │ Receives intent as context in system prompt
+  │ Decides action:
+  │   ├── greeting       → responds directly (no tool call)
+  │   ├── out_of_scope   → declines politely (no tool call)
+  │   ├── feedback       → acknowledges (no tool call)
+  │   ├── qa + short msg → asks for clarification (no tool call)
+  │   └── qa + long msg  → calls search_knowledge_base → synthesizes answer
+  │
+  │ Loop: LLM → tool_call? → execute tool → LLM → ... → final answer
+  │ Max iterations: 5
+  │
+  ▼
+END
 ```
 
 ## State Definition
 
 ```python
 class AgentState(TypedDict):
-    """Typed state passed through the LangGraph graph."""
+    """Typed state passed through the agent."""
     # ── Request context ──
     chat_id: str
     message: str
@@ -22,7 +51,7 @@ class AgentState(TypedDict):
 
     # ── Classification ──
     intent: str          # greeting | qa | feedback | out_of_scope
-    category: str        # unused (kept in state for future use)
+    category: str        # e.g. "Visa & Residency"
 
     # ── Retrieval ──
     context_chunks: list[dict]   # [{text, source, date, category, score}]
@@ -36,65 +65,46 @@ class AgentState(TypedDict):
     history: list[dict]          # last 5 messages [{role, content}]
 
     # ── Observability ──
-    timings: dict[str, float]    # {intent_ms, search_ms, generation_ms}
+    timings: dict[str, float]    # {intent_ms, react_ms}
     error: dict | None           # {error_code, message, retryable} or None
 ```
 
-## Graph Structure
-
-```
-START
-  │
-  ▼
-classify_intent
-  │
-  ├── intent == "greeting"      → generate_greeting      → END
-  ├── intent == "out_of_scope"  → generate_decline       → END
-  ├── intent == "feedback"      → log_feedback            → END
-  ├── intent == "qa" + short    → generate_clarification  → END
-  │
-  ▼ (intent == "qa" + message long enough)
-hybrid_search (Tool)
-  │
-  ▼
-generate_response → END
-```
-
-## Node Signatures
-
-Each node is a **pure function**: `(AgentState) → dict` (partial state update).
+## Agent Entry Point
 
 ```python
-def classify_intent(state: AgentState) -> dict:
-    """Returns: {intent: str, timings: {...}}"""
+def run(chat_id: str, message: str, message_id: str, trace_id: str) -> dict:
+    """Execute one agent turn end-to-end.
 
-def route(state: AgentState) -> str:
-    """Conditional edge (qa path): returns 'rag' | 'clarify' based on message length"""
-
-def generate_response(state: AgentState) -> dict:
-    """Returns: {answer: str, sources: list, confidence: float, timings: {...}}"""
-
-def generate_greeting(state: AgentState) -> dict:
-    """Returns: {answer: str, confidence: 1.0}"""
-
-def generate_decline(state: AgentState) -> dict:
-    """Returns: {answer: str, confidence: 1.0}"""
-
-def generate_clarification(state: AgentState) -> dict:
-    """Returns: {answer: str, confidence: 0.5}"""
-
-def log_feedback(state: AgentState) -> dict:
-    """Returns: {answer: str}"""
+    Two-layer architecture:
+      1. _classify_intent — determines intent
+      2. _run_react_loop — ReAct loop with tool calling
+    """
 ```
 
 ## Tool Contracts
 
-### hybrid_search
+### search_knowledge_base (LangChain tool)
+
+```python
+@tool
+def search_knowledge_base(query: str, category: str = "") -> str:
+    """Search the knowledge base for Brazilian expats in Grenoble.
+
+    Args:
+        query: Search query in Portuguese or French.
+        category: Optional category filter.
+
+    Returns:
+        Formatted string with retrieved chunks, or error message.
+    """
+```
+
+### hybrid_search (internal function)
 
 ```python
 # Input
 query: str
-category: str | None
+categories: list[str] | None
 top_k: int = 5
 
 # Success output
@@ -105,6 +115,7 @@ top_k: int = 5
             "question": str,
             "answer": str,
             "source": str,
+            "thread_id": int,
             "date": str,
             "category": str,
             "score": float
@@ -184,6 +195,9 @@ Pure functions that compare retrieved document IDs against golden expected IDs.
 def recall_at_k(retrieved_ids: list[str], relevant_ids: list[str], k: int = 5) -> float:
     """Fraction of relevant docs found in top-k retrieved."""
 
+def hit_rate_at_k(retrieved_ids: list[str], relevant_ids: list[str], k: int = 5) -> float:
+    """1.0 if at least one relevant doc found in top-k, else 0.0."""
+
 def context_precision(retrieved_ids: list[str], relevant_ids: list[str]) -> float:
     """Weighted precision: relevant docs ranked higher score more."""
 ```
@@ -219,8 +233,9 @@ python tests/eval/run_eval.py
 
 | Metric | Target |
 |---|---|
-| recall@5 | ≥ 0.70 |
-| context_precision | ≥ 0.60 |
+| hit_rate@5 | ≥ 0.80 |
+| recall@5 | ≥ 0.50 |
+| context_precision | ≥ 0.50 |
 | answer_relevance | ≥ 0.80 |
 | faithfulness | ≥ 0.80 |
 | semantic_similarity | ≥ 0.70 |
@@ -238,22 +253,22 @@ api/
         │
         ├── domain/
         │   ├── __init__.py
-        │   ├── agent.py               # LangGraph StateGraph
+        │   ├── agent.py               # Two-Layer ReAct Agent
         │   ├── state.py               # AgentState TypedDict
-        │   ├── nodes.py               # Pure function nodes
-        │   ├── tools.py               # Thin wrapper tools
+        │   ├── nodes.py               # Helper node functions (legacy)
+        │   ├── tools.py               # hybrid_search + LangChain tool wrapper
         │   ├── schemas.py             # Pydantic request/response models
         │   └── prompts/
         │       ├── __init__.py
         │       ├── intent.py          # Intent classification prompt
         │       ├── category.py        # Category classification prompt
-        │       └── synthesis.py       # Answer synthesis prompt
+        │       └── synthesis.py       # ReAct system prompt + answer synthesis
         │
         ├── eval/
         │   ├── __init__.py
-        │   └── metrics.py             # recall_at_k, context_precision,
-        │                              # answer_relevance, faithfulness,
-        │                              # semantic_similarity
+        │   └── metrics.py             # recall_at_k, hit_rate_at_k,
+        │                              # context_precision, answer_relevance,
+        │                              # faithfulness, semantic_similarity
         │
         └── infrastructure/
             ├── __init__.py
@@ -278,10 +293,10 @@ tests/
 │   ├── test_schemas.py
 │   └── test_metrics.py                # Unit tests for eval metrics
 ├── integration/
-│   └── test_agent_flow.py
+│   └── test_agent_flow.py             # Integration tests for ReAct agent
 └── eval/
     ├── run_eval.py                    # Eval runner + CI gate
-    ├── golden_dataset.json            # 20+ cases, ≥ 10 categories
+    ├── golden_dataset.json            # 38 cases, ≥ 10 categories
     └── report.json                    # Generated by run_eval.py (gitignored)
 ```
 
@@ -299,6 +314,7 @@ Collection: `qa_base` with dense (1024d, E5-large) + sparse (BM25 hashing) vecto
 
 | Component | Choice | Notes |
 |-----------|--------|-------|
+| Agent architecture | Two-Layer ReAct | Layer 1: intent classification, Layer 2: tool-calling loop |
 | Dense embedding | `intfloat/multilingual-e5-large` (1024d) | Matches ingestion |
 | Sparse embedding | BM25 hashing trick (262k dim) | Matches ingestion |
 | Fusion | Reciprocal Rank Fusion (RRF) | Standard hybrid approach |

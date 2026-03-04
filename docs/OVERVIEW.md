@@ -50,11 +50,12 @@ A **knowledge-based chatbot** that:
 ```
 User asks question (Telegram)
     ↓
-Bot classifies intent & category
+Layer 1: classify intent (greeting / qa / feedback / out_of_scope)
     ↓
-Searches knowledge base (5 years of Q&As)
-    ↓
-Synthesizes answer with sources
+Layer 2: ReAct Agent (LLM + tool calling loop)
+    │
+    ├── If qa → calls search_knowledge_base tool → synthesizes answer
+    └── Otherwise → responds directly (no tool needed)
     ↓
 Returns response in Portuguese
 ```
@@ -104,7 +105,7 @@ Returns response in Portuguese
   - SentenceTransformers (Portuguese embeddings)
   - Custom BM25 (Portuguese keyword search)
 - **Knowledge Base**: Qdrant vector database
-- **Agent Framework**: LangGraph
+- **Agent Architecture**: Two-Layer ReAct (LangChain tool calling)
 - **Backend**: FastAPI (Python)
 - **Deployment**: Low-cost VPS
 

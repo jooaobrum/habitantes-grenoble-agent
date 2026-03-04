@@ -371,3 +371,34 @@ all reference `docs/standard/agent-systems-standard.md`. Verify this file exists
 if not, either create it (extract rules from CLAUDE.md) or update the references.
 
 **Action:** `ls docs/standard/` and fix or create the referenced file.
+
+---
+
+## 7. Lessons from Task 3 (Evaluation Pipeline)
+
+These are patterns and insights gained while implementing and running the RAG evaluation suite.
+
+### 7.1 Hit Rate vs. Recall for RAG "Sufficiency"
+
+**Insight:** Recall measures completeness (finding *all* relevant documents). For RAG, this is often too strict because the LLM only needs *one* good document to answer (sufficiency). In our tests, Recall was ~51% while Hit Rate was ~89%.
+**Suggestion:** Always include `Hit Rate@k` alongside `Recall@k`. If Hit Rate is high but Recall is low, focus on deduplicating the Knowledge Base or tuning the RAG prompt rather than the search engine.
+
+### 7.2 Explicit ID-based Evaluation
+
+**Insight:** Originally, evaluation relied on parsing the "source" string (e.g. "Opening a Bank Account"). This is brittle and ambiguous if multiple documents have the same source.
+**Suggestion:** Modify search tools to return an explicit, immutable `thread_id` or `uuid` in the metadata. Use these IDs for all retrieval metrics (`Recall`, `Precision`, `MRR`) to ensure 100% accuracy in the evaluation math.
+
+### 7.3 The "Faithfulness" vs. "Precision" Gap
+
+**Insight:** Our bot achieved **1.0 Faithfulness** but only **0.42 Context Precision**. This means the search results contain a lot of "noise" (irrelevant chunks), but the LLM is excellent at ignoring that noise and focusing only on the relevant part.
+**Suggestion:** To improve the system without risking the stable LLM prompts, focus on **Reranking**. Adding a cheap Cross-Encoder (e.g. `BGE-Reranker`) before passing chunks to the LLM can drastically improve Context Precision and lower token costs/latency.
+
+### 7.4 Evaluation Parallelization
+
+**Insight:** Running E2E evaluation for 38 cases takes several minutes because it runs sequentially (LLM calls are slow).
+**Suggestion:** Update `run_eval.py` to use `asyncio.gather` or a `ThreadPoolExecutor` for the `run_generation_eval` portion. This is safe because evaluation is a stateless batch process.
+
+### 7.5 Golden Dataset as "Living Documentation"
+
+**Insight:** The 38 questions in `golden_dataset.json` are the best documentation of what the bot is *actually* expected to know.
+**Suggestion:** Encourage the user to add "tricky" real-world questions encountered in manual smoke tests directly to the golden set. This transforms the evaluation from a one-off task into a continuous regression suite.

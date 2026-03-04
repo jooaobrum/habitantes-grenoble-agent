@@ -16,6 +16,7 @@ Usage:
 
 import argparse
 import json
+import random
 import sys
 import traceback
 import uuid
@@ -30,6 +31,8 @@ from habitantes.eval.metrics import (
     recall_at_k,
     semantic_similarity,
 )
+
+_CATEGORY_SEED = 42  # fixed seed → reproducible 50/50 split across runs
 
 ROOT = Path(__file__).parents[2]
 
@@ -62,12 +65,22 @@ def _extract_thread_ids(chunks: list[dict]) -> list[str]:
     return ids
 
 
-def run_retrieval_eval(case: dict) -> dict:
-    """Run hybrid_search and compute Layer 1 metrics for a single case."""
+def run_retrieval_eval(case: dict, use_category: bool = False) -> dict:
+    """Run hybrid_search and compute Layer 1 metrics for a single case.
+
+    Args:
+        use_category: When True, passes expected_category as a category filter,
+                      simulating the production path where the classifier runs first.
+    """
     question = case["question"]
     expected_ids = [str(tid) for tid in case.get("expected_thread_ids", [])]
 
-    result = hybrid_search(query=question, top_k=5)
+    categories = (
+        [case["expected_category"]]
+        if use_category and case.get("expected_category")
+        else None
+    )
+    result = hybrid_search(query=question, categories=categories, top_k=5)
 
     if "error" in result:
         return {
@@ -143,22 +156,35 @@ def main(retrieval_only: bool = False) -> int:
         cases = json.load(f)
     print(f"  → {len(cases)} cases loaded")
 
+    # Deterministic 50/50 split: half the cases use the expected_category filter
+    rng = random.Random(_CATEGORY_SEED)
+    use_category_flags = [rng.random() < 0.5 for _ in cases]
+    n_filtered = sum(use_category_flags)
+    print(
+        f"  → {n_filtered}/{len(cases)} cases will use category filter (seed={_CATEGORY_SEED})"
+    )
+
     case_results = []
     all_hr5, all_r5, all_cp, all_ar, all_ff, all_ss = [], [], [], [], [], []
 
     # ── 2. Per-case evaluation ────────────────────────────────────────────────
     for i, case in enumerate(cases):
-        print(f"\n[{i + 1}/{len(cases)}] {case['question'][:80]}...")
+        use_cat = use_category_flags[i]
+        cat_label = (
+            f"[cat={case.get('expected_category')}]" if use_cat else "[no filter]"
+        )
+        print(f"\n[{i + 1}/{len(cases)}] {cat_label} {case['question'][:70]}...")
 
         case_result: dict = {
             "question": case["question"],
             "expected_category": case.get("expected_category"),
             "expected_thread_ids": case.get("expected_thread_ids", []),
+            "used_category_filter": use_cat,
         }
 
         # Layer 1: Retrieval metrics
         try:
-            retrieval = run_retrieval_eval(case)
+            retrieval = run_retrieval_eval(case, use_category=use_cat)
         except Exception as exc:
             print(f"  ✗ Retrieval error: {exc}")
             retrieval = {
@@ -185,7 +211,12 @@ def main(retrieval_only: bool = False) -> int:
             # the runner self-contained without re-querying inside the agent)
             chunks = []
             if "retrieved_ids" in retrieval and not retrieval.get("retrieval_error"):
-                raw = hybrid_search(query=case["question"], top_k=5)
+                _cats = (
+                    [case["expected_category"]]
+                    if use_cat and case.get("expected_category")
+                    else None
+                )
+                raw = hybrid_search(query=case["question"], categories=_cats, top_k=5)
                 chunks = raw.get("chunks", [])
 
             try:

@@ -1,7 +1,8 @@
 """Answer synthesis prompt.
 
 Generates a grounded answer in Portuguese from retrieved context chunks.
-Returns a list of OpenAI-style message dicts ready for chat completions.
+Exports REACT_SYSTEM_PROMPT for the ReAct agent and build_synthesis_messages
+for standalone use (e.g., evaluation pipeline).
 """
 
 _SYSTEM = """\
@@ -83,6 +84,9 @@ Nunca inclua fontes que não estejam no contexto fornecido.
 """
 
 _NO_RESULTS_FALLBACK = "Não encontrei informações confiáveis sobre este tema."
+
+# Public alias for the ReAct agent to import
+REACT_SYSTEM_PROMPT = _SYSTEM
 
 
 def _format_chunks(chunks: list[dict]) -> str:

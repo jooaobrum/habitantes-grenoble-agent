@@ -3,7 +3,7 @@
 ## Architecture rules (never break these)
 
 ```
-UI → API → Graph (LangGraph) → Tools
+UI → API → Orchestrator (ReAct loop / workflow / state machine) → Tools
                 ↑
               State (TypedDict)
 Ingestion ────┘  (offline only, never at query time)
@@ -11,18 +11,18 @@ Ingestion ────┘  (offline only, never at query time)
 
 **Layer rules:**
 - UI never imports agent logic — UI calls API only
-- Graph nodes never import infrastructure directly — always go through tools
+- Orchestrator steps never import infrastructure directly — always go through tools
 - Tools are thin wrappers — no decisions, no orchestration logic
-- State is a TypedDict passed through the graph — no global mutable state
+- State is a TypedDict passed through the orchestrator — no global mutable state
 - Every request gets a `trace_id`
 - Errors are structured: `{error_code, message, retryable}`
 
 **SOLID principles — apply always:**
-- **S** — each module has one reason to change. Nodes do routing/logic. Tools do I/O. Contracts define the boundary. Never mix.
+- **S** — each module has one reason to change. Orchestrator steps do routing/logic. Tools do I/O. Contracts define the boundary. Never mix.
 - **O** — add new LLM providers or vector stores by adding a new tool, not by modifying existing ones.
 - **L** — any tool that satisfies the same return contract (`{"chunks": [...]}` or `{"error": {...}}`) is interchangeable.
 - **I** — keep tool interfaces narrow. `vector_store.retrieve(query)` does one thing only.
-- **D** — graph nodes depend on tool *interfaces* (the dict contract), not on specific implementations (ChromaDB, AzureOpenAI).
+- **D** — orchestrator steps depend on tool *interfaces* (the dict contract), not on specific implementations (ChromaDB, AzureOpenAI).
 
 See `.claude/skills/python-patterns/SKILL.md` for the design patterns used in this codebase.
 
@@ -46,7 +46,7 @@ If either fails: fix it first.
 ## Core Rules (Non-Negotiable)
 
 1. Agents are **SERVICES**, not notebooks.
-2. Orchestration is **EXPLICIT** (graph/workflow/state machine).
+2. Orchestration is **EXPLICIT** (ReAct loop, workflow, or state machine — any is valid).
 3. UI **NEVER** imports agent logic directly.
 4. Ingestion is **separate** from inference.
 5. State and API contracts must be **typed and stable**.
@@ -103,7 +103,7 @@ All reviews: **Agent + Decision (APPROVE | REQUEST_CHANGES) + Reason**
 - **Don’t catch bare `except:`** → catch specific exceptions, return `ToolError`
 - **Don’t change `contracts.py` without updating eval cases** → they must stay in sync
 - **Don’t generate an answer when `chunks` is empty** → return the no-results fallback
-- **Don’t add state fields without updating `state.py` TypedDict** → state drift breaks the graph
+- **Don’t add state fields without updating `state.py` TypedDict** → state drift breaks the orchestrator
 
 
 ## Skills vs custom agents
@@ -120,10 +120,10 @@ Create a custom agent (`.claude/agents/`) only for reviewer roles that need cons
 
 ## Current Stack
 
-- **Framework:** LangGraph
+- **Orchestration:** ReAct loop (LangChain) + explicit workflow steps
 - **LLM:** OpenAI
 - **Vector Store:** Qdrant (docker)
-- **UI:** HTML, CSS , JS
+- **UI:** HTML, CSS, JS
 - **API:** FastAPI
 - **State Management:** TypedDict
 - **Testing:** pytest
@@ -161,7 +161,7 @@ habitantes-grenoble-agent/│
 │           │   │                   #   Pure logic. No HTTP, no DB clients, no framework I/O.
 │           │   │                   #   Devs touch this only to refactor, not rewrite.
 │           │   ├── __init__.py
-│           │   ├── agent.py         # Agent graph (LangGraph StateGraph, etc.)
+│           │   ├── agent.py         # Agent orchestrator (ReAct loop, workflow, etc.)
 │           │   ├── nodes.py         # Individual agent nodes
 │           │   ├── tools.py         # Tool definitions
 │           │   ├── schemas.py       # Domain Pydantic models (input/output contracts)

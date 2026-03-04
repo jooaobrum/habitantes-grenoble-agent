@@ -29,8 +29,8 @@ _SPARSE_VECTOR = "sparse"
 
 _DENSE_PREFETCH_K = 80
 _SPARSE_PREFETCH_K = 120
-_FUSED_K = 30
-_RERANK_TOP_K = 20
+_FUSED_K = 50
+_RERANK_TOP_K = 40
 _ANCHOR_BONUS = 0.05
 
 _TOKEN_RE = re.compile(r"[0-9A-Za-zÀ-ÖØ-öø-ÿ']+")
@@ -287,6 +287,25 @@ def _rerank_with_anchors(query: str, points: list) -> list:
     return [sp for _, sp in rescored] + tail
 
 
+# ── Thread-level deduplication ───────────────────────────────────────────────
+
+
+def _deduplicate_by_thread(points: list) -> list:
+    """Keep only the highest-scoring chunk per thread_id.
+
+    Preserves the original rank order so context_precision is not disturbed.
+    Falls back to point.id when thread_id is absent.
+    """
+    seen: set[str] = set()
+    unique = []
+    for p in points:
+        tid = str((p.payload or {}).get("thread_id", p.id))
+        if tid not in seen:
+            seen.add(tid)
+            unique.append(p)
+    return unique
+
+
 # ── Public tool function ──────────────────────────────────────────────────────
 
 
@@ -373,9 +392,12 @@ def hybrid_search(
     # 3. Anchor rerank
     reranked = _rerank_with_anchors(query, points)
 
-    # 4. Map to contract format
+    # 4. Thread-level deduplication — keep best chunk per thread
+    unique = _deduplicate_by_thread(reranked)
+
+    # 5. Map to contract format
     chunks = []
-    for p in reranked[:top_k]:
+    for p in unique[:top_k]:
         pl = p.payload or {}
         chunks.append(
             {
@@ -391,3 +413,57 @@ def hybrid_search(
         )
 
     return {"chunks": chunks}
+
+
+# ── LangChain tool wrapper (for ReAct agent) ─────────────────────────────────
+
+
+def _make_search_tool():
+    """Create a LangChain tool wrapping hybrid_search for use with bind_tools."""
+    from langchain_core.tools import tool
+
+    @tool
+    def search_knowledge_base(query: str, category: str = "") -> str:
+        """Search the knowledge base of Brazilian expats in Grenoble.
+
+        Use this tool to find information about life in Grenoble for Brazilian
+        expats. Topics include visas, housing, healthcare, banking, transport,
+        university, food, safety, and more.
+
+        Args:
+            query: The search query in Portuguese or French.
+            category: Optional category filter (e.g. "Visa & Residency",
+                      "Banking & Finance"). Leave empty to search all categories.
+        """
+        cats = [category] if category else None
+        result = hybrid_search(query=query, categories=cats, top_k=5)
+
+        if "error" in result:
+            return f"Erro na busca: {result['error']['message']}"
+
+        chunks = result.get("chunks", [])
+        if not chunks:
+            return "Nenhum resultado encontrado na base de conhecimento."
+
+        parts = []
+        for i, chunk in enumerate(chunks, 1):
+            cat = chunk.get("category", "geral")
+            date = chunk.get("date", "data desconhecida")
+            text = chunk.get("text") or chunk.get("answer", "")
+            parts.append(f"[{i}] Categoria: {cat} | Data: {date}\n{text}")
+
+        return "\n\n".join(parts)
+
+    return search_knowledge_base
+
+
+# Lazy singleton so import doesn't fail without langchain_core installed
+_search_tool = None
+
+
+def get_search_tool():
+    """Return the LangChain tool for search_knowledge_base (singleton)."""
+    global _search_tool
+    if _search_tool is None:
+        _search_tool = _make_search_tool()
+    return _search_tool

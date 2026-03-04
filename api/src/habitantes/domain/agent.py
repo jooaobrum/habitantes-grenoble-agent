@@ -1,48 +1,40 @@
-"""Agent graph — LangGraph StateGraph wiring all domain nodes and tools.
+"""Agent — Two-layer ReAct architecture with tool calling.
 
-Graph topology (per design.md):
+Architecture:
 
-    START → classify_intent
-              ├── greeting      → generate_greeting      → END
-              ├── out_of_scope  → generate_decline       → END
-              ├── feedback      → log_feedback           → END
-              └── qa            → classify_category
-                                      └── route()
-                                            ├── clarify → generate_clarification → END
-                                            └── rag     → search → generate_response → END
+    Layer 1: classify_intent (deterministic + LLM classification)
+        - Number shortcut: "1"-"19" → set category, skip LLM
+        - LLM classifies: greeting | qa | feedback | out_of_scope
+
+    Layer 2: ReAct agent (LLM + tool calling loop)
+        - Receives the classified intent as context
+        - For greeting / out_of_scope / feedback / clarify → responds directly
+        - For rag → calls search_knowledge_base tool → synthesizes answer
+        - Loops until the LLM decides no more tool calls are needed
+
+    START → classify_intent → react_agent ⇄ tools → END
 
 Memory: in-process dict keyed by chat_id, capped at last _MAX_HISTORY messages.
-The graph is compiled once at module import (no external services required).
 """
 
+import json
 import logging
+import time
 from typing import Any
 
-from langgraph.graph import END, StateGraph
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_openai import ChatOpenAI
 
-from habitantes.domain import tools
-from habitantes.domain.nodes import (
-    classify_intent,
-    generate_clarification,
-    generate_decline,
-    generate_greeting,
-    generate_response,
-    log_feedback,
-    route,
-)
+from habitantes.domain.prompts.intent import build_intent_messages
+from habitantes.domain.prompts.synthesis import REACT_SYSTEM_PROMPT
 from habitantes.domain.state import AgentState
+from habitantes.domain.tools import get_search_tool
 
 logger = logging.getLogger(__name__)
 
 # ── Short-term memory (in-process, keyed by chat_id) ─────────────────────────
 
 _MAX_HISTORY = 5
-# MVP NOTE: in-memory session store. Not thread-safe. Acceptable for single-worker
-# local use only. Replace with Redis or DB-backed store before multi-worker deployment.
-# Thread-safety scope: tracked in T3.x (infrastructure layer).
-#
-# Structure: {chat_id: {"messages": [...], "category": "<EN name or empty>"}}
-# category persists until the user picks a different number or sends a greeting.
 _memory: dict[str, dict] = {}
 
 
@@ -66,7 +58,6 @@ def _update_memory(
         {"role": "user", "content": user_message},
         {"role": "assistant", "content": assistant_answer},
     ]
-    # Greeting resets the selected category; otherwise keep the newest non-empty value
     if intent == "greeting":
         new_category = ""
     else:
@@ -74,72 +65,273 @@ def _update_memory(
     _memory[chat_id] = {"messages": messages[-_MAX_HISTORY:], "category": new_category}
 
 
-# ── Search node (wraps tools.hybrid_search) ───────────────────────────────────
+# ── LLM factory (lazy) ───────────────────────────────────────────────────────
+
+_llm = None
 
 
-def _search_node(state: AgentState) -> dict[str, Any]:
-    """Call hybrid_search tool and write results into context_chunks."""
-    category = state.get("category")
-    result = tools.hybrid_search(
-        query=state["message"],
+def _get_llm():
+    global _llm
+    if _llm is None:
+        from habitantes.config import load_settings
+
+        settings = load_settings()
+        _llm = ChatOpenAI(
+            model=settings.llm.model_name,
+            api_key=settings.llm.openai_api_key,
+            temperature=0,
+        )
+    return _llm
+
+
+# ── Greeting text (lazy) ─────────────────────────────────────────────────────
+
+_greeting_text: str | None = None
+
+
+def _get_greeting_text() -> str:
+    global _greeting_text
+    if _greeting_text is None:
+        from habitantes.config import load_settings
+        from habitantes.domain.categories import build_greeting_text
+
+        _greeting_text = build_greeting_text(load_settings().categories)
+    return _greeting_text
+
+
+# ── Layer 1: Intent Classification ───────────────────────────────────────────
+
+
+def _classify_intent(state: AgentState) -> dict:
+    """Classify message intent. Short-circuits for category numbers."""
+    t0 = time.monotonic()
+
+    from habitantes.domain.categories import _get_categories, resolve_number
+
+    cat = resolve_number(state["message"], _get_categories())
+    if cat:
+        return {
+            "intent": "qa",
+            "category": cat.en_name,
+            "timings": {
+                **(state.get("timings") or {}),
+                "intent_ms": (time.monotonic() - t0) * 1000,
+            },
+        }
+
+    llm = _get_llm()
+    messages = build_intent_messages(state["message"], history=state.get("history"))
+    response = llm.invoke(messages)
+
+    try:
+        data = json.loads(response.content)
+        intent = data.get("intent", "out_of_scope")
+    except (json.JSONDecodeError, AttributeError):
+        logger.warning(
+            "Failed to parse intent JSON",
+            extra={
+                "trace_id": state.get("trace_id"),
+                "raw": getattr(response, "content", ""),
+            },
+        )
+        intent = "out_of_scope"
+
+    return {
+        "intent": intent,
+        "timings": {
+            **(state.get("timings") or {}),
+            "intent_ms": (time.monotonic() - t0) * 1000,
+        },
+    }
+
+
+# ── Layer 2: ReAct Agent ─────────────────────────────────────────────────────
+
+_MAX_REACT_ITERATIONS = 5
+
+
+def _build_react_messages(state: AgentState) -> list:
+    """Build the message list for the ReAct agent."""
+    intent = state.get("intent", "out_of_scope")
+    category = state.get("category", "")
+    message = state["message"]
+
+    # Build system prompt with intent context
+    system_content = REACT_SYSTEM_PROMPT
+
+    # Add intent-specific instructions
+    intent_context = f"\n\nINTENT CLASSIFICADO: {intent}"
+    if category:
+        intent_context += f"\nCATEGORIA SELECIONADA: {category}"
+
+    if intent == "greeting":
+        greeting_text = _get_greeting_text()
+        intent_context += (
+            f"\n\nO usuário está cumprimentando. Responda com esta mensagem "
+            f"de boas-vindas EXATAMENTE como está:\n\n{greeting_text}"
+        )
+    elif intent == "out_of_scope":
+        intent_context += (
+            "\n\nO usuário fez uma pergunta fora do escopo. "
+            "Recuse educadamente e diga que só pode ajudar com temas de expatriados em Grenoble."
+        )
+    elif intent == "feedback":
+        intent_context += "\n\nO usuário está dando feedback. Agradeça pelo feedback."
+    elif intent == "qa":
+        if len(message.strip()) < 10:
+            # Clarification case
+            if category:
+                from habitantes.domain.categories import _get_categories, get_by_en_name
+
+                entry = get_by_en_name(category, _get_categories())
+                pt_name = entry.pt_name if entry else category
+                intent_context += (
+                    f"\n\nO usuário selecionou a categoria *{pt_name}* mas a pergunta "
+                    f"é muito curta. Pergunte qual é a dúvida específica sobre este tema."
+                )
+            else:
+                intent_context += (
+                    "\n\nA pergunta é muito curta/ampla. Peça ao usuário para "
+                    "dar mais detalhes sobre o que deseja saber."
+                )
+        else:
+            intent_context += (
+                "\n\nO usuário tem uma dúvida. Use a ferramenta search_knowledge_base "
+                "para buscar informações relevantes na base de conhecimento e então "
+                "sintetize uma resposta baseada nos resultados."
+            )
+
+    system_content += intent_context
+
+    msgs: list = [SystemMessage(content=system_content)]
+
+    # Add conversation history
+    history = state.get("history") or []
+    for turn in history:
+        if turn["role"] == "user":
+            msgs.append(HumanMessage(content=turn["content"]))
+        elif turn["role"] == "assistant":
+            msgs.append(AIMessage(content=turn["content"]))
+
+    msgs.append(HumanMessage(content=message))
+    return msgs
+
+
+def _run_react_loop(state: AgentState) -> dict:
+    """Execute the ReAct loop: LLM → tool calls → LLM → ... → final answer."""
+    t0 = time.monotonic()
+    intent = state.get("intent", "out_of_scope")
+
+    llm = _get_llm()
+    search_tool = get_search_tool()
+    tool_map = {search_tool.name: search_tool}
+
+    # Only bind tools for qa intent (other intents don't need search)
+    needs_tools = intent == "qa" and len(state.get("message", "").strip()) >= 10
+    if needs_tools:
+        llm_with_tools = llm.bind_tools([search_tool])
+    else:
+        llm_with_tools = llm
+
+    msgs = _build_react_messages(state)
+    context_chunks: list[dict] = []
+
+    # ReAct loop
+    for _ in range(_MAX_REACT_ITERATIONS):
+        response = llm_with_tools.invoke(msgs)
+        msgs.append(response)
+
+        # If no tool calls, we have the final answer
+        if not getattr(response, "tool_calls", None):
+            break
+
+        # Process tool calls
+        for tool_call in response.tool_calls:
+            tool_name = tool_call["name"]
+            tool_args = tool_call["args"]
+
+            if tool_name in tool_map:
+                # Inject category from state if not provided
+                if "category" not in tool_args or not tool_args["category"]:
+                    category = state.get("category", "")
+                    if category:
+                        tool_args["category"] = category
+
+                tool_result = tool_map[tool_name].invoke(tool_args)
+
+                # Track chunks for eval (parse from tool result if possible)
+                _track_chunks(tool_args.get("query", ""), state, context_chunks)
+
+                msgs.append(
+                    ToolMessage(
+                        content=str(tool_result),
+                        tool_call_id=tool_call["id"],
+                    )
+                )
+            else:
+                msgs.append(
+                    ToolMessage(
+                        content=f"Tool '{tool_name}' not found.",
+                        tool_call_id=tool_call["id"],
+                    )
+                )
+
+    # Extract final answer from the last LLM response
+    answer = ""
+    if msgs:
+        last = msgs[-1]
+        content = getattr(last, "content", None)
+        if content:
+            answer = str(content)
+
+    # Build sources from context_chunks
+    sources = [
+        {
+            "text_snippet": (chunk.get("text") or chunk.get("answer", ""))[:200],
+            "date": chunk.get("date", ""),
+            "category": chunk.get("category", ""),
+        }
+        for chunk in context_chunks
+    ]
+
+    top_score = max((c.get("score", 0.0) for c in context_chunks), default=0.0)
+    confidence = _compute_confidence(intent, context_chunks, top_score)
+
+    elapsed_ms = (time.monotonic() - t0) * 1000
+    timings = {**(state.get("timings") or {}), "react_ms": elapsed_ms}
+
+    return {
+        "answer": answer,
+        "sources": sources,
+        "confidence": confidence,
+        "context_chunks": context_chunks,
+        "timings": timings,
+        "error": None,
+    }
+
+
+def _track_chunks(query: str, state: AgentState, context_chunks: list[dict]) -> None:
+    """Track retrieved chunks for eval metrics by re-calling hybrid_search."""
+    from habitantes.domain.tools import hybrid_search
+
+    category = state.get("category", "")
+    result = hybrid_search(
+        query=query or state["message"],
         categories=[category] if category else None,
         top_k=5,
     )
-    if "error" in result:
-        logger.warning(
-            "Search tool error: %s",
-            result["error"]["error_code"],
-            extra={"trace_id": state.get("trace_id")},
-        )
-        return {"context_chunks": [], "error": result["error"]}
-    return {"context_chunks": result["chunks"]}
+    if "chunks" in result:
+        context_chunks.clear()
+        context_chunks.extend(result["chunks"])
 
 
-# ── Intent router (conditional edge) ─────────────────────────────────────────
-
-
-def _route_intent(state: AgentState) -> str:
-    """Route by intent; for 'qa' apply message-length routing directly."""
-    intent = state.get("intent", "out_of_scope")
-    if intent == "qa":
-        return route(state)  # "rag" | "clarify"
-    return intent
-
-
-# ── Graph definition ──────────────────────────────────────────────────────────
-
-_graph = StateGraph(AgentState)
-
-_graph.add_node("classify_intent", classify_intent)
-_graph.add_node("search", _search_node)
-_graph.add_node("generate_response", generate_response)
-_graph.add_node("generate_greeting", generate_greeting)
-_graph.add_node("generate_decline", generate_decline)
-_graph.add_node("generate_clarification", generate_clarification)
-_graph.add_node("log_feedback", log_feedback)
-
-_graph.set_entry_point("classify_intent")
-
-_graph.add_conditional_edges(
-    "classify_intent",
-    _route_intent,
-    {
-        "greeting": "generate_greeting",
-        "out_of_scope": "generate_decline",
-        "feedback": "log_feedback",
-        "rag": "search",
-        "clarify": "generate_clarification",
-    },
-)
-
-_graph.add_edge("search", "generate_response")
-_graph.add_edge("generate_response", END)
-_graph.add_edge("generate_greeting", END)
-_graph.add_edge("generate_decline", END)
-_graph.add_edge("generate_clarification", END)
-_graph.add_edge("log_feedback", END)
-
-_compiled_graph = _graph.compile()
+def _compute_confidence(intent: str, chunks: list, top_score: float) -> float:
+    """Compute confidence based on intent and retrieval results."""
+    if intent in ("greeting", "out_of_scope", "feedback"):
+        return 1.0
+    if intent == "qa" and not chunks:
+        return 0.5  # clarification or no results
+    return min(1.0, float(top_score)) if top_score > 0 else 0.0
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -152,6 +344,10 @@ def run(
     trace_id: str,
 ) -> dict[str, Any]:
     """Execute one agent turn end-to-end.
+
+    Two-layer architecture:
+      1. classify_intent — determines intent (greeting/qa/feedback/out_of_scope)
+      2. react_agent — ReAct loop with tool calling for search
 
     Args:
         chat_id: Telegram chat identifier (used for memory lookup).
@@ -169,7 +365,7 @@ def run(
         "message_id": message_id,
         "trace_id": trace_id,
         "intent": "",
-        "category": _get_selected_category(chat_id),  # persisted from last turn
+        "category": _get_selected_category(chat_id),
         "context_chunks": [],
         "answer": "",
         "sources": [],
@@ -179,12 +375,19 @@ def run(
         "error": None,
     }
 
-    result = _compiled_graph.invoke(initial_state)
+    # Layer 1: Intent classification
+    classification = _classify_intent(initial_state)
+    initial_state.update(classification)
+
+    # Layer 2: ReAct agent
+    result = _run_react_loop(initial_state)
+    initial_state.update(result)
+
     _update_memory(
         chat_id,
         message,
-        result.get("answer", ""),
-        result.get("category", ""),
-        result.get("intent", ""),
+        initial_state.get("answer", ""),
+        initial_state.get("category", ""),
+        initial_state.get("intent", ""),
     )
-    return result
+    return initial_state

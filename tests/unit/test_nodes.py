@@ -16,7 +16,6 @@ from habitantes.domain.nodes import (
     generate_greeting,
     generate_response,
     log_feedback,
-    route,
 )
 
 
@@ -100,27 +99,6 @@ class TestClassifyIntent:
         result = classify_intent(_make_state())
 
         assert result["intent"] == intent
-
-
-# ── route ─────────────────────────────────────────────────────────────────────
-
-
-class TestRoute:
-    def test_short_message_returns_clarify(self):
-        state = _make_state(message="visto")
-        assert route(state) == "clarify"
-
-    def test_normal_message_returns_rag(self):
-        state = _make_state(message="Como renovar o titre de séjour em Grenoble?")
-        assert route(state) == "rag"
-
-    def test_exactly_ten_chars_returns_rag(self):
-        state = _make_state(message="1234567890")
-        assert route(state) == "rag"
-
-    def test_whitespace_only_returns_clarify(self):
-        state = _make_state(message="   ")
-        assert route(state) == "clarify"
 
 
 # ── generate_response ─────────────────────────────────────────────────────────
