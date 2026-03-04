@@ -94,6 +94,7 @@ Returns response in Portuguese
 - **Brazilian expats in Grenoble** (current: ~300 people)
 - **New arrivals** navigating French bureaucracy
 - **Long-term residents** with occasional questions
+
 ---
 
 ## 🛠️ Tech Stack (high-level)
@@ -102,9 +103,9 @@ Returns response in Portuguese
 - **Interface**: Telegram Bot (WhatsApp planned later)
 - **AI Models**:
   - OpenAI GPT-4o-mini (answer synthesis)
-  - SentenceTransformers (Portuguese embeddings)
-  - Custom BM25 (Portuguese keyword search)
-- **Knowledge Base**: Qdrant vector database
+  - `intfloat/multilingual-e5-large` (Dense embeddings)
+  - `Qdrant/bm25` via `fastembed` (Sparse embeddings)
+- **Knowledge Base**: Qdrant vector database (Hybrid Search + RRF)
 - **Agent Architecture**: Two-Layer ReAct (LangChain tool calling)
 - **Backend**: FastAPI (Python)
 - **Deployment**: Low-cost VPS

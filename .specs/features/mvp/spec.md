@@ -10,7 +10,7 @@ Brazilian expats in Grenoble repeatedly ask the same bureaucratic, housing, and 
 - Single-turn Q&A via Telegram
 - Portuguese language (native)
 - 8 topic categories: visa, housing, healthcare, banking, transport, education, caf, general
-- Hybrid search (dense + sparse) over curated knowledge base
+- Hybrid search (dense + sparse) using FastEmbed BM25 (Portuguese) + E5-large
 - Source attribution in answers
 - Basic feedback collection (thumbs up/down)
 - Intent classification (greeting, qa, feedback, out-of-scope)

@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 from sentence_transformers import SentenceTransformer
+from fastembed import SparseTextEmbedding
 
 
 # ── Logging ──────────────────────────────────────────────────────────────────
@@ -34,8 +35,8 @@ class IngestConfig:
     dense_model_name: str = "intfloat/multilingual-e5-small"  # fast + good PT
     dense_batch_size: int = 64
 
-    # Sparse embedding (hashing trick; no external model, very fast)
-    sparse_dim: int = 262_144  # 2^18; good tradeoff for collisions vs memory
+    # Sparse embedding (FastEmbed BM25)
+    sparse_model_name: str = "Qdrant/bm25"
 
     # Qdrant
     overwrite_collection: bool = False
@@ -134,47 +135,30 @@ def load_json(path: Path) -> Dict[str, Any]:
     return data
 
 
-# ── Sparse embedding (hashing trick) ─────────────────────────────────────────
-_TOKEN_RE = re.compile(r"[0-9A-Za-zÀ-ÖØ-öø-ÿ']+")
-
-
 def build_sparse_text(question: str, key_terms: List[str]) -> str:
     """
-    Sparse side = question + KEY TERMS (as you requested).
+    Sparse side = question + KEY TERMS -> normalize -> enrich.
     """
+    import sys
+    from pathlib import Path
+
+    # Ensure api/src is in path for habitantes import
+    project_root = Path(__file__).resolve().parents[1]
+    src_path = str(project_root / "api" / "src")
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
+
+    from habitantes.domain.tools import enrich_bm25_input, strip_accents
+
+    # 1. Concat
     kt = " ".join(str(x).strip() for x in (key_terms or []) if str(x).strip())
-    if kt:
-        return f"{question}\nKEY_TERMS: {kt}"
-    return question
+    raw_text = f"{question} {kt}" if kt else question
 
+    # 2. Normalize
+    norm_text = strip_accents(raw_text)
 
-def sparse_hash_vector(text: str, dim: int) -> qmodels.SparseVector:
-    """
-    Very fast sparse vector using hashing trick:
-    - tokenize
-    - term frequency
-    - hash tokens to indices in [0, dim)
-    - values = normalized tf
-
-    Works well for PT/FR mixed text and typos, great for lexical matching.
-    """
-    tokens = _TOKEN_RE.findall((text or "").lower())
-    if not tokens:
-        return qmodels.SparseVector(indices=[], values=[])
-
-    counts: Dict[int, int] = {}
-    for tok in tokens:
-        # stable hash -> index
-        h = int(hashlib.md5(tok.encode("utf-8")).hexdigest(), 16) % dim
-        counts[h] = counts.get(h, 0) + 1
-
-    # normalize tf by max count
-    max_c = max(counts.values()) if counts else 1
-    items = sorted(counts.items(), key=lambda x: x[0])
-    indices = [i for i, _ in items]
-    values = [c / max_c for _, c in items]
-
-    return qmodels.SparseVector(indices=indices, values=values)
+    # 3. Enrich (normalized)
+    return enrich_bm25_input(norm_text)
 
 
 # ── Dense embedding (Transformer) ────────────────────────────────────────────
@@ -308,9 +292,12 @@ def run_ingest(cfg: IngestConfig) -> None:
 
     qclient = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
 
-    # Load embedding model (Transformer)
+    # Load embedding models
     logger.info("Loading dense embedding model: %s", cfg.dense_model_name)
     dense_model = SentenceTransformer(cfg.dense_model_name)
+
+    logger.info("Loading sparse embedding model: %s", cfg.sparse_model_name)
+    sparse_model = SparseTextEmbedding(model_name=cfg.sparse_model_name)
 
     # 1) Read + filter
     files = iter_json_files(cfg.input_dirs)
@@ -406,8 +393,10 @@ def run_ingest(cfg: IngestConfig) -> None:
         )
 
         # Sparse: question + key_terms
+        sparse_vecs_raw = list(sparse_model.embed(sparse_texts))
         sparse_vecs = [
-            sparse_hash_vector(st, dim=cfg.sparse_dim) for st in sparse_texts
+            qmodels.SparseVector(indices=sv.indices.tolist(), values=sv.values.tolist())
+            for sv in sparse_vecs_raw
         ]
 
         for rec, path, dvec, svec, st in zip(
@@ -472,7 +461,7 @@ if __name__ == "__main__":
         collection_name=os.getenv("QDRANT_COLLECTION", "habitantes_chat_kb_hybrid_2"),
         dense_model_name=os.getenv("DENSE_MODEL", "intfloat/multilingual-e5-large"),
         dense_batch_size=int(os.getenv("DENSE_BATCH", "64")),
-        sparse_dim=int(os.getenv("SPARSE_DIM", "262144")),
+        sparse_model_name=os.getenv("SPARSE_MODEL", "Qdrant/bm25"),
         overwrite_collection=False,
         qdrant_upsert_batch=int(os.getenv("QDRANT_UPSERT_BATCH", "128")),
         save_concat_jsonl=Path("../artifacts/concat/filtered_concat.jsonl"),

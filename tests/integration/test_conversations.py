@@ -13,7 +13,7 @@ import pytest
 
 import habitantes.domain.agent as agent_module
 import habitantes.domain.categories as categories_module
-import habitantes.domain.tools as tools_module
+import habitantes.domain.tools.search as tools_module
 from habitantes.config import CategoryEntry
 
 # ── Shared test categories (small, stable subset) ────────────────────────────

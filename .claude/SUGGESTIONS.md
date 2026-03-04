@@ -402,3 +402,43 @@ These are patterns and insights gained while implementing and running the RAG ev
 
 **Insight:** The 38 questions in `golden_dataset.json` are the best documentation of what the bot is *actually* expected to know.
 **Suggestion:** Encourage the user to add "tricky" real-world questions encountered in manual smoke tests directly to the golden set. This transforms the evaluation from a one-off task into a continuous regression suite.
+
+---
+
+## 8. Lessons from Task 3.5 (Hybrid Search Refinement)
+
+These are lessons from the synchronization of the ingestion and retrieval pipelines.
+
+### 8.1 Synchronization of Normalization
+
+**Lesson:** If the ingestion pipeline produces BM25 vectors from raw text but the retrieval pipeline uses normalized text (accent-insensitive), the lexical match will fail for common Portuguese words like "SÉCURITÉ" vs "securite".
+**Rule:** Every text transformation (stripping accents, lowercase, glossary expansion) MUST be identical in both `3-build_qdrant_collection.py` and `habitantes.domain.tools.py`.
+
+### 8.2 Glossary Enrichment in Retrieval
+
+**Lesson:** Expanding synonyms only during ingestion is not enough if the user uses a synonym that doesn't appear in the original text.
+**Suggestion:** Apply the same `enrich_bm25_input` function in the retrieval logic. If a user asks about "visto", the engine should also search for "visa" and "titre de sejour" to find relevant chunks that might use those technical terms.
+
+### 8.3 FastEmbed BM25 Stability
+
+**Lesson:** `fastembed`'s BM25 implementation provides better stability and performance for Portuguese than basic hashing approaches.
+**Action:** Ensure the `sparse_model` names and parameters match between the script and the tool.
+
+---
+
+## 9. Lessons from Task 3.6 (Tools Refactoring)
+
+### 9.1 Package Extraction
+
+**Insight:** Large modules like `tools.py` that handle embeddings, ranking, and search logic become hard to maintain and navigate.
+**Suggestion:** Extract related functionality into a dedicated package (e.g. `domain/tools/` with `_embedding.py`, `_ranking.py`, `search.py`). Use `__init__.py` to export the public API so the rest of the application imports from the package normally.
+
+### 9.2 Test Suite Mocking Robustness
+
+**Insight:** When refactoring a module into a package, `monkeypatch` calls in the test suite that depend on specific internal paths (like `_get_dense_model`) will break.
+**Suggestion:** Expose the internal globals and functions via the package's `__init__.py` to maintain backward compatibility for test patching, or explicitly update all test files to patch the new submodules.
+
+### 9.3 Import Resolution during Refactoring
+
+**Insight:** When moving modules, standard IDE refactoring tools might not catch dynamic imports or fixtures in tests.
+**Suggestion:** After extracting a package, always run `grep` across the codebase to find all import references to the old module path and update them systematically using `sed` or IDE tools before running tests.

@@ -309,6 +309,7 @@ The ingestion pipeline is complete and separate from inference:
 4. `3-build_qdrant_collection.py` — Build Qdrant collection (dense + sparse)
 
 Collection: `qa_base` with dense (1024d, E5-large) + sparse (BM25 hashing) vectors.
+Strategy: dense (E5-large) + sparse (FastEmbed BM25 Portuguese) → RRF fusion → anchor rerank.
 
 ## Key Technical Decisions
 
@@ -316,7 +317,7 @@ Collection: `qa_base` with dense (1024d, E5-large) + sparse (BM25 hashing) vecto
 |-----------|--------|-------|
 | Agent architecture | Two-Layer ReAct | Layer 1: intent classification, Layer 2: tool-calling loop |
 | Dense embedding | `intfloat/multilingual-e5-large` (1024d) | Matches ingestion |
-| Sparse embedding | BM25 hashing trick (262k dim) | Matches ingestion |
+| Sparse embedding | `fastembed` BM25 (Portuguese) | High-quality lexical matching |
 | Fusion | Reciprocal Rank Fusion (RRF) | Standard hybrid approach |
 | Query prefix | `"query: "` (E5 convention) | Ingestion uses `"passage: "` |
 | LLM | `gpt-4o-mini` | All classification + synthesis |

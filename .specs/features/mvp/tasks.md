@@ -53,6 +53,10 @@
   `tests/eval/run_eval.py` — loads golden dataset, runs retrieval + generation pipeline, computes all metrics, writes `tests/eval/report.json`, exits 0 if all targets met, exits 1 otherwise.
   **Done when:** `python tests/eval/run_eval.py` exits 0; `report.json` written with all metric scores.
 
+- [x] **T3.5 — Improved Hybrid Search (FastEmbed BM25)**
+  Update `ingestion/3-build_qdrant_collection.py` and `api/src/habitantes/domain/tools.py` to use `fastembed` for sparse vectors (BM25, Portuguese). Synchronize normalization and glossary enrichment between ingestion and retrieval. Create `tests/retrieval_smoke_test.py`.
+  **Done when:** `hybrid_search` uses `fastembed`, retrieval smoke test passes, `run_eval.py` shows improved metrics.
+
 ## Phase 4: Infrastructure Layer
 
 - [ ] **T4.1 — FastAPI service**

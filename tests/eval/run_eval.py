@@ -11,7 +11,8 @@ Steps:
 
 Usage:
     python tests/eval/run_eval.py
-    python tests/eval/run_eval.py --retrieval-only   # skip LLM judge (faster)
+    python tests/eval/run_eval.py --case-index 3
+    python tests/eval/run_eval.py --limit 5
 """
 
 import argparse
@@ -149,16 +150,36 @@ def run_generation_eval(case: dict, chunks: list[dict]) -> dict:
     }
 
 
-def main(retrieval_only: bool = False) -> int:
+def main(
+    retrieval_only: bool = False,
+    case_index: int | None = None,
+    limit: int | None = None,
+    force_category: bool = False,
+) -> int:
     # ── 1. Load golden dataset ────────────────────────────────────────────────
     print(f"Loading golden dataset from {GOLDEN_DATASET_PATH}")
     with open(GOLDEN_DATASET_PATH, "r", encoding="utf-8") as f:
         cases = json.load(f)
+
+    if case_index is not None:
+        if 0 <= case_index < len(cases):
+            cases = [cases[case_index]]
+            print(f"Running evaluation ONLY for case index {case_index}")
+        else:
+            print(f"Error: case index {case_index} out of range (0-{len(cases) - 1})")
+            return 1
+
+    if limit is not None:
+        cases = cases[:limit]
+        print(f"Limiting evaluation to first {limit} cases")
+
     print(f"  → {len(cases)} cases loaded")
 
     # Deterministic 50/50 split: half the cases use the expected_category filter
     rng = random.Random(_CATEGORY_SEED)
-    use_category_flags = [rng.random() < 0.5 for _ in cases]
+    use_category_flags = (
+        [True] * len(cases) if force_category else [rng.random() < 0.5 for _ in cases]
+    )
     n_filtered = sum(use_category_flags)
     print(
         f"  → {n_filtered}/{len(cases)} cases will use category filter (seed={_CATEGORY_SEED})"
@@ -310,5 +331,27 @@ if __name__ == "__main__":
         action="store_true",
         help="Only run retrieval metrics (skip LLM judge calls)",
     )
+    parser.add_argument(
+        "--case-index",
+        type=int,
+        help="Run evaluation only for a specific case index",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        help="Limit the number of cases to run",
+    )
+    parser.add_argument(
+        "--force-category",
+        action="store_true",
+        help="Force use of expected_category for ALL cases loaded",
+    )
     args = parser.parse_args()
-    sys.exit(main(retrieval_only=args.retrieval_only))
+    sys.exit(
+        main(
+            retrieval_only=args.retrieval_only,
+            case_index=args.case_index,
+            limit=args.limit,
+            force_category=args.force_category,
+        )
+    )
