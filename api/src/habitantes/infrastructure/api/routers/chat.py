@@ -1,8 +1,7 @@
 import logging
 import uuid
 from fastapi import APIRouter, Request
-from habitantes.domain.schemas import ChatRequest, ChatResponse, Source
-from habitantes.domain.agent import run
+from habitantes.domain import ChatRequest, ChatResponse, Source, run_agent
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ async def post_chat(chat_request: ChatRequest, request: Request):
         trace_id,
     )
 
-    result = run(
+    result = run_agent(
         chat_id=chat_request.chat_id,
         message=chat_request.message,
         message_id=chat_request.message_id,

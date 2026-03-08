@@ -8,10 +8,42 @@ vector_store:
 
 api:
   rate_limit_per_hour: 100
+  max_tokens_per_response: 1024
+  request_timeout_seconds: 30
   eval_gate_enabled: true
 
 telegram:
   api_url: "http://api:8000"
+  rate_limit_per_minute: 10
+  max_message_length: 2000
+
+# ── Search & Ranking (single source of truth for tuning) ─────────────────────
+search:
+  dense_prefetch_k: 80
+  sparse_prefetch_k: 120
+  fused_k: 50
+  top_k: 5
+  w_dense: 0.7
+  w_sparse: 0.3
+  rrf_k: 60
+
+ranking:
+  anchor_bonus: 0.05
+  rerank_top_k: 40
+  date_decay_lambda: 0.0005
+  min_token_length: 4
+
+# ── Agent orchestration ──────────────────────────────────────────────────────
+agent:
+  max_react_iterations: 5
+  max_history: 5
+  temperature: 0.0
+
+# ── Response cache ───────────────────────────────────────────────────────────
+cache:
+  enabled: true
+  max_size: 256
+  ttl_seconds: 3600
 
 # ── Categories (single source of truth) ──────────────────────────────────────
 # pt_name: shown to users (Portuguese)

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from habitantes.domain.schemas import HealthResponse
-from habitantes.domain.tools import _get_qdrant_client
+from habitantes.domain.tools.search import _get_qdrant_client
 
 router = APIRouter()
 

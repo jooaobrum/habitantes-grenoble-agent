@@ -102,6 +102,9 @@ User → Telegram → FastAPI /chat → Intent Classification
   ↓
 If intent = QA:
   → Category Classification → Category tag (e.g., "visa", "housing")
+  → Response Cache Check (normalized query + category)
+  ↓
+If cache miss:
   → Router Decision
   ↓
 If RAG needed:
@@ -140,8 +143,8 @@ User rating → FastAPI /feedback → Log to file
   - `POST /chat`: Main conversation endpoint
   - `POST /feedback`: User ratings (thumbs up/down)
   - `GET /health`: Health check
-- **Validation**: Pydantic models
-- **Rate limiting**: Simple in-memory counter (100 req/user/hour)
+- **Validation**: Pydantic models (size limits enforced)
+- **Rate limiting**: Settings-driven in-memory counter (defaults to 100/hr)
 
 ### 3. Agent Orchestrator (LangGraph)
 - **Graph structure**:

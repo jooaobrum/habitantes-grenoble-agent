@@ -31,6 +31,8 @@ class ApiConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     log_level: str = "INFO"
     rate_limit_per_hour: int = 100
+    max_tokens_per_response: int = 1024
+    request_timeout_seconds: int = 30
     eval_gate_enabled: bool = True
 
 
@@ -38,6 +40,37 @@ class TelegramConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     bot_token: str = Field(default="", alias="TELEGRAM_BOT_TOKEN")
     api_url: str = "http://api:8000"
+    rate_limit_per_minute: int = 10
+    max_message_length: int = 2000
+
+
+class SearchConfig(BaseModel):
+    dense_prefetch_k: int = 80
+    sparse_prefetch_k: int = 120
+    fused_k: int = 50
+    top_k: int = 5
+    w_dense: float = 0.7
+    w_sparse: float = 0.3
+    rrf_k: int = 60
+
+
+class RankingConfig(BaseModel):
+    anchor_bonus: float = 0.05
+    rerank_top_k: int = 40
+    date_decay_lambda: float = 0.0005
+    min_token_length: int = 4
+
+
+class AgentConfig(BaseModel):
+    max_react_iterations: int = 5
+    max_history: int = 5
+    temperature: float = 0.0
+
+
+class CacheConfig(BaseModel):
+    enabled: bool = True
+    max_size: int = 256
+    ttl_seconds: int = 3600
 
 
 class Settings(BaseSettings):
@@ -55,6 +88,10 @@ class Settings(BaseSettings):
     vector_store: VectorStoreConfig
     api: ApiConfig
     telegram: TelegramConfig
+    search: SearchConfig = SearchConfig()
+    ranking: RankingConfig = RankingConfig()
+    agent: AgentConfig = AgentConfig()
+    cache: CacheConfig = CacheConfig()
     categories: list[CategoryEntry] = []
     app_env: str = Field("dev", alias="APP_ENV")
 

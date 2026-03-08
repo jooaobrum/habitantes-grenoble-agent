@@ -36,6 +36,16 @@ BOT_TOKEN = settings.telegram.bot_token
 _chat_locks = defaultdict(asyncio.Lock)
 # Simple message deduplication
 _processed_messages: set[str] = set()
+# Rate limiting
+_user_last_messages = defaultdict(list)
+
+
+async def _cleanup_processed_messages():
+    """Periodically clear old processed message IDs to prevent memory leaks."""
+    while True:
+        await asyncio.sleep(3600)  # Every hour
+        _processed_messages.clear()
+        _user_last_messages.clear()
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -58,7 +68,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message_text = update.message.text
     message_id = str(update.message.message_id)
 
-    # Deduplicate
+    # 1. Length validation
+    max_len = settings.telegram.max_message_length
+    if len(message_text) > max_len:
+        await update.message.reply_text(
+            f"⚠️ Sua mensagem é muito longa (máximo {max_len} caracteres). "
+            "Por favor, tente resumir sua pergunta."
+        )
+        return
+
+    # 2. Rate limiting (simple)
+    import time
+
+    now = time.time()
+    recent = [t for t in _user_last_messages[chat_id] if now - t < 60]
+    _user_last_messages[chat_id] = recent
+    if len(recent) >= settings.telegram.rate_limit_per_minute:
+        await update.message.reply_text(
+            "⏳ Você enviou muitas mensagens em pouco tempo. "
+            "Por favor, aguarde um minuto antes de perguntar novamente."
+        )
+        return
+    _user_last_messages[chat_id].append(now)
+
+    # 3. Deduplicate
     unique_id = f"{chat_id}_{message_id}"
     if unique_id in _processed_messages:
         return
@@ -119,12 +152,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
 
+async def post_init(application):
+    """Start background tasks."""
+    asyncio.create_task(_cleanup_processed_messages())
+
+
 def main():
     if not BOT_TOKEN:
         logger.error("TELEGRAM_BOT_TOKEN not found in environment settings!")
         sys.exit(1)
 
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
 
     start_handler = CommandHandler("start", start)
     message_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message)

@@ -14,6 +14,7 @@ Brazilian expats in Grenoble repeatedly ask the same bureaucratic, housing, and 
 - Source attribution in answers
 - Basic feedback collection (thumbs up/down)
 - Intent classification (greeting, qa, feedback, out-of-scope)
+- Response caching for identical questions (TTL + LRU)
 - Graceful handling of all failure modes
 
 **Out:**
@@ -33,10 +34,13 @@ Brazilian expats in Grenoble repeatedly ask the same bureaucratic, housing, and 
 1. Receives message via Telegram bot
 2. Classifies intent (greeting / qa / feedback / out-of-scope)
 3. If QA → classifies category (visa, housing, etc.)
-4. Routes: direct answer, RAG search, or clarification request
-5. If RAG → hybrid search in Qdrant (dense + sparse, RRF fusion, top-5)
-6. Synthesizes answer with gpt-4o-mini using retrieved context
-7. Returns response in Portuguese with source attribution
+4. If QA → checks response cache (normalized query + category)
+5. If cached → returns immediately with `cached: true`
+6. Routes: direct answer, RAG search, or clarification request
+7. If RAG → hybrid search in Qdrant (dense + sparse, RRF fusion, top-k)
+8. Synthesizes answer with gpt-4o-mini using retrieved context (capped tokens)
+9. Returns response in Portuguese with source attribution
+10. If QA and successful → stores in response cache
 
 ## Acceptance criteria (WHEN / THEN / SHALL)
 
@@ -74,8 +78,9 @@ ChatResponse:
 
 **Validation rules:**
 - Message must be 1–2000 characters
-- Empty or whitespace-only messages → reject with error
+- Empty or whitespace-only messages → reject with error "INVALID_INPUT"
 - chat_id must be non-empty string
+- Telegram bot rejects messages > 2000 chars before calling API
 
 **Missing/invalid handling:**
 - Invalid input → return structured error `{error_code: "INVALID_INPUT", message: "...", retryable: false}`
@@ -130,14 +135,15 @@ ChatResponse:
 - Hard timeout: 10 seconds (return partial/fallback)
 
 **Max tool calls per request:** 2 (1 classification, 1 search)
-**Max LLM calls per request:** 3 (intent, category, synthesis)
+**Max LLM calls per request:** 6 (intent + up to 5 ReAct iterations)
+**Max tokens per response:** 1024 (hard limit on LLM output)
 
 **Timeouts:**
 - Qdrant search: 3 seconds
 - OpenAI call: 8 seconds
-- Total request: 10 seconds
+- Total request: 30 seconds (budgeted for multiple ReAct steps)
 
-**Cost target:** < $5/month OpenAI for ~1000 queries/month
+**Cost target:** < $5/month OpenAI for ~1000 queries/month (aided by caching)
 
 ### 6) Failure modes + safe behavior
 
@@ -150,7 +156,8 @@ ChatResponse:
 | Low confidence answer | Provide best guess + suggest verifying with official source |
 | Qdrant unreachable | Log error, return "Serviço temporariamente indisponível. Tente novamente em alguns minutos." |
 | OpenAI unreachable | Log error, return "Não consegui processar sua pergunta. Tente novamente." |
-| Rate limit exceeded | Return "Muitas perguntas em pouco tempo. Aguarde um momento." |
+| GPT Rate limit exceeded | Return "O sistema está muito ocupado agora. Tente novamente em 1 minuto." |
+| User Rate limit exceeded | Return "Muitas perguntas em pouco tempo. Por favor, aguarde um momento." |
 
 ### 7) Observability
 

@@ -54,7 +54,8 @@ Layer 1: classify intent (greeting / qa / feedback / out_of_scope)
     ↓
 Layer 2: ReAct Agent (LLM + tool calling loop)
     │
-    ├── If qa → calls search_knowledge_base tool → synthesizes answer
+    ├── Check response cache (if QA) → Returns instantly if found
+    ├── If miss: Tool calling loop (max 5 iterations)
     └── Otherwise → responds directly (no tool needed)
     ↓
 Returns response in Portuguese
@@ -160,9 +161,9 @@ Returns response in Portuguese
 
 **Cost optimization strategies**:
 - Use gpt-4o-mini (20x cheaper than GPT-4)
-- Implement query deduplication
-- Cache common questions
-- Limit response length (max 500 tokens)
+- Implement response caching for repeated questions
+- Rate limit Telegram bot to prevent spam expenditure
+- Limit response length (max_tokens: 1024)
 - Use local embeddings (no OpenAI embeddings API)
 
 ---

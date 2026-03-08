@@ -66,18 +66,57 @@ This starts the FastAPI service, Qdrant, and the Telegram bot in one go:
 make up
 ```
 
-#### 🐍 Running Locally
+#### 🐍 Running Locally (Manual Development)
 If you want to run services individually for development:
-```bash
-# Start Qdrant only
-docker compose up -d qdrant
 
-# Run API with live reload
-make run-api
+1. **Start Qdrant**:
+   ```bash
+   docker compose up -d qdrant
+   ```
 
-# Run Telegram Bot
-make run-bot
-```
+2. **Ingest Data (Optional)**:
+   If the vector store is empty, you need to process the chat logs:
+   ```bash
+   # 1. Put WhatsApp export in data/chat-19012021-20022026.txt
+   # 2. Run numbered scripts in order:
+   python ingestion/0-wpp_parse_and_classify.py
+   python ingestion/1-build_qa_pairs.py
+   python ingestion/2-generate_synthesis_from_qa.py
+   python ingestion/3-build_qdrant_collection.py
+   ```
+
+3. **Run API**:
+   ```bash
+   make run-api
+   ```
+
+4. **Run Telegram Bot**:
+   ```bash
+   make run-bot
+   ```
+
+---
+
+## 🤝 Onboarding for New Contributors
+
+Welcome to the team! Here's how to navigate the codebase efficiently:
+
+### 💡 Core Concepts
+*   **Agent Orquestration**: We use a ReAct pattern (Reasoning + Acting). The agent first classifies the **Intent**, then selects a **Category**, and finally searches the KB to synthesize an answer.
+*   **Domain-Driven**: The business logic lives in `api/src/habitantes/domain`. Infrastructure concerns (API routes, database clients) are in `infrastructure/`.
+*   **Hybrid Search**: We use RRF (Reciprocal Rank Fusion) to combine Dense (semantic) and Sparse (keyword) results from Qdrant.
+
+### 🔐 Environment Variables
+You must define these in your `.env`:
+*   `OPENAI_API_KEY`: Required for LLM usage.
+*   `TELEGRAM_BOT_TOKEN`: Get this from @BotFather.
+*   `APP_ENV`: `dev` (default) or `prod`.
+
+### 🔄 Standard Workflow
+1.  **Draft**: Modify logic in `domain/`.
+2.  **Verify**: Run `make test` to ensure no regressions.
+3.  **Hardening**: Ensure any new tuning parameters are added to `config/base.yaml` and not hardcoded.
+4.  **Lint**: Run `make lint-format` before committing.
 
 ---
 

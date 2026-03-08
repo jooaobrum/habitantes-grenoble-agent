@@ -473,3 +473,45 @@ These are lessons from the infrastructure layer (FastAPI service and Telegram bo
 
 **Lesson:** The bot and API often run in different containers but share the same domain logic/config.
 **Action:** Keep `app/requirements.txt` in sync with the root `pyproject.toml` or use a shared base image to avoid version mismatches during deployment.
+
+---
+
+## 11. Lessons from Task 5 (Docker & Deployment)
+
+These are lessons from the containerization and final verification phase.
+
+### 11.1 Standardized Docker Orchestration
+
+**Lesson:** Maintaining separate Dockerfiles for API and Bot but sharing the same domain logic works best when using a unified `docker-compose.yml`.
+**Action:** Always use the `api/src` folder as part of the build context for both services if they share domain logic.
+
+### 11.2 Eval Gate as Deployment Quality Control
+
+**Lesson:** The `run_eval.py` script serves as a critical gate. If it fails, the production environment might be serving hallucinations or using incorrect retrieval parameters.
+**Action:** Integrate `make test` and `make eval` into the CI pipeline (or manual check before `docker compose up --build`).
+
+---
+
+## 12. Lessons from Task 6 (MVP Hardening)
+
+### 12.1 Configuration Centralization (YAML vs Env)
+
+**Lesson:** Tuning constants (k-values, weights, lambdas) are hard to manage via environment variables.
+**Action:** Use a `base.yaml` for all tuning defaults and only use `.env` for secrets (API keys) and environment overrides (URLs). This makes the configuration significantly more readable and easier to version control.
+
+### 12.2 Anti-Spam and Cost Protection
+
+**Lesson:** Without `max_tokens` and rate limiting, a single user or a bug can quickly drain the OpenAI quota.
+**Action:** Implement `max_tokens` at the LLM levels and per-user message rate limits (messages per minute/hour) at the entry points (FastAPI middleware and Telegram bot).
+
+### 12.3 Clean Package Exports
+
+**Lesson:** Deep import paths (e.g., `from habitantes.domain.tools.search import run`) leak internal structure.
+**Action:** Use `domain/__init__.py` to expose a stable public API. This decouples the infrastructure layer from internal domain refactorings.
+
+### 12.4 Background Task Cleanup
+
+**Lesson:** In-memory tracking (for deduplication or rate limiting) grows indefinitely.
+**Action:** Always implement a background cleanup task (e.g., `asyncio.create_task`) when using in-memory caches or sets in long-running processes like a Telegram bot.
+
+---

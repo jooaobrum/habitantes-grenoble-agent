@@ -31,11 +31,8 @@ dev = [
     "mypy>=1.8.0",
 ]
 
-[tool.setuptools]
-# Map the root level packages correctly
-# 'habitantes' is inside api/src/
-package-dir = {"" = "api/src"}
-packages = ["habitantes"]
+[tool.setuptools.packages.find]
+where = ["api/src"]
 
 [tool.black]
 line-length = 100

@@ -34,7 +34,13 @@ logger = logging.getLogger(__name__)
 
 # ── Short-term memory (in-process, keyed by chat_id) ─────────────────────────
 
-_MAX_HISTORY = 5
+
+def _get_agent_settings():
+    from habitantes.config import load_settings
+
+    return load_settings().agent
+
+
 _memory: dict[str, dict] = {}
 
 
@@ -62,7 +68,10 @@ def _update_memory(
         new_category = ""
     else:
         new_category = category if category else existing["category"]
-    _memory[chat_id] = {"messages": messages[-_MAX_HISTORY:], "category": new_category}
+    _memory[chat_id] = {
+        "messages": messages[-_get_agent_settings().max_history :],
+        "category": new_category,
+    }
 
 
 # ── LLM factory (lazy) ───────────────────────────────────────────────────────
@@ -79,7 +88,8 @@ def _get_llm():
         _llm = ChatOpenAI(
             model=settings.llm.model_name,
             api_key=settings.llm.openai_api_key,
-            temperature=0,
+            temperature=settings.agent.temperature,
+            max_tokens=settings.api.max_tokens_per_response,
         )
     return _llm
 
@@ -147,7 +157,7 @@ def _classify_intent(state: AgentState) -> dict:
 
 # ── Layer 2: ReAct Agent ─────────────────────────────────────────────────────
 
-_MAX_REACT_ITERATIONS = 5
+# Replaced by _get_agent_settings().max_react_iterations
 
 
 def _build_react_messages(state: AgentState) -> list:
@@ -237,7 +247,7 @@ def _run_react_loop(state: AgentState) -> dict:
     context_chunks: list[dict] = []
 
     # ReAct loop
-    for _ in range(_MAX_REACT_ITERATIONS):
+    for _ in range(_get_agent_settings().max_react_iterations):
         response = llm_with_tools.invoke(msgs)
         msgs.append(response)
 

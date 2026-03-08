@@ -9,13 +9,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from habitantes.domain.tools import hybrid_search
 from habitantes.domain.tools import _embedding, search
-from habitantes.domain.tools import (
+from habitantes.domain.tools._ranking import (
     _category_filter,
     _extract_anchors,
     _rerank_with_anchors,
-    _sparse_hash_vector,
-    hybrid_search,
+)
+from habitantes.domain.tools._embedding import (
+    _embed_sparse_query as _sparse_hash_vector,
 )
 
 # ── Shared fixture ────────────────────────────────────────────────────────────

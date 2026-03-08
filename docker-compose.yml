@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # ── Vector Store ──────────────────────────────────────────────────────────
@@ -18,8 +18,8 @@ services:
   # ── FastAPI Backend ───────────────────────────────────────────────────────
   api:
     build:
-      context: ./api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: api/Dockerfile
     env_file: .env
     ports:
       - "8000:8000"
@@ -28,20 +28,23 @@ services:
         condition: service_healthy
     volumes:
       - ./api/src:/app/src
-    command: uvicorn habitantes.infrastructure.api.main:app --host 0.0.0.0 --port 8000 --reload
+      - ./config:/app/config
+    command: /app/.venv/bin/uvicorn habitantes.infrastructure.api.main:app --host 0.0.0.0 --port 8000 --reload
 
   # ── Telegram Bot ──────────────────────────────────────────────────────────
   telegram-bot:
     build:
-      context: ./app
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: app/Dockerfile
     env_file: .env
     depends_on:
       api:
         condition: service_started
     volumes:
       - ./app:/app
-    command: python /app/telegram_bot.py
+      - ./api/src/habitantes:/app/api/src/habitantes
+      - ./config:/app/config
+    command: /app/.venv/bin/python /app/app/telegram_bot.py
 
 networks:
   default:

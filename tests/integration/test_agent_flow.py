@@ -353,7 +353,7 @@ def test_memory_capped_at_max_history(monkeypatch):
         _run(f"Mensagem {i}", chat_id="chat-cap")
 
     history = agent_module._get_history("chat-cap")
-    assert len(history) <= agent_module._MAX_HISTORY
+    assert len(history) <= agent_module._get_agent_settings().max_history
 
 
 def test_history_passed_into_initial_state(monkeypatch):

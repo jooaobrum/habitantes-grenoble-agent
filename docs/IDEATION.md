@@ -11,7 +11,7 @@ The system:
 - Must handle concurrency safely (idempotency, per-chat locks, no heavy FIFO)
 - Should be architected cleanly (orchestration, state, tools separation)
 - Target infra: low-cost VPS (~$8–12/month)
-- Cost focus: optimize LLM usage, not infra
+- Cost focus: optimize LLM usage (caching, token limits)
 
 You are aiming for:
 - Production-grade architecture
@@ -122,7 +122,8 @@ Storage:
 Models & Tools:
 - SentenceTransformers (Portuguese dense embedding)
 - BM25 sparse embedding (adapted to portuguese)
-- OpenAI for answer synthesis
+- OpenAI for answer synthesis (with max_tokens capping)
+- Response caching (TTL + LRU) for cost and latency reduction
 - MemoryState from langgraph for short-term memory
 - Qdrant for long-term memory after summarization (async)
 - Telegram Bot API in MVP, possibility to migrate to WhatsApp later
@@ -156,7 +157,7 @@ Models & Tools:
 
 1. Extracted WhatsApp data contains noisy or low-quality answers.
 2. Information may be outdated (bureaucratic processes change).
-3. LLM usage costs may grow if not tightly controlled.
+3. LLM usage costs may grow if not tightly controlled (mitigated by caching and rate limits).
 
 
 ## 9. Failure Modes (top 5)

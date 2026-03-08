@@ -69,10 +69,52 @@
 
 ## Phase 5: Deployment & Verification
 
-- [ ] **T5.1 — Docker setup**
+- [x] **T5.1 — Docker setup**
   `docker-compose.yml` (api + qdrant + telegram-bot), Dockerfiles for api and bot.
   **Done when:** `docker compose up` starts all 3 services, `/health` returns 200.
 
-- [ ] **T5.2 — Final verification**
+- [x] **T5.2 — Final verification**
   End-to-end smoke test: Telegram → API → Graph → Qdrant → response. Confirm eval gate passes.
   **Done when:** `pytest tests/ -v` passes, `python tests/eval/run_eval.py` exits 0.
+
+## Phase 6: MVP Hardening
+
+- [x] **T6.1 — Clean package boundaries**
+  - Rewrite `api/src/habitantes/domain/tools/__init__.py` (4 specific public exports).
+  - Move `domain/glossary.py` → `domain/tools/glossary.py` (update imports).
+  - Fix consumer imports: `health.py:3`, `test_tools.py:12-18`, `_ranking.py:80`.
+  - Fix `pyproject.toml` → use `[tool.setuptools.packages.find]` with `where = ["api/src"]`.
+  - Delete `fix_tests.py` — dead migration script.
+  **Done when:** `tools/` is self-contained with 4 exports only, `pytest tests/ -v` passes.
+
+- [x] **T6.2 — Centralize all hardcoded constants in config**
+  - Add `search`, `ranking`, and `agent` sections to `config/base.yaml`.
+  - Add `SearchConfig`, `RankingConfig`, `AgentConfig` to `config.py`.
+  - Update `search.py`, `_ranking.py`, and `agent.py` to use `settings.*` instead of hardcoded globals.
+  - Fix `tests/unit/test_config.py` to cover new sections.
+  **Done when:** zero hardcoded tuning constants remain in domain code; `base.yaml` is the single source of truth.
+
+- [x] **T6.3 — Cost protection & anti-spam hardening**
+  - Add `max_tokens_per_response`, `request_timeout_seconds` to `ApiConfig`.
+  - Add `rate_limit_per_minute`, `max_message_length` to `TelegramConfig`.
+  - Set `max_tokens` on `ChatOpenAI` in `agent.py`.
+  - Add rate limiting + size validation (2000 chars) to Telegram bot.
+  - Implement TTL cleanup for `_processed_messages` and `_rate_limits` to prevent memory leaks.
+  - Use `settings.api.rate_limit_per_hour` in FastAPI middleware.
+  **Done when:** Spam and oversized messages are rejected politely; OpenAI bill risk is capped.
+
+- [ ] **T6.4 — Simple response cache for repeated questions**
+  - Create `domain/cache.py` with in-memory TTL+LRU cache (keyed by normalized query + category).
+  - Integrate into `agent.py`: check cache before LLM/search, store valid results after.
+  - Add `cache` section to `base.yaml` (enabled, max_size, ttl_seconds).
+  - Add `CacheConfig` to `config.py`.
+  - Write `tests/unit/test_cache.py`.
+  **Done when:** repeated questions return cached results instantly; `cached: true` in response.
+
+- [ ] **T6.5 — Restructure ingestion as modular ETL**
+  - Restructure `ingestion/` into package with `extract/`, `preprocess/`, `load/` subpackages.
+  - Create `ingestion/config.py` loader (reads from project `base.yaml` ingestion section).
+  - Create `ingestion/run.py` CLI entry point.
+  - Refactor scripts 0-3 into modules within the package stages.
+  - Delete old numbered scripts.
+  **Done when:** `python -m ingestion.run all` runs the full pipeline successfully.

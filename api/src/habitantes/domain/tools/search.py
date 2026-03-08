@@ -12,9 +12,6 @@ from ._ranking import (
 
 logger = logging.getLogger(__name__)
 
-_DENSE_PREFETCH_K = 80
-_SPARSE_PREFETCH_K = 120
-_FUSED_K = 50
 _qdrant_client = None
 _collection_name = None
 
@@ -57,6 +54,9 @@ def hybrid_search(
         or
         {"error": {"error_code", "message", "retryable"}}
     """
+    from habitantes.config import load_settings
+
+    settings = load_settings()
     collection = _get_collection_name()
 
     # 1. Build vectors
@@ -98,7 +98,7 @@ def hybrid_search(
             collection_name=collection,
             query=q_dense,
             using=_DENSE_VECTOR,
-            limit=_DENSE_PREFETCH_K,
+            limit=settings.search.dense_prefetch_k,
             query_filter=q_filter,
             with_payload=True,
         ).points
@@ -108,16 +108,16 @@ def hybrid_search(
             collection_name=collection,
             query=q_sparse,
             using=_SPARSE_VECTOR,
-            limit=_SPARSE_PREFETCH_K,
+            limit=settings.search.sparse_prefetch_k,
             query_filter=q_filter,
             with_payload=True,
         ).points
 
         # RRF-style weighted combination: 0.7 dense / 0.3 sparse
         # Score = w_dense * (1/(k + rank_dense)) + w_sparse * (1/(k + rank_sparse))
-        W_DENSE = 0.7
-        W_SPARSE = 0.3
-        RRF_K = 60
+        W_DENSE = settings.search.w_dense
+        W_SPARSE = settings.search.w_sparse
+        RRF_K = settings.search.rrf_k
 
         scores: dict[str, float] = {}
         points_map: dict[str, Any] = {}
@@ -140,7 +140,7 @@ def hybrid_search(
 
         # Sort by merged RR score and keep top _FUSED_K
         sorted_ids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
-        points = [points_map[pid] for pid in sorted_ids[:_FUSED_K]]
+        points = [points_map[pid] for pid in sorted_ids[: settings.search.fused_k]]
 
         # Use the merged RR score as point score for later reranking
         for p in points:

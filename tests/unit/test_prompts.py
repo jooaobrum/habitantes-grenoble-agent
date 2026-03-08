@@ -103,4 +103,4 @@ class TestSynthesisPrompt:
     def test_system_grounding_rule(self):
         msgs = build_synthesis_messages("Pergunta", self._sample_chunks)
         system_content = msgs[0]["content"]
-        assert "Não encontrei informação confiável" in system_content
+        assert "Não encontrei informações confiáveis" in system_content
