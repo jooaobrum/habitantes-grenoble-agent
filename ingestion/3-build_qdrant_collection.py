@@ -247,13 +247,43 @@ def stable_point_id(rec: Dict[str, Any]) -> str:
     return hashlib.md5(payload.encode("utf-8")).hexdigest()
 
 
+def _normalize_str_list(items: Any) -> List[str]:
+    """Lowercase + strip accents on every string in a list.
+
+    Non-string items are converted to str first.  Returns a deduplicated
+    list preserving insertion order.
+    """
+    import sys
+    from pathlib import Path as _Path
+
+    project_root = _Path(__file__).resolve().parents[1]
+    src_path = str(project_root / "api" / "src")
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
+    from habitantes.domain.tools import strip_accents
+
+    seen: set[str] = set()
+    result: List[str] = []
+    for item in items if isinstance(items, list) else []:
+        norm = strip_accents(str(item).strip())
+        if norm and norm not in seen:
+            seen.add(norm)
+            result.append(norm)
+    return result
+
+
 def make_payload(
     rec: Dict[str, Any], source_path: Path, sparse_text: str
 ) -> Dict[str, Any]:
-    """
-    Store original record + provenance + sparse_text (for debugging).
+    """Store original record + provenance + sparse_text (for debugging).
+
+    key_terms and tags are normalized (lowercase, no accents) so that
+    retrieval-time matching against infer_key_terms_from_query() output is
+    accent-insensitive and case-insensitive.
     """
     payload = dict(rec)
+    payload["key_terms"] = _normalize_str_list(rec.get("key_terms", []))
+    payload["tags"] = _normalize_str_list(rec.get("tags", []))
     payload["_meta"] = {"source_path": str(source_path)}
     payload["sparse_text"] = sparse_text
     return payload
@@ -462,7 +492,7 @@ if __name__ == "__main__":
         dense_model_name=os.getenv("DENSE_MODEL", "intfloat/multilingual-e5-large"),
         dense_batch_size=int(os.getenv("DENSE_BATCH", "64")),
         sparse_model_name=os.getenv("SPARSE_MODEL", "Qdrant/bm25"),
-        overwrite_collection=False,
+        overwrite_collection=True,
         qdrant_upsert_batch=int(os.getenv("QDRANT_UPSERT_BATCH", "128")),
         save_concat_jsonl=Path("../artifacts/concat/filtered_concat.jsonl"),
     )

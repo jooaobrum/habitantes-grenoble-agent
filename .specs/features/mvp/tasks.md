@@ -59,11 +59,11 @@
 
 ## Phase 4: Infrastructure Layer
 
-- [ ] **T4.1 — FastAPI service**
+- [x] **T4.1 — FastAPI service**
   `infrastructure/api/main.py` + routers: `POST /chat`, `POST /feedback`, `GET /health`. Rate limiting (100 req/user/hr). `trace_id` on every request. Structured errors.
   **Done when:** all endpoints return correct responses, rate limiting works, integration tested.
 
-- [ ] **T4.2 — Telegram Bot**
+- [x] **T4.2 — Telegram Bot**
   `app/telegram_bot.py` — long-polling bot using `python-telegram-bot`. Calls `/chat` over HTTP. Per-chat locks, message deduplication, typing indicator.
   **Done when:** bot responds in Telegram, tested manually with real messages.
 

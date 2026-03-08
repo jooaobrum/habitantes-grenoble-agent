@@ -23,9 +23,9 @@ Knowledge-based chatbot serving Brazilian expats in Grenoble via Telegram. Handl
 │                       │  POST /feedback                          │     │
 │                       └────────────────┬────────────────────────┘     │
 │                                        │                               │
-│  ┌─────────────────────────────────────▼────────────────────────────┐ │
-│  │              AGENT ORCHESTRATOR (LangGraph)                       │ │
-│  │                                                                   │ │
+│  ┌─────────────────────────────────────▼───────────────────────────┐ │
+│  │              AGENT ORCHESTRATOR (ReAct Loop)                    │ │
+│  │                                                                 │ │
 │  │  ┌──────────────────┐       ┌─────────────────┐                 │ │
 │  │  │ 1. Intent        │──────▶│ 2. Category     │                 │ │
 │  │  │    Classifier    │       │    Classifier   │                 │ │
@@ -112,7 +112,6 @@ Response → FastAPI → Telegram → User
 ```
 
 ### 2. Retrieval Flow
-```
 Query text
   ↓
 ├─→ SentenceTransformer-PT → Dense vector (1024d)

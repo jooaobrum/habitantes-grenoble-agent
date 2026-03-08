@@ -92,12 +92,95 @@ def extract_key_terms(query: str) -> list[str]:
     return found
 
 
-def enrich_bm25_input(text_normalized: str) -> str:
-    """Append matched domain terms to a ALREADY NORMALIZED text to amplify TF.
+# Portuguese plural/feminine suffix rules (most common patterns)
+_PT_SUFFIX_VARIANTS: list[tuple[str, str]] = [
+    ("ões", "ão"),
+    ("ães", "ão"),
+    ("ais", "al"),
+    ("éis", "el"),
+    ("eis", "el"),
+    ("ois", "ol"),
+    ("uis", "ul"),
+    ("ões", "om"),
+    ("es", ""),  # exames → exam / exame
+    ("s", ""),  # clínicas → clínica
+]
 
-    Repeating terms raises TF and pushes their BM25 weight up.
+
+def _stem_variants(token: str) -> list[str]:
+    """Return possible singular/base forms of a Portuguese token.
+
+    Only tries the most common plural/suffix patterns; avoids false positives
+    by requiring the base to be at least 4 chars long.
     """
-    key_terms = extract_key_terms(text_normalized)
+    variants: list[str] = [token]
+    for suffix, replacement in _PT_SUFFIX_VARIANTS:
+        if suffix and token.endswith(suffix):
+            base = token.removesuffix(suffix) + replacement
+            if len(base) >= 4 and base not in variants:
+                variants.append(base)
+    return variants
+
+
+def infer_key_terms_from_query(query: str, min_len: int = 4) -> list[str]:
+    """Infer key search terms from an arbitrary query.
+
+    Combines two sources:
+    1. Meaningful tokens from the query itself (proper nouns, content words)
+       with basic Portuguese stem variants (e.g. "exames" → "exame").
+    2. Domain glossary matches (same as extract_key_terms).
+
+    Args:
+        query: Raw user query (any casing, accents OK).
+        min_len: Minimum token length to consider (default 4).
+
+    Returns:
+        Deduplicated list of normalized key terms, longest/glossary terms first.
+
+    Example:
+        >>> infer_key_terms_from_query(
+        ...     "qual o motivo para escolher a clínica Oriade para exames?")
+        ['oriade', 'exames', 'exame', 'escolher', 'clinica', 'motivo']
+    """
+    q_norm = strip_accents(query)
+    _stopwords = _PT_STOPWORDS | _FR_STOPWORDS
+
+    # 1. Glossary matches (domain-aware, longest-first)
+    glossary_terms = extract_key_terms(q_norm)
+    glossary_covered: set[int] = set()
+    for term in glossary_terms:
+        idx = q_norm.find(term)
+        if idx != -1:
+            glossary_covered.update(range(idx, idx + len(term)))
+
+    # 2. Free tokens not already covered by a glossary match
+    seen: set[str] = set(glossary_terms)
+    free_terms: list[str] = []
+
+    for tok in _TOKEN_RE.findall(q_norm):
+        t = tok.lower()
+        if len(t) < min_len or t in _stopwords:
+            continue
+        # Skip tokens whose position overlaps a glossary match
+        idx = q_norm.find(t)
+        if idx != -1 and idx in glossary_covered:
+            continue
+        # Add token + its stem variants
+        for variant in _stem_variants(t):
+            if variant not in seen:
+                free_terms.append(variant)
+                seen.add(variant)
+
+    return glossary_terms + free_terms
+
+
+def enrich_bm25_input(text_normalized: str) -> str:
+    """Append inferred key terms to an ALREADY NORMALIZED text to amplify TF.
+
+    Uses infer_key_terms_from_query so that both glossary terms and free
+    content words (with stem variants) raise TF and push BM25 weight up.
+    """
+    key_terms = infer_key_terms_from_query(text_normalized)
     if not key_terms:
         return text_normalized
     return f"{text_normalized} {' '.join(key_terms)}"
@@ -254,11 +337,16 @@ def _rerank_with_anchors(query: str, points: list) -> list:
     rescored = []
     for sp in head:
         pl = sp.payload or {}
+        # key_terms and tags are pre-normalized at ingestion; include them so
+        # proper nouns like "oriade" match even if absent from question/answer.
+        kt_blob = " ".join(pl.get("key_terms") or [])
+        tags_blob = " ".join(pl.get("tags") or [])
         blob_norm = strip_accents(
             " ".join(
                 str(pl.get(k) or "")
                 for k in ("question", "answer", "category", "subcategory")
             )
+            + f" {kt_blob} {tags_blob}"
         )  # D: normalize blob
         hits = sum(1 for a in anchors_norm if a in blob_norm)
         rescored.append((float(sp.score) + _ANCHOR_BONUS * (hits / denom), sp))

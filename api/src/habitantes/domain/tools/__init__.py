@@ -9,6 +9,8 @@ from .search import (
 from ._ranking import (
     enrich_bm25_input,
     strip_accents,
+    extract_key_terms,
+    infer_key_terms_from_query,
     _category_filter,
     _extract_anchors,
     _rerank_with_anchors,
@@ -33,6 +35,8 @@ __all__ = [
     "_get_qdrant_client",
     "enrich_bm25_input",
     "strip_accents",
+    "extract_key_terms",
+    "infer_key_terms_from_query",
     "_category_filter",
     "_extract_anchors",
     "_rerank_with_anchors",
