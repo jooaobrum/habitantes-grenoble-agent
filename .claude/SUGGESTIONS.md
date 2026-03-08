@@ -442,3 +442,34 @@ These are lessons from the synchronization of the ingestion and retrieval pipeli
 
 **Insight:** When moving modules, standard IDE refactoring tools might not catch dynamic imports or fixtures in tests.
 **Suggestion:** After extracting a package, always run `grep` across the codebase to find all import references to the old module path and update them systematically using `sed` or IDE tools before running tests.
+
+---
+
+## 10. Lessons from Task 4 (FastAPI + Telegram Bot)
+
+These are lessons from the infrastructure layer (FastAPI service and Telegram bot integration).
+
+### 10.1 Trace ID Middleware Persistence
+
+**Lesson:** When implementing trace ID middleware, the ID must be explicitly retrieved from `request.state` in the endpoint. If the endpoint generates its own ID, the logs and the response will be out of sync, breaking auditability.
+**Action:** Always use `X-Trace-Id` headers and `request.state.trace_id` as the single source of truth for a request's lifecycle.
+
+### 10.2 Telegram Formatting Robustness
+
+**Lesson:** Telegram's `MarkdownV2` is extremely sensitive to special characters (like `.`, `-`, `!`) which are common in RAG responses.
+**Action:** Use `ParseMode.MARKDOWN` (v1) or `HTML` for RAG responses to avoid frequent "Entity_parse_failed" errors, or implement a strict character escaper.
+
+### 10.3 Per-Chat Locks and Deduplication
+
+**Lesson:** Users often double-tap buttons or send multiple messages while waiting for an LLM response.
+**Action:** Implement `asyncio.Lock` per `chat_id` and a simple message ID deduplication set to prevent the bot from processing the same intent multiple times in parallel.
+
+### 10.4 Typing Indicators for Perceived Performance
+
+**Lesson:** A 5-10 second RAG delay feels like a bug to users if the bot is silent.
+**Action:** Send `ChatAction.TYPING` immediately after receiving the message, before starting the long-running HTTP call to the agent.
+
+### 10.5 Dependency Alignment (Bot vs API)
+
+**Lesson:** The bot and API often run in different containers but share the same domain logic/config.
+**Action:** Keep `app/requirements.txt` in sync with the root `pyproject.toml` or use a shared base image to avoid version mismatches during deployment.
