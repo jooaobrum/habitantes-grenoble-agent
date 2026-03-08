@@ -27,4 +27,5 @@ class AgentState(TypedDict):
 
     # ── Observability ──
     timings: dict[str, float]  # {intent_ms, category_ms, search_ms, generation_ms}
+    cached: bool
     error: dict | None  # {error_code, message, retryable} or None

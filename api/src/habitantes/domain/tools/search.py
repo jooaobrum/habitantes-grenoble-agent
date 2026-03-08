@@ -39,7 +39,7 @@ def _get_qdrant_client():
 def hybrid_search(
     query: str,
     categories: list[str] | None = None,
-    top_k: int = 5,
+    top_k: int | None = None,
 ) -> dict[str, Any]:
     """Hybrid search: dense + sparse (RRF) + anchor rerank.
 
@@ -58,6 +58,9 @@ def hybrid_search(
 
     settings = load_settings()
     collection = _get_collection_name()
+
+    if top_k is None:
+        top_k = settings.search.top_k
 
     # 1. Build vectors
     try:
@@ -211,8 +214,13 @@ def _make_search_tool():
             category: Optional category filter (e.g. "Visa & Residency",
                       "Banking & Finance"). Leave empty to search all categories.
         """
+        from habitantes.config import load_settings
+
+        settings = load_settings()
         cats = [category] if category else None
-        result = hybrid_search(query=query, categories=cats, top_k=5)
+        result = hybrid_search(
+            query=query, categories=cats, top_k=settings.search.top_k
+        )
 
         if "error" in result:
             return f"Erro na busca: {result['error']['message']}"

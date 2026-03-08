@@ -10,14 +10,10 @@ import pandas as pd
 
 
 # ── Logging ──────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-)
 logger = logging.getLogger(__name__)
 
 
-# ── Config ───────────────────────────────────────────────────────────────────
+# ── Config (Local Overrides) ──────────────────────────────────────────────────
 @dataclass(frozen=True)
 class ParserConfig:
     # WhatsApp export line format:
@@ -25,7 +21,6 @@ class ParserConfig:
     line_pattern: re.Pattern = re.compile(
         r"\[(\d{2}/\d{2}/\d{2}, \d{2}:\d{2}:\d{2})\]\s*~?\s*(.*?):\s(.*)"
     )
-    timestamp_format: str = "%d/%m/%y, %H:%M:%S"
     system_patterns: tuple[str, ...] = (
         "joined using",
         "omitted",
@@ -41,7 +36,9 @@ class ParserConfig:
 
 
 # ── Parsing ──────────────────────────────────────────────────────────────────
-def parse_whatsapp_chat(filepath: Path, cfg: ParserConfig) -> pd.DataFrame:
+def parse_whatsapp_chat(
+    filepath: Path, line_pattern: re.Pattern, timestamp_format: str
+) -> pd.DataFrame:
     """
     Parse WhatsApp exported chat into a DataFrame with:
       - timestamp (datetime)
@@ -53,10 +50,13 @@ def parse_whatsapp_chat(filepath: Path, cfg: ParserConfig) -> pd.DataFrame:
     messages: List[Dict[str, str]] = []
     current: Optional[Dict[str, str]] = None
 
+    if not filepath.exists():
+        raise FileNotFoundError(f"WhatsApp chat file not found: {filepath}")
+
     with filepath.open(encoding="utf-8") as f:
         for raw_line in f:
             line = raw_line.rstrip("\n")
-            match = cfg.line_pattern.match(line)
+            match = line_pattern.match(line)
             if match:
                 if current:
                     messages.append(current)
@@ -65,7 +65,7 @@ def parse_whatsapp_chat(filepath: Path, cfg: ParserConfig) -> pd.DataFrame:
                     "timestamp": ts,
                     "user": user.strip(),
                     "message": msg.strip(),
-                    "source_file": filepath.name,  # ✅ required column
+                    "source_file": filepath.name,
                 }
             elif current:
                 # Continuation of a multi-line message
@@ -81,20 +81,22 @@ def parse_whatsapp_chat(filepath: Path, cfg: ParserConfig) -> pd.DataFrame:
         return df
 
     df["timestamp"] = pd.to_datetime(
-        df["timestamp"], format=cfg.timestamp_format, errors="coerce"
+        df["timestamp"], format=timestamp_format, errors="coerce"
     )
     df = df.dropna(subset=["timestamp"]).reset_index(drop=True)
     return df
 
 
-def remove_system_messages(df: pd.DataFrame, cfg: ParserConfig) -> pd.DataFrame:
+def remove_system_messages(
+    df: pd.DataFrame, system_patterns: tuple[str, ...]
+) -> pd.DataFrame:
     """
     Remove WhatsApp system messages (joins/leaves/encryption notices/etc.).
     """
     if df.empty:
         return df
 
-    pattern = "|".join(map(re.escape, cfg.system_patterns))
+    pattern = "|".join(map(re.escape, system_patterns))
     mask = ~df["message"].str.contains(pattern, na=True, case=False, regex=True)
     return df.loc[mask].reset_index(drop=True)
 
@@ -258,14 +260,14 @@ def classify_all(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ── Orchestrator ─────────────────────────────────────────────────────────────
-def run_parser(chat_path: Path, output_dir: str) -> Path:
+def run_parser(chat_path: Path, output_dir: Path, timestamp_format: str) -> Path:
     cfg = ParserConfig()
 
     logger.info("Reading chat file: %s", chat_path)
-    df = parse_whatsapp_chat(chat_path, cfg)
+    df = parse_whatsapp_chat(chat_path, cfg.line_pattern, timestamp_format)
 
     logger.info("Parsed %s messages", f"{len(df):,}")
-    df = remove_system_messages(df, cfg)
+    df = remove_system_messages(df, cfg.system_patterns)
     logger.info("After removing system messages: %s", f"{len(df):,}")
 
     df = classify_all(df)
@@ -274,31 +276,10 @@ def run_parser(chat_path: Path, output_dir: str) -> Path:
         df["msg_type"].value_counts(dropna=False).to_string(),
     )
 
-    # Build output filename: same as input but with -classified suffix
-    output_filename = f"{chat_path.stem}-classified.csv"
-    out_path = output_dir / output_filename
+    # Standardized output name: classified.csv
+    output_dir.mkdir(parents=True, exist_ok=True)
+    out_path = output_dir / "classified.csv"
 
     df.to_csv(out_path, index=False)
     logger.info("Saved: %s", out_path)
     return out_path
-
-
-# ── CLI usage ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    # ── Project paths ────────────────────────────────────────────────────────────
-    INPUT_FILE = "chat-19012021-20022026.txt"
-    PROJECT_ROOT = Path(__file__).resolve().parents[1]  # adjust if needed
-    DATA_DIR = PROJECT_ROOT / "data"
-    ARTIFACTS_DIR = PROJECT_ROOT / "artifacts" / INPUT_FILE.split(".")[0]
-    INGESTION_DIR = PROJECT_ROOT / "ingestion"
-    INPUT_PATH = DATA_DIR / INPUT_FILE
-
-    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
-
-    if not INPUT_PATH.exists():
-        raise FileNotFoundError(
-            f"Default chat file not found: {INPUT_PATH}\n"
-            f"Put the export in {DATA_DIR} or change default_file."
-        )
-
-    run_parser(INPUT_PATH, ARTIFACTS_DIR)

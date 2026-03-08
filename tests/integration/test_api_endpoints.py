@@ -65,7 +65,7 @@ def test_chat_success():
         "confidence": 0.9,
     }
 
-    with patch("habitantes.infrastructure.api.routers.chat.run") as mock_run:
+    with patch("habitantes.infrastructure.api.routers.chat.run_agent") as mock_run:
         mock_run.return_value = mock_result
 
         response = client.post("/chat/", json=chat_request)

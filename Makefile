@@ -21,6 +21,9 @@ run-api:
 run-bot:
 	python app/telegram_bot.py
 
+ingest:
+	export PYTHONPATH=$$PYTHONPATH:$$(pwd)/api/src && python3 ingestion/pipeline.py
+
 # ── Quality & Linting ────────────────────────────────────────────────────────
 setup-hooks:
 	pre-commit install
@@ -46,6 +49,7 @@ help:
 	@echo "Local Dev (requires venv):"
 	@echo "  make run-api     Run FastAPI service with reload"
 	@echo "  make run-bot     Run Telegram bot"
+	@echo "  make ingest      Run the data ingestion pipeline"
 	@echo ""
 	@echo "Quality:"
 	@echo "  make test         Run pytest suite"

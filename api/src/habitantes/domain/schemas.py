@@ -22,6 +22,7 @@ class ChatResponse(BaseModel):
     category: str | None
     confidence: float
     trace_id: str
+    cached: bool = False
 
 
 class FeedbackRequest(BaseModel):

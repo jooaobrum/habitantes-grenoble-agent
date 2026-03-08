@@ -4,7 +4,7 @@ Single source of truth for category data lives in config/base.yaml.
 This module provides helpers that consume that data.
 """
 
-from habitantes.config import CategoryEntry
+from habitantes.config import CategoryEntry, load_settings
 
 _EMOJIS = [
     "🛂",
@@ -36,8 +36,6 @@ _categories_cache: list[CategoryEntry] | None = None
 def _get_categories() -> list[CategoryEntry]:
     global _categories_cache
     if _categories_cache is None:
-        from habitantes.config import load_settings
-
         _categories_cache = load_settings().categories
     return _categories_cache
 

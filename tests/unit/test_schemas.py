@@ -31,6 +31,7 @@ class TestAgentStateImport:
             "confidence",
             "history",
             "timings",
+            "cached",
             "error",
         }
         assert expected == set(keys)

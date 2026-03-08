@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 import uuid
@@ -6,27 +7,36 @@ from collections import defaultdict
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
+from habitantes.config import load_settings
 from habitantes.infrastructure.api.routers import chat, feedback, health
 
 # Simple in-memory rate limiting state
 # Reset on restart as per design.md
 _rate_limits: dict[str, list[float]] = defaultdict(list)
-_MAX_REQ_PER_HOUR = 100
 _WINDOW_SECONDS = 3600
 
 
 def check_rate_limit(chat_id: str) -> bool:
     """Check if the given chat_id has exceeded the rate limit of 100 req/hour."""
+    settings = load_settings()
     now = time.time()
     # Filter only events in the last hour
     history = [t for t in _rate_limits[chat_id] if now - t < _WINDOW_SECONDS]
     _rate_limits[chat_id] = history
 
-    if len(history) >= _MAX_REQ_PER_HOUR:
+    if len(history) >= settings.api.rate_limit_per_hour:
         return False
 
     _rate_limits[chat_id].append(now)
     return True
+
+
+async def _cleanup_rate_limits():
+    """Periodically clear ALL rate limits to prevent memory leaks from inactive users."""
+    while True:
+        await asyncio.sleep(3600)  # Every hour
+        _rate_limits.clear()
+        logger.info("Cleared in-memory rate limits.")
 
 
 # Initialize logging
@@ -40,6 +50,11 @@ app = FastAPI(
     description="Backend API for the Grenoble Brazilian Expats chatbot.",
     version="0.1.0",
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(_cleanup_rate_limits())
 
 
 @app.middleware("http")

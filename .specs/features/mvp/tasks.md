@@ -103,7 +103,7 @@
   - Use `settings.api.rate_limit_per_hour` in FastAPI middleware.
   **Done when:** Spam and oversized messages are rejected politely; OpenAI bill risk is capped.
 
-- [ ] **T6.4 — Simple response cache for repeated questions**
+- [x] **T6.4 — Simple response cache for repeated questions**
   - Create `domain/cache.py` with in-memory TTL+LRU cache (keyed by normalized query + category).
   - Integrate into `agent.py`: check cache before LLM/search, store valid results after.
   - Add `cache` section to `base.yaml` (enabled, max_size, ttl_seconds).
@@ -111,9 +111,10 @@
   - Write `tests/unit/test_cache.py`.
   **Done when:** repeated questions return cached results instantly; `cached: true` in response.
 
-- [ ] **T6.5 — Restructure ingestion as modular ETL**
-  - Restructure `ingestion/` into package with `extract/`, `preprocess/`, `load/` subpackages.
-  - Create `ingestion/config.py` loader (reads from project `base.yaml` ingestion section).
+- [x] **T6.5 Restructure ingestion pipeline**
+    - [x] Refactor scripts into `ingestion/` package.
+    - [x] Centralize ingestion configs in `base.yaml`.
+    - [x] Implement orchestrator `pipeline.py`.
   - Create `ingestion/run.py` CLI entry point.
   - Refactor scripts 0-3 into modules within the package stages.
   - Delete old numbered scripts.

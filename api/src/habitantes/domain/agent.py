@@ -25,10 +25,18 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 
+from habitantes.config import load_settings
+from habitantes.domain.cache import get_cache
+from habitantes.domain.categories import (
+    _get_categories,
+    build_greeting_text,
+    get_by_en_name,
+    resolve_number,
+)
 from habitantes.domain.prompts.intent import build_intent_messages
 from habitantes.domain.prompts.synthesis import REACT_SYSTEM_PROMPT
 from habitantes.domain.state import AgentState
-from habitantes.domain.tools import get_search_tool
+from habitantes.domain.tools import get_search_tool, hybrid_search
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +44,6 @@ logger = logging.getLogger(__name__)
 
 
 def _get_agent_settings():
-    from habitantes.config import load_settings
-
     return load_settings().agent
 
 
@@ -82,14 +88,13 @@ _llm = None
 def _get_llm():
     global _llm
     if _llm is None:
-        from habitantes.config import load_settings
-
         settings = load_settings()
         _llm = ChatOpenAI(
             model=settings.llm.model_name,
             api_key=settings.llm.openai_api_key,
             temperature=settings.agent.temperature,
             max_tokens=settings.api.max_tokens_per_response,
+            request_timeout=settings.api.request_timeout_seconds,
         )
     return _llm
 
@@ -102,9 +107,6 @@ _greeting_text: str | None = None
 def _get_greeting_text() -> str:
     global _greeting_text
     if _greeting_text is None:
-        from habitantes.config import load_settings
-        from habitantes.domain.categories import build_greeting_text
-
         _greeting_text = build_greeting_text(load_settings().categories)
     return _greeting_text
 
@@ -115,8 +117,6 @@ def _get_greeting_text() -> str:
 def _classify_intent(state: AgentState) -> dict:
     """Classify message intent. Short-circuits for category numbers."""
     t0 = time.monotonic()
-
-    from habitantes.domain.categories import _get_categories, resolve_number
 
     cat = resolve_number(state["message"], _get_categories())
     if cat:
@@ -191,8 +191,6 @@ def _build_react_messages(state: AgentState) -> list:
         if len(message.strip()) < 10:
             # Clarification case
             if category:
-                from habitantes.domain.categories import _get_categories, get_by_en_name
-
                 entry = get_by_en_name(category, _get_categories())
                 pt_name = entry.pt_name if entry else category
                 intent_context += (
@@ -322,13 +320,12 @@ def _run_react_loop(state: AgentState) -> dict:
 
 def _track_chunks(query: str, state: AgentState, context_chunks: list[dict]) -> None:
     """Track retrieved chunks for eval metrics by re-calling hybrid_search."""
-    from habitantes.domain.tools import hybrid_search
-
+    settings = load_settings()
     category = state.get("category", "")
     result = hybrid_search(
         query=query or state["message"],
         categories=[category] if category else None,
-        top_k=5,
+        top_k=settings.search.top_k,
     )
     if "chunks" in result:
         context_chunks.clear()
@@ -382,6 +379,7 @@ def run(
         "confidence": 0.0,
         "history": _get_history(chat_id),
         "timings": {},
+        "cached": False,
         "error": None,
     }
 
@@ -389,15 +387,49 @@ def run(
     classification = _classify_intent(initial_state)
     initial_state.update(classification)
 
+    # Cache check (only for QA intent with sufficient length)
+    cache = get_cache()
+    if cache and initial_state["intent"] == "qa" and len(message.strip()) >= 10:
+        cached_result = cache.get(message, initial_state["category"])
+        if cached_result:
+            initial_state.update(cached_result)
+            initial_state["cached"] = True
+            _update_memory(
+                chat_id,
+                message,
+                initial_state["answer"],
+                initial_state["category"],
+                initial_state["intent"],
+            )
+            return initial_state
+
     # Layer 2: ReAct agent
     result = _run_react_loop(initial_state)
     initial_state.update(result)
 
+    # Store in cache if successful
+    if (
+        cache
+        and initial_state["intent"] == "qa"
+        and initial_state.get("answer")
+        and not initial_state.get("error")
+    ):
+        cache.set(
+            message,
+            initial_state["category"],
+            {
+                "answer": initial_state["answer"],
+                "sources": initial_state["sources"],
+                "confidence": initial_state["confidence"],
+                "context_chunks": initial_state["context_chunks"],
+            },
+        )
+
     _update_memory(
         chat_id,
         message,
-        initial_state.get("answer", ""),
-        initial_state.get("category", ""),
-        initial_state.get("intent", ""),
+        initial_state["answer"],
+        initial_state["category"],
+        initial_state["intent"],
     )
     return initial_state

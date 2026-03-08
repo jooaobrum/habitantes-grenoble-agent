@@ -515,3 +515,29 @@ These are lessons from the containerization and final verification phase.
 **Action:** Always implement a background cleanup task (e.g., `asyncio.create_task`) when using in-memory caches or sets in long-running processes like a Telegram bot.
 
 ---
+
+---
+
+## 13. Lessons from Task 6.5 (Ingestion Standardization)
+
+### 13.1 Standardized Artifact Naming
+
+**Lesson:** Using dynamic filenames based on input timestamps (e.g., `chat-xxxx-classified.csv`) makes it difficult to wire subsequent pipeline stages via configuration.
+**Action:** Enforce fixed filenames (`classified.csv`, `qa_pairs.json`, `synthesis_results.jsonl`) within a directory named after the source file's stem. This creates a predictable structure for all stages.
+
+### 13.2 Per-Chat Isolation
+
+**Lesson:** Mixing artifacts from different raw sources in a single `artifacts/` folder leads to confusion and accidental overwrites.
+**Action:** Always create a parent directory under `artifacts/` named after the input file. This ensures each raw export has its own complete set of processed files, acting as a "parent to processed" standard.
+
+### 13.3 Unified Pipeline Entrypoint
+
+**Lesson:** Running multiple numbered scripts manually is error-prone and hard to document.
+**Action:** Consolidate all ingestion stages into a single `pipeline.py` orchestrator. This ensures that configuration is loaded once and all stages share the same working context and output paths.
+
+### 13.4 Automatic Directory Management
+
+**Lesson:** Pipeline stages often fail if the output directory doesn't exist.
+**Action:** Each module/stage should proactively call `mkdir(parents=True, exist_ok=True)` on its target path.
+
+---

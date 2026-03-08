@@ -18,6 +18,26 @@ class TestConfig(unittest.TestCase):
             "vector_store": {"qdrant_url": "http://qdrant:6333"},
             "api": {"rate_limit_per_hour": 100, "eval_gate_enabled": True},
             "telegram": {"api_url": "http://api:8000"},
+            "search": {
+                "dense_prefetch_k": 80,
+                "sparse_prefetch_k": 120,
+                "fused_k": 50,
+                "top_k": 5,
+                "w_dense": 0.7,
+                "w_sparse": 0.3,
+                "rrf_k": 60,
+            },
+            "ranking": {
+                "anchor_bonus": 0.05,
+                "rerank_top_k": 40,
+                "date_decay_lambda": 0.0005,
+                "min_token_length": 4,
+            },
+            "agent": {
+                "max_react_iterations": 5,
+                "max_history": 5,
+                "temperature": 0.0,
+            },
             "environments": {
                 "dev": {
                     "vector_store": {"collection_name": "dev_base"},
@@ -47,7 +67,11 @@ class TestConfig(unittest.TestCase):
         with patch("yaml.safe_load", return_value=self.base_yaml):
             settings = load_settings()
 
-            # Should have the 'dev' collection name
+            # New sections
+            self.assertEqual(settings.search.top_k, 5)
+            self.assertEqual(settings.ranking.anchor_bonus, 0.05)
+            self.assertEqual(settings.agent.max_history, 5)
+
             self.assertEqual(settings.vector_store.collection_name, "dev_base")
             self.assertEqual(settings.api.log_level, "DEBUG")
             self.assertEqual(settings.app_env, "dev")

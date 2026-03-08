@@ -68,9 +68,13 @@ class AgentConfig(BaseModel):
 
 
 class CacheConfig(BaseModel):
-    enabled: bool = True
-    max_size: int = 256
     ttl_seconds: int = 3600
+
+
+class LoggingConfig(BaseModel):
+    interaction_path: str = "logs/interactions.jsonl"
+    rotation: str = "10 MB"
+    retention: str = "30 days"
 
 
 class Settings(BaseSettings):
@@ -92,6 +96,7 @@ class Settings(BaseSettings):
     ranking: RankingConfig = RankingConfig()
     agent: AgentConfig = AgentConfig()
     cache: CacheConfig = CacheConfig()
+    logging: LoggingConfig = LoggingConfig()
     categories: list[CategoryEntry] = []
     app_env: str = Field("dev", alias="APP_ENV")
 

@@ -2,6 +2,7 @@ import logging
 import uuid
 from fastapi import APIRouter, Request
 from habitantes.domain import ChatRequest, ChatResponse, Source, run_agent
+from habitantes.infrastructure.logging import get_interaction_logger
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,12 @@ async def post_chat(chat_request: ChatRequest, request: Request):
         for s in result.get("sources", [])
     ]
 
+    # Log interaction for traceability
+    try:
+        get_interaction_logger().log_interaction(result)
+    except Exception as e:
+        logger.error(f"Failed to log interaction: {e}")
+
     return ChatResponse(
         answer=result.get("answer", ""),
         sources=sources,
@@ -44,4 +51,5 @@ async def post_chat(chat_request: ChatRequest, request: Request):
         category=result.get("category"),
         confidence=result.get("confidence", 0.0),
         trace_id=trace_id,
+        cached=result.get("cached", False),
     )

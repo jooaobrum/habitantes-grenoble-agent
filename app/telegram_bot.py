@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import sys
+import time
 from collections import defaultdict
 from pathlib import Path
 
@@ -78,8 +79,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # 2. Rate limiting (simple)
-    import time
-
     now = time.time()
     recent = [t for t in _user_last_messages[chat_id] if now - t < 60]
     _user_last_messages[chat_id] = recent
@@ -105,7 +104,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(
+                timeout=float(settings.api.request_timeout_seconds + 5)
+            ) as client:
                 request_body = {
                     "chat_id": str(chat_id),
                     "message": message_text,

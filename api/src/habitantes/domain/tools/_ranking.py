@@ -17,12 +17,13 @@ import unicodedata
 from datetime import datetime
 from qdrant_client.http import models as qmodels
 
+from habitantes.config import load_settings
+from .glossary import TERM_KEYS
+
 _TOKEN_RE = re.compile(r"[0-9A-Za-zÀ-ÖØ-öø-ÿ']+")
 
 
 def _get_ranking_settings():
-    from habitantes.config import load_settings
-
     return load_settings().ranking
 
 
@@ -94,8 +95,6 @@ def extract_key_terms(query: str) -> list[str]:
     Matching is done on the normalized (lowercase, no accents) query so that
     'Récépissé', 'recepisse', 'RECEPISSE' all resolve to the same term.
     """
-    from .glossary import TERM_KEYS
-
     q_norm = strip_accents(query)
     found: list[str] = []
     covered: set[int] = set()
@@ -139,7 +138,7 @@ def _stem_variants(token: str) -> list[str]:
     return variants
 
 
-def infer_key_terms_from_query(query: str, min_len: int = 4) -> list[str]:
+def infer_key_terms_from_query(query: str, min_len: int | None = None) -> list[str]:
     """Infer key search terms from an arbitrary query.
 
     Combines two sources:
@@ -149,7 +148,7 @@ def infer_key_terms_from_query(query: str, min_len: int = 4) -> list[str]:
 
     Args:
         query: Raw user query (any casing, accents OK).
-        min_len: Minimum token length to consider (default 4).
+        min_len: Minimum token length to consider (default from settings).
 
     Returns:
         Deduplicated list of normalized key terms, longest/glossary terms first.
@@ -161,6 +160,8 @@ def infer_key_terms_from_query(query: str, min_len: int = 4) -> list[str]:
     """
     q_norm = strip_accents(query)
     _stopwords = _PT_STOPWORDS | _FR_STOPWORDS
+    if min_len is None:
+        min_len = _get_ranking_settings().min_token_length
 
     # 1. Glossary matches (domain-aware, longest-first)
     glossary_terms = extract_key_terms(q_norm)
@@ -330,8 +331,11 @@ _FR_STOPWORDS = {
 }
 
 
-def _extract_anchors(query: str, min_len: int = 4) -> list[str]:
+def _extract_anchors(query: str, min_len: int | None = None) -> list[str]:
     out, seen = [], set()
+    if min_len is None:
+        min_len = _get_ranking_settings().min_token_length
+
     for tok in _TOKEN_RE.findall(query):
         t = tok.lower()
         if len(t) < min_len or t in _PT_STOPWORDS or t in _FR_STOPWORDS or t in seen:

@@ -74,16 +74,14 @@ If you want to run services individually for development:
    docker compose up -d qdrant
    ```
 
-2. **Ingest Data (Optional)**:
-   If the vector store is empty, you need to process the chat logs:
+2. **Ingest Data**:
+   The ingestion pipeline automatically parses WhatsApp logs, aggregates QA pairs, synthesizes knowledge via LLM, and populates Qdrant:
    ```bash
    # 1. Put WhatsApp export in data/chat-19012021-20022026.txt
-   # 2. Run numbered scripts in order:
-   python ingestion/0-wpp_parse_and_classify.py
-   python ingestion/1-build_qa_pairs.py
-   python ingestion/2-generate_synthesis_from_qa.py
-   python ingestion/3-build_qdrant_collection.py
+   # 2. Run the full unified pipeline:
+   make ingest
    ```
+   Processed artifacts (classified chats, QA JSONs, and synthesis results) will be grouped in `artifacts/<chat-filename-stem>/`.
 
 3. **Run API**:
    ```bash
