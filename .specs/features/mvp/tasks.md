@@ -119,3 +119,12 @@
   - Refactor scripts 0-3 into modules within the package stages.
   - Delete old numbered scripts.
   **Done when:** `python -m ingestion.run all` runs the full pipeline successfully.
+
+## Phase 7: CI/CD & Deployment
+
+- [ ] **T7.1 — CI/CD pipeline**
+  Set up GitHub Actions workflow to run lint, tests, build Docker images, and push to a container registry on each push.
+
+- [ ] **T7.2 — Deploy to VPS**
+  Create deployment scripts that pull the latest images on the VPS and run `docker compose up -d`.
+  Integrate CI to trigger deployment on successful builds.
