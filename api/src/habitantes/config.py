@@ -124,7 +124,9 @@ def load_settings() -> Settings:
     load_dotenv(root_dir / ".env", override=False)
 
     # 1. Load Base YAML
-    config_path = root_dir / "config" / "base.yaml"
+    # CONFIG_DIR env var allows overriding the config directory path (e.g. in Docker)
+    config_dir = Path(os.environ.get("CONFIG_DIR", str(root_dir / "config")))
+    config_path = config_dir / "base.yaml"
 
     with open(config_path, "r") as f:
         config_data = yaml.safe_load(f)

@@ -1,11 +1,13 @@
 .PHONY: build up down logs run test lint eval help
 
+ENV ?= dev
+
 # ── Docker management ───────────────────────────────────────────────────────
 build:
-	docker compose build
+	APP_ENV=$(ENV) docker compose build
 
 up:
-	docker compose up -d
+	APP_ENV=$(ENV) docker compose up -d
 
 down:
 	docker compose down
@@ -24,6 +26,8 @@ run-bot:
 ingest:
 	export PYTHONPATH=$$PYTHONPATH:$$(pwd)/api/src && python3 ingestion/pipeline.py
 
+load-only:
+	export PYTHONPATH=$$PYTHONPATH:$$(pwd)/api/src && python3 ingestion/load_only.py
 # ── Quality & Linting ────────────────────────────────────────────────────────
 setup-hooks:
 	pre-commit install
@@ -42,9 +46,10 @@ help:
 	@echo "Habitantes de Grenoble Chatbot — MVP Commands"
 	@echo ""
 	@echo "Docker:"
-	@echo "  make up          Start all services"
-	@echo "  make down        Stop all services"
-	@echo "  make logs        Follow logs"
+	@echo "  make up            Start all services (default: dev)"
+	@echo "  make up ENV=prod   Start all services in prod mode"
+	@echo "  make down          Stop all services"
+	@echo "  make logs          Follow logs"
 	@echo ""
 	@echo "Local Dev (requires venv):"
 	@echo "  make run-api     Run FastAPI service with reload"

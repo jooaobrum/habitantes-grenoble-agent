@@ -75,7 +75,20 @@ def load_ingestion_settings() -> IngestionSettings:
     env_specific = env_configs.get(app_env, {}).get("ingestion", {})
 
     # Simple merge of env-specific into ingestion block
-    ingestion_data.update(env_specific)
+    # We must be careful to merge nested dicts properly like 'load'
+    for k, v in env_specific.items():
+        if k in ("collection_name", "overwrite_collection"):
+            if "load" not in ingestion_data:
+                ingestion_data["load"] = {}
+            ingestion_data["load"][k] = v
+        elif (
+            isinstance(v, dict)
+            and k in ingestion_data
+            and isinstance(ingestion_data[k], dict)
+        ):
+            ingestion_data[k].update(v)
+        else:
+            ingestion_data[k] = v
 
     return IngestionSettings(**ingestion_data)
 

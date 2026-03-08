@@ -10,7 +10,7 @@ services:
     volumes:
       - ./infra/qdrant_storage:/qdrant/storage
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/6333 && echo -e 'GET / HTTP/1.0\r\n\r\n' >&3 && cat <&3 | grep -q qdrant"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -21,6 +21,9 @@ services:
       context: .
       dockerfile: api/Dockerfile
     env_file: .env
+    environment:
+      - CONFIG_DIR=/app/config
+      - APP_ENV=${APP_ENV:-dev}
     ports:
       - "8000:8000"
     depends_on:
@@ -29,7 +32,7 @@ services:
     volumes:
       - ./api/src:/app/src
       - ./config:/app/config
-    command: /app/.venv/bin/uvicorn habitantes.infrastructure.api.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uv run uvicorn habitantes.infrastructure.api.main:app --host 0.0.0.0 --port 8000 --reload
 
   # ── Telegram Bot ──────────────────────────────────────────────────────────
   telegram-bot:
@@ -37,14 +40,17 @@ services:
       context: .
       dockerfile: app/Dockerfile
     env_file: .env
+    environment:
+      - CONFIG_DIR=/app/config
+      - APP_ENV=${APP_ENV:-dev}
     depends_on:
       api:
         condition: service_started
     volumes:
-      - ./app:/app
+      - ./app:/app/app
       - ./api/src/habitantes:/app/api/src/habitantes
       - ./config:/app/config
-    command: /app/.venv/bin/python /app/app/telegram_bot.py
+    command: uv run python /app/app/telegram_bot.py
 
 networks:
   default:

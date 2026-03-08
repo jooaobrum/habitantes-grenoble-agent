@@ -98,22 +98,22 @@ categories:
 environments:
   dev:
     vector_store:
-      collection_name: "habitantes_chat_kb_hybrid_2"
+      collection_name: "habitantes_chat_kb_hybrid"
     api:
       log_level: "DEBUG"
       eval_gate_enabled: false
     ingestion:
-      collection_name: "habitantes_chat_kb_hybrid_2"
+      collection_name: "habitantes_chat_kb_hybrid"
       overwrite_collection: false
 
   prod:
     vector_store:
-      collection_name: "habitantes_chat_kb_hybrid_2"
+      collection_name: "habitantes_chat_kb_hybrid"
     api:
       log_level: "WARNING"
       eval_gate_enabled: true
     ingestion:
-      collection_name: "habitantes_chat_kb_hybrid_2"
+      collection_name: "habitantes_chat_kb_hybrid"
       overwrite_collection: false
 
 # ── Ingestion Pipeline ────────────────────────────────────────────────────────
@@ -130,14 +130,14 @@ ingestion:
     tier_high: 50
     tier_medium: 20
   synthesis:
-    prompt_path: "prompts/synthesis_prompt.txt"
+    prompt_path: "ingestion/prompts/synthesis_prompt.txt"
     model: "gpt-4o-mini"
     temperature: 0.2
     max_retries: 4
     retry_base_sleep_s: 1.5
     start_time: "2024-02-15T00:00:00"
     end_time: "2027-12-31T23:59:59"
-    overwrite: false
+    overwrite: true
   load:
     dense_batch_size: 64
     qdrant_upsert_batch: 128

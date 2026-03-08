@@ -1,0 +1,257 @@
+You are building a knowledge base for Brazilian expats living in Grenoble (France) using WhatsApp group messages.
+
+You will receive ONE extracted Q→A record produced by the WhatsApp parser.
+Fields may include: thread_id, thread_start, topic (top-level category), context (optional), question, answer (merged from multiple answers), confirmed, score, tier.
+
+Your tasks:
+
+1) CORE QUESTION
+- Rewrite the question as a single clear question in PT-BR (neutral, professional).
+- Use context ONLY if it helps disambiguate; ignore context if irrelevant.
+- Remove emojis, filler words, greetings, and duplicated clarifications.
+
+2) BEST ANSWER (SYNTHESIS)
+- Produce one helpful answer in PT-BR, structured and concise.
+- You may combine multiple answers, but ONLY keep content that directly addresses the question.
+- If answers conflict, prefer:
+  (a) answers with official sources, concrete steps, or multiple confirmations
+  (b) the most recent information (if timestamps suggest it)
+  If still unclear, summarize uncertainty and set needs_human_review=true.
+
+3) CONFIRMATION
+- Set answer_confirmed = true if confirmed==true OR if the asker explicitly says it worked (e.g., "funcionou", "deu certo", "valeu", "obrigado").
+
+4) CATEGORY (TOPIC)
+- FIRST: Read the question and answer carefully. Identify what the person is actually asking about.
+- THEN: Check if the provided topic field matches. A topic is WRONG if the question content
+  has NO meaningful connection to it — even if a keyword accidentally triggered it.
+- If the topic is WRONG or WEAK, you MUST overwrite it. Do not preserve a wrong label.
+- Use this decision logic:
+
+  Step 1 — Does the question clearly belong to the provided topic?
+            If YES → keep it.
+            If NO or UNCERTAIN → go to Step 2.
+
+  Step 2 — Match the question to ONE of the categories below.
+            If a clear match exists → use it.
+            If no category fits well → use "General".[
+  "Visa & Residency",
+  "Banking & Finance",
+  "Housing & CAF",
+  "Health & Insurance",
+  "University & Studies",
+  "Work & Internship",
+  "Documents & Bureaucracy",
+  "Daily Life & Services",
+  "Travel & Transport",
+  "Integration & Language",
+  "Ski & Trekking",
+  "Food & Restaurants",
+  "Sports & Activities",
+  "Nightlife & Events",
+  "Neighbourhood & Safety",
+  "Marketplace & Buy/Sell",
+  "Hair & Beauty",
+  "Pets & Animals",
+  "Phone & Telecom",
+  "General"
+]
+- If NONE fits, use "General".
+
+
+5) SUBCATEGORY
+- Assign ONE subcategory label that best matches the content.
+- Use the subcategory map described below (same wording when possible).
+- If none fits, use "Other".
+
+SUBCATEGORY MAP (choose ONE):
+Visa & Residency:
+- First Arrival & Visa Validation
+- Titre de Séjour — First Application
+- RDV Préfecture
+- Récépissé & Waiting Period
+- Renewal & Change of Status
+- Naturalisation & Long-term Residency
+- Specific Visa Types Q&A
+
+Banking & Finance:
+- Opening a Bank Account
+- Transfers Brazil ↔ France
+- Income Tax Declaration
+- Scholarships & Stipends
+- Cards & Payments
+- Currency Exchange
+- CAF Financial Aid
+
+Housing & CAF:
+- Finding Accommodation
+- CAF Application
+- Prime d'Activité
+- Garant & Visale
+- Tenant Rights & Disputes
+- CROUS Residences
+- Utilities & Charges
+
+Health & Insurance:
+- Sécurité Sociale Setup
+- Carte Vitale
+- Mutuelle / Complémentaire
+- Finding a Doctor
+- Dental & Ophthalmology
+- Reimbursements
+- Mental Health
+- Physiotherapy (Kiné)
+- Medications from Brazil
+
+University & Studies:
+- Enrolment & Registration
+- Scholarships
+- CROUS Restaurant & Meals
+- Study Spaces & Libraries
+- Specific Schools
+- Thesis & PhD Life
+- Student Card & Discounts
+
+Work & Internship:
+- Finding Internships
+- Work Rights by Visa
+- Contracts & Payslips
+- Unemployment & Chômage
+- Freelance & Auto-entrepreneur
+- Job Offers Shared
+
+Documents & Bureaucracy:
+- Certified Translations
+- Brazilian Consulate
+- Birth & Marriage Certificates
+- CPF in Brazil
+- Driving Licence Exchange
+- Proof of Address
+- Casier Judiciaire
+
+Daily Life & Services:
+- Sending Mail & Packages
+- DIY & Home
+- Second-hand Shops
+- Power Adapters & Voltage
+- Waste & Recycling
+- Driving Licence Exchange (process/location focus)
+
+Travel & Transport:
+- Grenoble ↔ Lyon Airport
+- Getting to/from Paris
+- City Transport (Grenoble)
+- Intercity Travel France
+- International Travel
+- Luggage & Excess Baggage
+- Travel Insurance
+
+Integration & Language:
+- French Language Courses
+- Language Certification
+- Cultural Adaptation
+
+Ski & Trekking:
+- Ski Resorts Near Grenoble
+- Ski Pass (Forfait)
+- Equipment — Buying & Renting
+- Beginner Tips
+- Summer Trekking & Randonnée
+- Mountain Safety
+
+Food & Restaurants:
+- Brazilian Ingredients & Supermarkets
+- Brazilian Restaurants & Community Meals
+- Brazilian Recipes Adapted
+- Supermarket Tips
+- Local Markets (Marchés)
+- Restaurants & Going Out to Eat
+- Cooking Appliances
+
+Sports & Activities:
+- Football (Futebol)
+- Volleyball
+- Gym & Fitness
+- Swimming
+- Other Sports
+
+Nightlife & Events:
+- Forró
+- Roda de Samba
+- Festa Junina
+- Bar & Nightlife Tips
+- Tickets & Events
+- Cultural Events
+
+Neighbourhood & Safety:
+- Where to Live (Neighbourhoods)
+- Safety & Crime
+
+Marketplace & Buy/Sell:
+- Currency Exchange (EUR/BRL)
+- Furniture & Appliances
+- Clothing & Accessories
+- Electronics
+- Books & Study Materials
+- Ski Equipment Resale
+- Donations & Giveaways
+
+Hair & Beauty:
+- Hairdressers (Curly/Afro)
+- Barbershops
+- Nail & Manicure
+- Eyebrows & Laser
+- Hair Products
+
+Pets & Animals:
+- Bringing Pets from Brazil
+- Veterinary Recommendations
+- Pet-Sitting & Dog Walking
+- Pet-Friendly Housing
+- Adoption
+
+Phone & Telecom:
+- Mobile Plan Comparison
+- Getting a French Number
+- Roaming in Brazil
+- Fibre & Home Internet
+- Phone Repairs
+
+6) TAGS & KEY TERMS
+- tags: 5–12 short tags (PT-BR), include Grenoble, key institutions (CPAM/CAF/OFII/ANEF/Préfecture), and topic hints.
+- key_terms: extract important French terms/proper nouns exactly as written (e.g., "récépissé", "titre de séjour", "Ameli", "Doctolib", "service-public.fr").
+
+7) OUTDATED FLAG
+Set info_might_be_outdated=true if any are present:
+- COVID rules, PCR/test/pass sanitaire, confinement, attestation de déplacement
+- instructions tied to a specific time-limited rule (“em 2021…”, “na época…”)
+- old URLs or broken links suspicion
+Otherwise false.
+
+8) CONFIDENCE & HUMAN REVIEW
+- confidence: 0.0–1.0 based on clarity, agreement, specificity, and evidence.
+- needs_human_review=true if:
+  - tier is low OR score < 25
+  - conflicting answers without resolution
+  - legal/visa/tax guidance is ambiguous
+  - info_might_be_outdated=true AND no official link is provided
+  - the “question” is unclear even after using context
+
+Return ONLY valid JSON (no markdown, no extra text):
+{{
+  "thread_id": "...",
+  "thread_start": "...",
+  "category": "...",
+  "subcategory": "...",
+  "question": "...",
+  "answer": "...",
+  "answer_confirmed": true/false,
+  "info_might_be_outdated": true/false,
+  "tags": [...],
+  "key_terms": [...],
+  "confidence": 0.0,
+  "needs_human_review": true/false
+}}
+
+INPUT RECORD:
+{qa_record_json}

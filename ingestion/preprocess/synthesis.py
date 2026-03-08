@@ -18,10 +18,34 @@ logger = logging.getLogger(__name__)
 
 # ── Data Models ──────────────────────────────────────────────────────────────
 class SynthesisResult(BaseModel):
-    summary: str = Field(description="Synthetic answer summarizing the solution")
-    tags: List[str] = Field(description="Relevant categories/tags")
-    verified_answer: bool = Field(description="Was it explicitly confirmed?")
-    score: int = Field(description="Confidence score (0-100)")
+    category: str = Field(
+        description="The main topic category (must match one of the predefined topics or 'General')"
+    )
+    subcategory: str = Field(
+        description="The assigned subcategory from the map, or 'Other'"
+    )
+    question: str = Field(description="The rewritten, clear single question in PT-BR")
+    answer: str = Field(
+        description="The helpful, structured, and concise answer in PT-BR"
+    )
+    answer_confirmed: bool = Field(
+        description="True if the answer was confirmed to work by the author or in the chat"
+    )
+    info_might_be_outdated: bool = Field(
+        description="True if the info contains COVID rules, old links, or specific outdated time references"
+    )
+    tags: List[str] = Field(
+        description="5-12 short tags in PT-BR including 'Grenoble', key institutions, and topic hints"
+    )
+    key_terms: List[str] = Field(
+        description="Important French terms or proper nouns exactly as written"
+    )
+    confidence: float = Field(
+        description="A confidence score between 0.0 and 1.0 based on clarity, agreement, and evidence"
+    )
+    needs_human_review: bool = Field(
+        description="True if the answer is conflicting, ambiguous, or the confidence is strictly low"
+    )
 
 
 # ── Prompt Loader ─────────────────────────────────────────────────────────────
@@ -44,7 +68,11 @@ async def synthesize_qa(
     """
     Calls OpenAI to synthesize a Q&A pair into a clear knowledge item.
     """
+    # Prepare the JSON record for the prompt
+    qa_record_json = json.dumps(row, ensure_ascii=False, indent=2)
+
     chat_prompt = prompt_template.format(
+        qa_record_json=qa_record_json,
         topic=row.get("topic", "N/A"),
         question=row.get("question", ""),
         answer=row.get("answer", ""),
@@ -67,10 +95,20 @@ async def synthesize_qa(
             result = row.copy()
             result.update(
                 {
-                    "synthetic_answer": parsed.summary,
+                    "category": parsed.category,
+                    "subcategory": parsed.subcategory,
+                    "question": parsed.question,
+                    "synthetic_answer": parsed.answer,
+                    "answer_confirmed": parsed.answer_confirmed,
+                    "info_might_be_outdated": parsed.info_might_be_outdated,
                     "tags": parsed.tags,
-                    "verified_by_llm": parsed.verified_answer,
-                    "score_llm": parsed.score,
+                    "key_terms": parsed.key_terms,
+                    "confidence": parsed.confidence,
+                    "needs_human_review": parsed.needs_human_review,
+                    "verified_by_llm": parsed.answer_confirmed,  # for backward compability if used
+                    "score_llm": int(
+                        parsed.confidence * 100
+                    ),  # for backward compability if used
                     "synthesized_at": datetime.now().isoformat(),
                 }
             )

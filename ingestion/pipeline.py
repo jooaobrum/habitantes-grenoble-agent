@@ -10,6 +10,7 @@ from ingestion.preprocess.qa_pairs import run_qa_builder
 from ingestion.preprocess.synthesis import run_synthesis_batch
 from ingestion.load.qdrant import run_qdrant_loader
 
+from dotenv import load_dotenv
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -30,6 +31,8 @@ async def run_pipeline():
     data_dir = root_dir / settings.data_dir
     artifacts_dir = root_dir / settings.artifacts_dir
     input_chat = data_dir / settings.input_file
+
+    load_dotenv(root_dir / ".env")
 
     if not input_chat.exists():
         logger.error("Input chat file not found: %s", input_chat)

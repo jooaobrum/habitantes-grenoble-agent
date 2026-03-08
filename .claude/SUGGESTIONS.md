@@ -541,3 +541,52 @@ These are lessons from the containerization and final verification phase.
 **Action:** Each module/stage should proactively call `mkdir(parents=True, exist_ok=True)` on its target path.
 
 ---
+
+## 14. Lessons from Task 6.1 (Refactoring & Stale Tests)
+
+### 14.1 Brittle Mocking in Integration Tests
+
+**Lesson:** When refactoring public-facing domain functions (e.g., `run` -> `run_agent`), ensure that all integration test patches are updated accordingly. Mocking strings like `patch("habitantes.infrastructure.api.routers.chat.run")` are brittle as they are not caught by type checkers or IDE rename tools if they are plain strings.
+**Action:** After any significant domain API change, run the full test suite (`pytest tests/ -v`) to catch `AttributeError` in mocks. Consider using autospec or object-based patching where possible, though string-based patching is often necessary for FastAPI routers.
+
+---
+
+## 15. Lessons from Docker Debugging Session
+
+### 15.1 Qdrant image has no curl or wget
+
+**Lesson:** `qdrant/qdrant` is a minimal image with no standard HTTP tools. A health check using `CMD curl -f http://localhost:6333/healthz` always exits with "executable not found", permanently marking the container unhealthy even though Qdrant is running fine.
+**Action:** Use a bash TCP health check instead:
+```yaml
+healthcheck:
+  test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/6333 && echo -e 'GET / HTTP/1.0\r\n\r\n' >&3 && cat <&3 | grep -q qdrant"]
+```
+Before writing a health check for any third-party image, verify which tools are available inside it.
+
+---
+
+### 15.2 `docker compose restart` does not reload env_file
+
+**Lesson:** `docker compose restart <service>` restarts the existing container process but does NOT recreate the container. Environment variables from `env_file` are baked in at container creation time. Changes to `.env` are invisible after a plain restart.
+**Action:** Always use `docker compose up -d --force-recreate <service>` after changing `.env` values to pick up the new environment.
+
+---
+
+### 15.3 Inter-container URLs must use Docker service names
+
+**Lesson:** Inside a Docker container, `localhost` resolves to the container itself, not to other services in the compose network. Setting `API_URL=http://localhost:8000` in `.env` means the Telegram bot tries to call itself instead of the `api` container.
+**Action:** Use the compose service name as the hostname for inter-service calls: `API_URL=http://api:8000`. Reserve `localhost` URLs only for host-machine access (e.g., during local dev outside Docker).
+
+---
+
+### 15.4 `Path(__file__).parents[N]` breaks with bind-mounts
+
+**Lesson:** The config loader used `Path(__file__).parents[3]` to find `config/base.yaml` relative to the source file. Locally the path is `repo/api/src/habitantes/config.py` (needs 3 parents to reach repo root). Inside Docker the source is mounted at `/app/src/habitantes/config.py` (only 2 parents to reach `/app`). The path calculation breaks silently with a `FileNotFoundError`.
+**Action:** Add a `CONFIG_DIR` env var to make the path explicit and environment-independent:
+```python
+config_dir = Path(os.environ.get("CONFIG_DIR", str(root_dir / "config")))
+config_path = config_dir / "base.yaml"
+```
+Set `CONFIG_DIR=/app/config` in docker-compose for each service that loads settings. Locally no override is needed since the default resolves correctly.
+
+---

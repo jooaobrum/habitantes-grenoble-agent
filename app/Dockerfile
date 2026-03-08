@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
@@ -23,4 +23,4 @@ COPY config ./config
 ENV PYTHONPATH=/app/api/src
 
 # Run the bot using the venv created by uv
-CMD ["/app/.venv/bin/python", "app/telegram_bot.py"]
+CMD ["uv", "run", "python", "app/telegram_bot.py"]

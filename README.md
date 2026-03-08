@@ -1,144 +1,180 @@
-# 🏔️ Habitantes de Grenoble — AI Chatbot
+# Habitantes de Grenoble — AI Chatbot
 
-An AI-powered assistant designed to help Brazilian expats in Grenoble, France, navigate daily life, bureaucracy, and housing. The bot leverages 5 years of community knowledge from WhatsApp groups to provide instant, reliable, and grounded answers in Portuguese.
-
-## 🚀 Overview
-
-The **Habitantes de Grenoble** bot acts as a centralized knowledge hub. Instead of searching through years of fragmented chat logs, users can ask questions directly on Telegram and receive answers backed by community experience.
-
-### Key Features (MVP)
-- **Instant Q&A**: Answers in Portuguese about visas, CAF, healthcare, banking, and more.
-- **Grounded Responses**: Every answer is synthesized from real community discussions with source attribution.
-- **Hybrid Search**: Combines semantic (dense) and keyword (sparse) search via Qdrant for maximum precision.
-- **Smart Routing**: Classifies intents (Greeting, Q&A, Feedback, Out-of-scope) for efficient processing.
-- **Feedback Loop**: Simple thumbs up/down to improve the knowledge base over time.
+An AI-powered assistant that helps Brazilian expats in Grenoble navigate daily life, bureaucracy, and housing. The bot leverages 5 years of community knowledge from WhatsApp groups to provide instant, reliable, grounded answers in Portuguese.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
-The system is built as a distributed agentic service:
-
-- **Orchestration**: [LangGraph](https://github.com/langchain-ai/langgraph) for explicit workflow and state management.
-- **Backend API**: [FastAPI](https://fastapi.tiangolo.com/) serving as the core intelligence layer.
-- **Vector Store**: [Qdrant](https://qdrant.tech/) with Hybrid Search (dense + sparse RRF fusion).
-- **Client Interface**: Telegram Bot (via `python-telegram-bot`).
-- **Data Pipeline**: Custom ingestion scripts for parsing, synthesizing, and indexing WhatsApp data.
-
----
-
-## 🛠️ Setup & Installation
-
-### Prerequisites
-- **Python 3.10+**
-- **Docker & Docker Compose**
-- **uv** (recommended for fast dependency management) or `pip`
-- **OpenAI API Key** (for `gpt-4o-mini`)
-- **Telegram Bot Token** (from [@BotFather](https://t.me/botfather))
-
-### 1. Installation
-Clone the repository and install dependencies:
-```bash
-# Clone
-git clone https://github.com/jooaobrum/habitantes-grenoble-agent.git
-cd habitantes-grenoble-agent
-
-# Install with uv (recommended)
-uv sync
-uv pip install -e .
-
-# Or using standard pip
-pip install -e .
+```
+Telegram Bot → FastAPI → LangGraph ReAct Agent → Qdrant (hybrid search)
+                                                ↑
+                              Ingestion pipeline (offline only)
 ```
 
-### 2. Configuration
-Create a `.env` file from the example:
+- **Orchestration**: LangGraph ReAct loop with explicit intent routing
+- **Backend**: FastAPI
+- **Vector Store**: Qdrant with hybrid search (dense + sparse RRF fusion)
+- **Client**: Telegram Bot (long-polling)
+- **Config**: `config/base.yaml` + `.env` secrets + `APP_ENV` environment selector
+
+---
+
+## Prerequisites
+
+- Python 3.12+
+- Docker & Docker Compose
+- `uv` (recommended) or `pip`
+- OpenAI API Key
+- Telegram Bot Token (from [@BotFather](https://t.me/botfather))
+
+---
+
+## Setup
+
+### 1. Install dependencies
+
+```bash
+uv sync
+```
+
+### 2. Configure secrets
+
 ```bash
 cp .env.example .env
 ```
-Update the `.env` with your `OPENAI_API_KEY` and `TELEGRAM_BOT_TOKEN`.
 
-### 3. Running the Project
+Edit `.env` and set:
 
-#### 🐳 Using Docker (Recommended)
-This starts the FastAPI service, Qdrant, and the Telegram bot in one go:
 ```bash
-make up
+OPENAI_API_KEY=sk-...
+TELEGRAM_BOT_TOKEN=...
 ```
 
-#### 🐍 Running Locally (Manual Development)
-If you want to run services individually for development:
-
-1. **Start Qdrant**:
-   ```bash
-   docker compose up -d qdrant
-   ```
-
-2. **Ingest Data**:
-   The ingestion pipeline automatically parses WhatsApp logs, aggregates QA pairs, synthesizes knowledge via LLM, and populates Qdrant:
-   ```bash
-   # 1. Put WhatsApp export in data/chat-19012021-20022026.txt
-   # 2. Run the full unified pipeline:
-   make ingest
-   ```
-   Processed artifacts (classified chats, QA JSONs, and synthesis results) will be grouped in `artifacts/<chat-filename-stem>/`.
-
-3. **Run API**:
-   ```bash
-   make run-api
-   ```
-
-4. **Run Telegram Bot**:
-   ```bash
-   make run-bot
-   ```
+`APP_ENV` defaults to `dev` — only set it explicitly if you want `prod`.
 
 ---
 
-## 🤝 Onboarding for New Contributors
+## Running the project
 
-Welcome to the team! Here's how to navigate the codebase efficiently:
+All commands go through `make`. The `ENV` variable controls which environment config is loaded from `config/base.yaml`.
 
-### 💡 Core Concepts
-*   **Agent Orquestration**: We use a ReAct pattern (Reasoning + Acting). The agent first classifies the **Intent**, then selects a **Category**, and finally searches the KB to synthesize an answer.
-*   **Domain-Driven**: The business logic lives in `api/src/habitantes/domain`. Infrastructure concerns (API routes, database clients) are in `infrastructure/`.
-*   **Hybrid Search**: We use RRF (Reciprocal Rank Fusion) to combine Dense (semantic) and Sparse (keyword) results from Qdrant.
+### Environments
 
-### 🔐 Environment Variables
-You must define these in your `.env`:
-*   `OPENAI_API_KEY`: Required for LLM usage.
-*   `TELEGRAM_BOT_TOKEN`: Get this from @BotFather.
-*   `APP_ENV`: `dev` (default) or `prod`.
+| Command | Effect |
+|---|---|
+| `make up` | Start all services in **dev** mode (default) |
+| `make up ENV=prod` | Start all services in **prod** mode |
+| `make build` | Build Docker images (dev) |
+| `make build ENV=prod` | Build Docker images (prod) |
+| `make down` | Stop all services |
+| `make logs` | Follow live logs from all containers |
 
-### 🔄 Standard Workflow
-1.  **Draft**: Modify logic in `domain/`.
-2.  **Verify**: Run `make test` to ensure no regressions.
-3.  **Hardening**: Ensure any new tuning parameters are added to `config/base.yaml` and not hardcoded.
-4.  **Lint**: Run `make lint-format` before committing.
+What changes between environments:
+
+| Setting | `dev` | `prod` |
+|---|---|---|
+| `api.log_level` | `DEBUG` | `WARNING` |
+| `api.eval_gate_enabled` | `false` | `true` |
+
+To add more per-environment overrides, edit the `environments:` block in [config/base.yaml](config/base.yaml).
 
 ---
 
-## 📁 Project Structure
+## Data ingestion
 
-```text
-├── api/                     # Core Backend Service
-│   └── src/habitantes/      # Domain logic, agents, and configs
-├── app/                     # Client Interfaces (Telegram Bot)
-├── config/                  # Configuration (YAML defaults per environment)
-├── data/                    # Raw data (gitignored)
-├── docs/                    # Architectural & Product documentation
-├── ingestion/               # Offline data processing pipeline
-├── infra/                   # Infrastructure config (Qdrant storage)
-└── tests/                   # Unit, Integration, and Eval suites
+Ingestion is **offline only** — never runs at query time. It parses raw WhatsApp exports, synthesizes QA pairs via LLM, and loads vectors into Qdrant.
+
+### Step 1 — Place the raw data
+
+```
+data/chat-19012021-20022026.txt   ← WhatsApp export file
+```
+
+### Step 2 — Full pipeline (parse → synthesize → load)
+
+Runs all stages end-to-end and writes artifacts to `artifacts/<chat-stem>/`.
+
+```bash
+make ingest
+```
+
+### Step 3 — Load only (skip re-synthesis)
+
+If synthesis artifacts already exist and you only need to re-index into Qdrant (e.g. after recreating the collection):
+
+```bash
+make load-only
+```
+
+Use `load-only` when:
+- You dropped and recreated the Qdrant collection
+- You changed embedding parameters and need to re-upsert existing vectors
+- The LLM synthesis step is already done and you don't want to re-run it
+
+---
+
+## Full local workflow (step by step)
+
+If you want to run services individually without Docker:
+
+```bash
+# 1. Start Qdrant only
+docker compose up -d qdrant
+
+# 2. Ingest data into Qdrant
+make ingest          # full pipeline
+# or
+make load-only       # re-index existing artifacts
+
+# 3. Start the API
+make run-api         # FastAPI on http://localhost:8000
+
+# 4. Start the Telegram bot
+make run-bot
 ```
 
 ---
 
-## 🧪 Development & Quality
+## Quality
 
-We use a `Makefile` to standardize common tasks:
+```bash
+make test            # Run pytest suite
+make lint-format     # Run pre-commit hooks (black, isort, flake8)
+make eval            # Run RAG evaluation pipeline
+make setup-hooks     # Install pre-commit hooks (first time only)
+```
 
-- **Test**: `make test` — Runs the unit test suite.
-- **Lint**: `make lint` — Checks code style (Black, Isort, Flake8).
-- **Format**: `make format` — Auto-formats the codebase.
-- **Eval**: `make eval` — Runs the RAG evaluation pipeline.
+The eval gate (`python tests/eval/run_eval.py`) must pass before any merge.
+
+---
+
+## Project structure
+
+```
+├── api/                     # FastAPI backend + domain logic
+│   └── src/habitantes/
+│       ├── domain/          # Agent, nodes, tools, prompts
+│       ├── infrastructure/  # API routes, DB clients
+│       └── config.py        # Pydantic Settings loader
+├── app/                     # Telegram bot client
+├── config/
+│   └── base.yaml            # All tuning constants + env overrides
+├── ingestion/               # Offline ETL pipeline
+├── data/                    # Raw WhatsApp exports (gitignored)
+├── artifacts/               # Ingestion outputs (gitignored)
+├── infra/                   # Qdrant storage volume
+└── tests/                   # Unit, integration, eval suites
+```
+
+---
+
+## Environment variables reference
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `OPENAI_API_KEY` | Yes | — | OpenAI API key |
+| `TELEGRAM_BOT_TOKEN` | Yes | — | Telegram bot token from @BotFather |
+| `APP_ENV` | No | `dev` | Environment selector (`dev` or `prod`) |
+| `QDRANT_URL` | No | `http://qdrant:6333` | Override Qdrant URL |
+| `MODEL_NAME` | No | `gpt-4o-mini` | Override LLM model |
