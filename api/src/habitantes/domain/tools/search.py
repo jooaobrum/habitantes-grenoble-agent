@@ -194,6 +194,74 @@ def hybrid_search(
     return {"chunks": chunks}
 
 
+def list_subcategories() -> list[str]:
+    """Fetch unique subcategories from the vector store."""
+    client = _get_qdrant_client()
+    collection = _get_collection_name()
+    try:
+        # Use scroll with a reasonable limit to find unique subcategories in the payload
+        # This keeps it simple and compatible across versions
+        points, _ = client.scroll(
+            collection_name=collection,
+            with_payload=["subcategory"],
+            limit=1000,
+        )
+        subs = set()
+        for p in points:
+            if p.payload and p.payload.get("subcategory"):
+                subs.add(p.payload["subcategory"])
+        return sorted(list(subs))
+    except Exception as exc:
+        logger.error("Failed to list subcategories: %s", exc)
+        return []
+
+
+def get_category_chunks(category: str, limit: int = 15) -> list[dict]:
+    """Fetch recent chunks from a specific category or subcategory."""
+    client = _get_qdrant_client()
+    collection = _get_collection_name()
+    try:
+        # We try to match either main category or subcategory
+        from qdrant_client.http import models as qmodels
+
+        q_filter = qmodels.Filter(
+            should=[
+                qmodels.FieldCondition(
+                    key="category", match=qmodels.MatchValue(value=category)
+                ),
+                qmodels.FieldCondition(
+                    key="subcategory", match=qmodels.MatchValue(value=category)
+                ),
+            ]
+        )
+
+        points, _ = client.scroll(
+            collection_name=collection,
+            scroll_filter=q_filter,
+            limit=limit,
+            with_payload=True,
+        )
+
+        chunks = []
+        for p in points:
+            pl = p.payload or {}
+            chunks.append(
+                {
+                    "text": pl.get("answer", ""),
+                    "question": pl.get("question", ""),
+                    "answer": pl.get("answer", ""),
+                    "source": pl.get("subcategory") or str(pl.get("thread_id", "")),
+                    "thread_id": pl.get("thread_id"),
+                    "date": pl.get("thread_start", ""),
+                    "category": pl.get("category", ""),
+                }
+            )
+        return chunks
+    except Exception as exc:
+        logger.error("Failed to fetch category chunks: %s", exc)
+        return []
+
+
 # ── LangChain tool wrapper (for ReAct agent) ─────────────────────────────────
 
 
@@ -202,7 +270,7 @@ def _make_search_tool():
     from langchain_core.tools import tool
 
     @tool
-    def search_knowledge_base(query: str, category: str = "") -> str:
+    def search_knowledge_base(query: str, category: str = "") -> Any:
         """Search the knowledge base of Brazilian expats in Grenoble.
 
         Use this tool to find information about life in Grenoble for Brazilian
@@ -236,13 +304,59 @@ def _make_search_tool():
             text = chunk.get("text") or chunk.get("answer", "")
             parts.append(f"[{i}] Categoria: {cat} | Data: {date}\n{text}")
 
-        return "\n\n".join(parts)
+        return {
+            "formatted": "\n\n".join(parts),
+            "chunks": chunks,
+        }
 
     return search_knowledge_base
 
 
-# Lazy singleton so import doesn't fail without langchain_core installed
+def _make_list_subcategories_tool():
+    from langchain_core.tools import tool
+
+    @tool
+    def list_knowledge_subcategories() -> str:
+        """Get a list of all specific subcategories available in the knowledge base.
+        Use this when standard search fails or you need to see what specific topics exist.
+        """
+        subs = list_subcategories()
+        if not subs:
+            return "Nenhuma subcategoria encontrada."
+        return "Subcategorias disponíveis:\n" + "\n".join(f"- {s}" for s in subs)
+
+    return list_knowledge_subcategories
+
+
+def _make_get_category_chunks_tool():
+    from langchain_core.tools import tool
+
+    @tool
+    def get_chunks_by_category(category: str) -> str:
+        """Fetch several recent information chunks from a specific category or subcategory.
+        Use this for a 'deep dive' when you know a relevant subcategory but search results were weak.
+
+        Args:
+            category: The name of the category or subcategory to explore.
+        """
+        chunks = get_category_chunks(category)
+        if not chunks:
+            return f"Nenhum resultado encontrado para a categoria '{category}'."
+
+        parts = []
+        for i, chunk in enumerate(chunks, 1):
+            text = chunk.get("text") or chunk.get("answer", "")
+            parts.append(f"[{i}] {text}")
+
+        return "\n\n".join(parts)
+
+    return get_chunks_by_category
+
+
+# Lazy singletons
 _search_tool = None
+_list_subs_tool = None
+_get_cat_chunks_tool = None
 
 
 def get_search_tool():
@@ -251,3 +365,17 @@ def get_search_tool():
     if _search_tool is None:
         _search_tool = _make_search_tool()
     return _search_tool
+
+
+def get_list_subcategories_tool():
+    global _list_subs_tool
+    if _list_subs_tool is None:
+        _list_subs_tool = _make_list_subcategories_tool()
+    return _list_subs_tool
+
+
+def get_get_category_chunks_tool():
+    global _get_cat_chunks_tool
+    if _get_cat_chunks_tool is None:
+        _get_cat_chunks_tool = _make_get_category_chunks_tool()
+    return _get_cat_chunks_tool

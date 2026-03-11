@@ -68,6 +68,8 @@ class AgentConfig(BaseModel):
 
 
 class CacheConfig(BaseModel):
+    enabled: bool = True
+    max_size: int = 256
     ttl_seconds: int = 3600
 
 

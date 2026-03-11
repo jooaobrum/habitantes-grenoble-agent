@@ -38,6 +38,11 @@ class TestConfig(unittest.TestCase):
                 "max_history": 5,
                 "temperature": 0.0,
             },
+            "cache": {
+                "enabled": True,
+                "max_size": 256,
+                "ttl_seconds": 3600,
+            },
             "environments": {
                 "dev": {
                     "vector_store": {"collection_name": "dev_base"},
@@ -75,6 +80,9 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(settings.vector_store.collection_name, "dev_base")
             self.assertEqual(settings.api.log_level, "DEBUG")
             self.assertEqual(settings.app_env, "dev")
+            self.assertTrue(settings.cache.enabled)
+            self.assertEqual(settings.cache.max_size, 256)
+            self.assertEqual(settings.cache.ttl_seconds, 3600)
 
     @patch("builtins.open", new_callable=mock_open)
     @patch(

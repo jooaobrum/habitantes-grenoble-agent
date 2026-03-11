@@ -36,7 +36,11 @@ from habitantes.domain.categories import (
 from habitantes.domain.prompts.intent import build_intent_messages
 from habitantes.domain.prompts.synthesis import REACT_SYSTEM_PROMPT
 from habitantes.domain.state import AgentState
-from habitantes.domain.tools import get_search_tool, hybrid_search
+from habitantes.domain.tools import (
+    get_get_category_chunks_tool,
+    get_list_subcategories_tool,
+    get_search_tool,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -232,12 +236,21 @@ def _run_react_loop(state: AgentState) -> dict:
 
     llm = _get_llm()
     search_tool = get_search_tool()
-    tool_map = {search_tool.name: search_tool}
+    list_subs_tool = get_list_subcategories_tool()
+    get_cat_chunks_tool = get_get_category_chunks_tool()
+
+    tool_map = {
+        search_tool.name: search_tool,
+        list_subs_tool.name: list_subs_tool,
+        get_cat_chunks_tool.name: get_cat_chunks_tool,
+    }
 
     # Only bind tools for qa intent (other intents don't need search)
     needs_tools = intent == "qa" and len(state.get("message", "").strip()) >= 10
     if needs_tools:
-        llm_with_tools = llm.bind_tools([search_tool])
+        llm_with_tools = llm.bind_tools(
+            [search_tool, list_subs_tool, get_cat_chunks_tool]
+        )
     else:
         llm_with_tools = llm
 
@@ -267,12 +280,17 @@ def _run_react_loop(state: AgentState) -> dict:
 
                 tool_result = tool_map[tool_name].invoke(tool_args)
 
-                # Track chunks for eval (parse from tool result if possible)
-                _track_chunks(tool_args.get("query", ""), state, context_chunks)
+                # If tool_result is a dict with "chunks" (from search_knowledge_base), capture them
+                if isinstance(tool_result, dict) and "chunks" in tool_result:
+                    context_chunks.clear()
+                    context_chunks.extend(tool_result["chunks"])
+                    tool_content = tool_result["formatted"]
+                else:
+                    tool_content = str(tool_result)
 
                 msgs.append(
                     ToolMessage(
-                        content=str(tool_result),
+                        content=tool_content,
                         tool_call_id=tool_call["id"],
                     )
                 )
@@ -316,20 +334,6 @@ def _run_react_loop(state: AgentState) -> dict:
         "timings": timings,
         "error": None,
     }
-
-
-def _track_chunks(query: str, state: AgentState, context_chunks: list[dict]) -> None:
-    """Track retrieved chunks for eval metrics by re-calling hybrid_search."""
-    settings = load_settings()
-    category = state.get("category", "")
-    result = hybrid_search(
-        query=query or state["message"],
-        categories=[category] if category else None,
-        top_k=settings.search.top_k,
-    )
-    if "chunks" in result:
-        context_chunks.clear()
-        context_chunks.extend(result["chunks"])
 
 
 def _compute_confidence(intent: str, chunks: list, top_score: float) -> float:

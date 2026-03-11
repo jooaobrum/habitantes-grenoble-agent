@@ -137,7 +137,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     source_links = []
                     for s in sources[:3]:
                         # Using category/date as source description
-                        desc = f"{s.get('category' or 'Geral')} ({s.get('date' or 'Recente')})"
+                        desc = f"{s.get('category') or 'Geral'} ({s.get('date') or 'Recente'})"
                         source_links.append(f"• {desc}")
 
                     if source_links:
