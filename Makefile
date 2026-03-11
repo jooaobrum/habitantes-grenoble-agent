@@ -24,10 +24,10 @@ run-bot:
 	uv run python app/telegram_bot.py
 
 ingest:
-	PYTHONPATH=$$(pwd)/api/src uv run python ingestion/pipeline.py
+	uv run python ingestion/pipeline.py
 
 load-only:
-	PYTHONPATH=$$(pwd)/api/src uv run python ingestion/load_only.py
+	uv run python ingestion/load_only.py
 # ── Quality & Linting ────────────────────────────────────────────────────────
 setup-hooks:
 	pre-commit install
