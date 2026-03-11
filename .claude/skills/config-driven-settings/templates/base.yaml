@@ -1,0 +1,48 @@
+# base.yaml — shared config for all environments
+# Override per-environment in dev.yaml / prod.yaml
+# Values here are safe defaults; never put secrets here.
+
+app:
+  name: "my-agent"
+  version: "0.1.0"
+  log_level: "INFO"
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  timeout_seconds: 30
+
+# LLM / GenAI configuration
+# Override model and temperature per environment as needed.
+llm:
+  provider: "azure_openai"          # azure_openai | openai | anthropic
+  model: "gpt-4o"
+  temperature: 0.0                  # 0.0 for factual/grounded tasks
+  max_tokens: 1024
+  timeout_seconds: 10
+  max_retries: 2
+
+# Embedding model (used by ingestion; must match vector store index)
+embedding:
+  model: "text-embedding-3-small"
+  dimensions: 1536
+  batch_size: 32
+
+# Retrieval / vector store
+retrieval:
+  top_k: 5                          # chunks returned per query
+  similarity_threshold: 0.70        # minimum score to include a chunk
+  collection_name: "documents"
+
+# Ingestion pipeline
+ingestion:
+  chunk_size: 512                   # tokens per chunk
+  chunk_overlap: 50
+  supported_extensions: [".pdf"]
+  manifest_path: "ingestion/manifest.json"
+
+# Evaluation
+evaluation:
+  cases_path: "tests/eval/cases/"
+  min_accuracy: 0.75                # gate: fail if below
+  max_unsafe_rate: 0.0              # gate: fail if above

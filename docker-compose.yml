@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  # ── Vector Store ──────────────────────────────────────────────────────────
+  qdrant:
+    image: qdrant/qdrant:v1.12.0
+    expose:
+      - "6333"
+    volumes:
+      - ./infra/qdrant_storage:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/6333 && echo -e 'GET / HTTP/1.0\r\n\r\n' >&3 && cat <&3 | grep -q qdrant"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI Backend ───────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    env_file: .env
+    environment:
+      - CONFIG_DIR=/app/config
+      - APP_ENV=${APP_ENV:-dev}
+    expose:
+      - "8000"
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    volumes:
+      - ./config:/app/config
+    command: uv run uvicorn habitantes.infrastructure.api.main:app --host 0.0.0.0 --port 8000 --workers 2
+
+  # ── Telegram Bot ──────────────────────────────────────────────────────────
+  telegram-bot:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+    env_file: .env
+    environment:
+      - CONFIG_DIR=/app/config
+      - APP_ENV=${APP_ENV:-dev}
+    depends_on:
+      api:
+        condition: service_started
+    volumes:
+      - ./config:/app/config
+    command: uv run python /app/app/telegram_bot.py
+
+networks:
+  default:
+    name: expat-network

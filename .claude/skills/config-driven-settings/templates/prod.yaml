@@ -1,0 +1,18 @@
+# prod.yaml — production overrides
+# Loaded when APP_ENV=prod
+
+app:
+  log_level: "WARNING"
+
+llm:
+  model: "gpt-4o"
+  temperature: 0.0
+  timeout_seconds: 8
+
+retrieval:
+  top_k: 5
+  similarity_threshold: 0.72
+
+evaluation:
+  min_accuracy: 0.75
+  max_unsafe_rate: 0.0

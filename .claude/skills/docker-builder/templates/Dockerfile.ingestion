@@ -1,0 +1,21 @@
+# syntax=docker/dockerfile:1.7
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    openssh-client \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt* /app/
+RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi
+
+# Private deps via SSH (optional)
+# RUN --mount=type=ssh pip install --no-cache-dir "git+ssh://git@github.com/<org>/<repo>.git@<ref>"
+
+COPY . /app
+CMD ["python", "-m", "ingestion.pipelines.run"]

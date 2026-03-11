@@ -1,0 +1,41 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+      # For SSH private deps:
+      # ssh:
+      #   - default
+    env_file:
+      - ../.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ..:/app
+    command: ["python", "-m", "app.api.main"]
+
+  ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ui
+    env_file:
+      - ../.env
+    ports:
+      - "8501:8501"
+    volumes:
+      - ..:/app
+    depends_on:
+      - api
+
+  # Optional one-off ingestion service:
+  # ingestion:
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/Dockerfile.ingestion
+  #     # ssh:
+  #     #   - default
+  #   env_file:
+  #     - ../.env
+  #   volumes:
+  #     - ..:/app
+  #   command: ["python", "-m", "ingestion.pipelines.run"]

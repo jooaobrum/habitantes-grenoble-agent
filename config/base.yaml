@@ -1,0 +1,144 @@
+# ── Global Defaults ──────────────────────────────────────────────────────────
+llm:
+  model_name: "gpt-4o-mini"
+  embedding_model_name: "intfloat/multilingual-e5-large"
+
+vector_store:
+  qdrant_url: "http://qdrant:6333"
+
+api:
+  rate_limit_per_hour: 100
+  max_tokens_per_response: 1024
+  request_timeout_seconds: 30
+  eval_gate_enabled: true
+
+telegram:
+  api_url: "http://api:8000"
+  rate_limit_per_minute: 5
+  max_message_length: 2000
+
+# ── Search & Ranking (single source of truth for tuning) ─────────────────────
+search:
+  dense_prefetch_k: 80
+  sparse_prefetch_k: 120
+  fused_k: 50
+  top_k: 5
+  w_dense: 0.7
+  w_sparse: 0.3
+  rrf_k: 60
+
+ranking:
+  anchor_bonus: 0.05
+  rerank_top_k: 40
+  date_decay_lambda: 0.0005
+  min_token_length: 4
+
+# ── Agent orchestration ──────────────────────────────────────────────────────
+agent:
+  max_react_iterations: 5
+  max_history: 5
+  temperature: 0.0
+
+# ── Response cache ───────────────────────────────────────────────────────────
+cache:
+  enabled: true
+  max_size: 256
+  ttl_seconds: 3600
+
+# ── Observability ───────────────────────────────────────────────────────────
+logging:
+  interaction_path: "logs/interactions.jsonl"
+  rotation: "10 MB"
+  retention: "30 days"
+
+# ── Categories (single source of truth) ──────────────────────────────────────
+# pt_name: shown to users (Portuguese)
+# en_name: used for Qdrant category filter (must match ingestion payload)
+categories:
+  - pt_name: "Visto & Residência"
+    en_name: "Visa & Residency"
+  - pt_name: "Bancos & Finanças"
+    en_name: "Banking & Finance"
+  - pt_name: "Moradia & CAF"
+    en_name: "Housing & CAF"
+  - pt_name: "Saúde & Seguros"
+    en_name: "Health & Insurance"
+  - pt_name: "Universidade & Estudos"
+    en_name: "University & Studies"
+  - pt_name: "Trabalho & Estágio"
+    en_name: "Work & Internship"
+  - pt_name: "Documentos & Burocracia"
+    en_name: "Documents & Bureaucracy"
+  - pt_name: "Vida Diária & Serviços"
+    en_name: "Daily Life & Services"
+  - pt_name: "Viagem & Transporte"
+    en_name: "Travel & Transport"
+  - pt_name: "Integração & Idioma"
+    en_name: "Integration & Language"
+  - pt_name: "Ski & Trilhas"
+    en_name: "Ski & Trekking"
+  - pt_name: "Alimentação & Restaurantes"
+    en_name: "Food & Restaurants"
+  - pt_name: "Esportes & Atividades"
+    en_name: "Sports & Activities"
+  - pt_name: "Vida Noturna & Eventos"
+    en_name: "Nightlife & Events"
+  - pt_name: "Bairros & Segurança"
+    en_name: "Neighbourhood & Safety"
+  - pt_name: "Compra & Venda"
+    en_name: "Marketplace & Buy/Sell"
+  - pt_name: "Cabelo & Beleza"
+    en_name: "Hair & Beauty"
+  - pt_name: "Pets & Animais"
+    en_name: "Pets & Animals"
+  - pt_name: "Telefone & Telecom"
+    en_name: "Phone & Telecom"
+
+# ── Environment Specifics ─────────────────────────────────────────────────────
+environments:
+  dev:
+    vector_store:
+      collection_name: "habitantes_chat_kb_hybrid"
+    api:
+      log_level: "DEBUG"
+      eval_gate_enabled: false
+    ingestion:
+      collection_name: "habitantes_chat_kb_hybrid"
+      overwrite_collection: false
+
+  prod:
+    vector_store:
+      collection_name: "habitantes_chat_kb_hybrid"
+    api:
+      log_level: "WARNING"
+      eval_gate_enabled: true
+    ingestion:
+      collection_name: "habitantes_chat_kb_hybrid"
+      overwrite_collection: false
+
+# ── Ingestion Pipeline ────────────────────────────────────────────────────────
+ingestion:
+  data_dir: "data"
+  artifacts_dir: "artifacts"
+  input_file: "chat-19012021-20022026.txt"
+  parser:
+    timestamp_format: "%d/%m/%y, %H:%M:%S"
+  qa:
+    thread_gap_h: 3
+    answer_window_h: 2
+    context_window: 5
+    tier_high: 50
+    tier_medium: 20
+  synthesis:
+    prompt_path: "ingestion/prompts/synthesis_prompt.txt"
+    model: "gpt-4o-mini"
+    temperature: 0.2
+    max_retries: 4
+    retry_base_sleep_s: 1.5
+    start_time: "2024-02-15T00:00:00"
+    end_time: "2027-12-31T23:59:59"
+    overwrite: true
+  load:
+    dense_batch_size: 64
+    qdrant_upsert_batch: 128
+    save_concat_jsonl: true # Whether to save the final filtered concat file

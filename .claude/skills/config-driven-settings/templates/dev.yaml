@@ -1,0 +1,15 @@
+# dev.yaml — development overrides
+# Loaded when APP_ENV=dev (default for local runs)
+
+app:
+  log_level: "DEBUG"
+
+llm:
+  model: "gpt-4o-mini"             # cheaper model for local dev
+  temperature: 0.0
+
+retrieval:
+  top_k: 3                         # smaller for faster local iteration
+
+evaluation:
+  min_accuracy: 0.60               # relaxed gate for dev

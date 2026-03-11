@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1.7
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    openssh-client \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install deps first for caching
+COPY pyproject.toml poetry.lock* requirements.txt* /app/
+RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi
+
+# Optional: Poetry (uncomment if used)
+# RUN pip install --no-cache-dir poetry && poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi
+
+# Private deps via SSH (optional)
+# Build with: DOCKER_BUILDKIT=1 docker build --ssh default -f docker/Dockerfile.api .
+# RUN --mount=type=ssh pip install --no-cache-dir "git+ssh://git@github.com/<org>/<repo>.git@<ref>"
+
+COPY . /app
+
+EXPOSE 8000
+CMD ["python", "-m", "app.api.main"]
