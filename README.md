@@ -169,6 +169,111 @@ The eval gate (`python tests/eval/run_eval.py`) must pass before any merge.
 
 ---
 
+## Deploying to a VPS (production)
+
+### 1. Connect to the VPS
+
+```bash
+ssh root@<your-vps-ip>
+```
+
+### 2. Install Docker
+
+```bash
+curl -fsSL https://get.docker.com | sh
+usermod -aG docker $USER
+apt-get install -y docker-compose-plugin
+# Log out and back in for group change to take effect
+```
+
+### 3. Secure the server
+
+```bash
+# Firewall — only allow SSH (no need to open 8000 or 6333)
+ufw default deny incoming
+ufw allow ssh
+ufw enable
+```
+
+### 4. Install uv
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.cargo/env   # or start a new shell
+```
+
+### 5. Clone the repo and configure secrets
+
+```bash
+git clone https://github.com/jooaobrum/habitantes-grenoble-agent.git
+cd habitantes-grenoble-agent
+cp .env.example .env
+nano .env          # fill OPENAI_API_KEY and TELEGRAM_BOT_TOKEN
+chmod 600 .env
+```
+
+### 6. Install Python dependencies
+
+```bash
+uv sync
+```
+
+This creates a `.venv` from `pyproject.toml`. Required before running ingestion outside Docker.
+
+### 7. Upload data and run ingestion
+
+Transfer the gitignored data from your local machine:
+
+```bash
+# From your local machine
+scp -r ./data ./artifacts root@<your-vps-ip>:/root/habitantes-grenoble-agent/
+```
+
+Then on the VPS, start Qdrant and load the vectors:
+
+```bash
+docker compose up -d qdrant
+
+# If artifacts are already synthesized locally (recommended — skips OpenAI calls):
+uv run python ingestion/load_only.py
+
+# Or run the full pipeline from scratch (parses + synthesizes + loads):
+uv run python ingestion/pipeline.py
+```
+
+Alternatively, if you want to reuse vectors already stored in Qdrant from a previous local run:
+
+```bash
+# From your local machine
+scp -r ./infra/qdrant_storage root@<your-vps-ip>:/root/habitantes-grenoble-agent/infra/
+```
+
+### 8. Start the services
+
+```bash
+make up ENV=prod
+# or directly:
+APP_ENV=prod docker compose up -d --build
+```
+
+### 9. Verify everything is running
+
+```bash
+docker compose ps
+docker compose logs -f
+```
+
+All three containers (`qdrant`, `api`, `telegram-bot`) should be healthy. The Telegram bot uses long-polling — no domain or reverse proxy needed.
+
+### Updating the deployment
+
+```bash
+git pull origin main
+APP_ENV=prod docker compose up -d --build
+```
+
+---
+
 ## Environment variables reference
 
 | Variable | Required | Default | Description |

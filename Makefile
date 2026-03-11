@@ -21,25 +21,25 @@ run-api:
 	cd api && uvicorn habitantes.infrastructure.api.main:app --reload --host 0.0.0.0 --port 8000
 
 run-bot:
-	python app/telegram_bot.py
+	uv run python app/telegram_bot.py
 
 ingest:
-	export PYTHONPATH=$$PYTHONPATH:$$(pwd)/api/src && python3 ingestion/pipeline.py
+	PYTHONPATH=$$(pwd)/api/src uv run python ingestion/pipeline.py
 
 load-only:
-	export PYTHONPATH=$$PYTHONPATH:$$(pwd)/api/src && python3 ingestion/load_only.py
+	PYTHONPATH=$$(pwd)/api/src uv run python ingestion/load_only.py
 # ── Quality & Linting ────────────────────────────────────────────────────────
 setup-hooks:
 	pre-commit install
 
 test:
-	pytest tests/ -v
+	uv run pytest tests/ -v
 
 lint-format:
-	pre-commit run --all-files
+	uv run pre-commit run --all-files
 
 eval:
-	python tests/eval/run_eval.py
+	uv run python tests/eval/run_eval.py
 
 # ── Help ───────────────────────────────────────────────────────────────────
 help:
