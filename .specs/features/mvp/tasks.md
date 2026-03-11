@@ -120,11 +120,68 @@
   - Delete old numbered scripts.
   **Done when:** `python -m ingestion.run all` runs the full pipeline successfully.
 
+## Phase 6.5: Bug Fixes & Retrieval Improvement
+
+- [x] **T6.6 — Fix CacheConfig missing fields**
+  `api/src/habitantes/config.py` — `CacheConfig` only has `ttl_seconds`, but `base.yaml` and `cache.py` expect `enabled` and `max_size`. Causes `AttributeError` at runtime.
+  - Add `enabled: bool = True` and `max_size: int = 256` to `CacheConfig`.
+  - Update `tests/unit/test_config.py` to cover new fields.
+  **Done when:** `load_settings().cache.enabled` works; `pytest tests/unit/test_config.py` passes.
+
+- [x] **T6.7 — Fix double search in agent**
+  `api/src/habitantes/domain/agent.py` — `_track_chunks()` re-calls `hybrid_search` after the tool already searched in the ReAct loop. Redundant latency.
+  - Capture chunks from the tool result directly instead of re-searching.
+  **Done when:** only 1 search call per QA turn; `pytest tests/ -v` passes.
+
+- [x] **T6.8 — Fix Telegram source formatting**
+  `app/telegram_bot.py` — `s.get('category' or 'Geral')` uses wrong operator precedence; fallback never triggers.
+  - Fix to `s.get('category') or 'Geral'` (same for `date`).
+  **Done when:** sources display correctly with fallback when fields are missing.
+
+- [ ] **T6.9 — Cross-encoder reranking**
+  Add cross-encoder model (`cross-encoder/ms-marco-MiniLM-L-6-v2`) to re-score top-N candidates after RRF fusion, before final top-k selection. Runs locally, no API cost. Expected: 67% retrieval error reduction.
+  - `domain/tools/_ranking.py` — add `rerank_with_cross_encoder()` step.
+  - `config/base.yaml` — add `ranking.reranker_model`, `ranking.reranker_top_n`.
+  - `config.py` — add fields to `RankingConfig`.
+  **Done when:** reranking active; `python tests/eval/run_eval.py` exits 0.
+
+- [ ] **T6.10 — Re-evaluate and update report**
+  Run full eval suite after all fixes + reranking. Save updated `tests/eval/report.json`.
+  - Document metric deltas (recall@5, context_precision, hit_rate@5, answer_relevance).
+  **Done when:** `report.json` updated; all gates pass; metric comparison documented.
+
+- [x] **T6.11 — Deep-dive retrieval tools**
+  Implement `list_knowledge_subcategories` and `get_chunks_by_category` tools to help the agent explore specific topics when standard search is insufficient. Update system prompt to use them.
+  **Done when:** tools added to agent; verification test passes; evaluation shows better handling of edge cases.
+
 ## Phase 7: CI/CD & Deployment
 
 - [ ] **T7.1 — CI/CD pipeline**
   Set up GitHub Actions workflow to run lint, tests, build Docker images, and push to a container registry on each push.
+  CI:
+    lint/tests
+    image build
+    registry push
+    tagged release
+
+  CD:
+    SSH deploy from CI
+    pull and restart services
+    smoke test
+    rollback
+
+
 
 - [ ] **T7.2 — Deploy to VPS**
-  Create deployment scripts that pull the latest images on the VPS and run `docker compose up -d`.
+  Create deployment scripts that pull the latest images on the VPS and run `make up ENV = X`.
   Integrate CI to trigger deployment on successful builds.
+
+  - [ ] **T7.3 — Add monitoring**
+  Create simple monitoring for:
+  Docker
+  containers
+  disk usage
+  CPU
+  memory
+  network
+  health
