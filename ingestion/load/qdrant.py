@@ -195,9 +195,7 @@ def run_qdrant_loader(
     overwrite_collection: bool = False,
     save_concat_jsonl: Optional[Path] = None,
 ) -> None:
-    qdrant_url = os.getenv("QDRANT_URL")
-    if not qdrant_url:
-        raise EnvironmentError("QDRANT_URL not found in environment")
+    qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
 
     qclient = QdrantClient(url=qdrant_url, api_key=os.getenv("QDRANT_API_KEY"))
 
