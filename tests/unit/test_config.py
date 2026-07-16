@@ -16,7 +16,7 @@ class TestConfig(unittest.TestCase):
                 "embedding_model_name": "intfloat/multilingual-e5-small",
             },
             "vector_store": {"qdrant_url": "http://qdrant:6333"},
-            "api": {"rate_limit_per_hour": 100, "eval_gate_enabled": True},
+            "api": {"rate_limit_per_hour": 100},
             "telegram": {"api_url": "http://api:8000"},
             "search": {
                 "dense_prefetch_k": 80,

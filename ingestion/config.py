@@ -30,7 +30,7 @@ class SynthesisConfig(BaseModel):
 
 
 class LoadConfig(BaseModel):
-    collection_name: str = "habitantes_chat_kb_hybrid_2"
+    collection_name: str = "habitantes_qa_chat_kb"
     dense_batch_size: int = 64
     qdrant_upsert_batch: int = 128
     overwrite_collection: bool = False

@@ -8,32 +8,30 @@ _DENSE_VECTOR = "dense"
 _SPARSE_VECTOR = "sparse"
 _SPARSE_MODEL = "Qdrant/bm25"
 
-_dense_model = None
+_openai_client = None
 _sparse_model = None
 
 
-def _get_collection_name() -> str:
-    global _collection_name
-    if _collection_name is None:
-        from habitantes.config import load_settings
-
-        _collection_name = load_settings().vector_store.collection_name
-    return _collection_name
-
-
-def _get_dense_model():
-    global _dense_model
-    if _dense_model is None:
-        from sentence_transformers import SentenceTransformer
+def _get_openai_client():
+    global _openai_client
+    if _openai_client is None:
+        from openai import OpenAI
 
         from habitantes.config import load_settings
 
         settings = load_settings()
-        _dense_model = SentenceTransformer(
-            settings.llm.embedding_model_name,
-            cache_folder=None,
-        )
-    return _dense_model
+        _openai_client = OpenAI(api_key=settings.llm.openai_api_key)
+    return _openai_client
+
+
+def _embed_texts(texts: list[str]) -> list[list[float]]:
+    """Dense-embed a batch of texts with OpenAI. Vectors are L2-normalized."""
+    from habitantes.config import load_settings
+
+    client = _get_openai_client()
+    model = load_settings().llm.embedding_model_name
+    resp = client.embeddings.create(model=model, input=texts)
+    return [d.embedding for d in resp.data]
 
 
 def _get_sparse_model():
@@ -58,14 +56,8 @@ def _embed_sparse_query(query: str) -> qmodels.SparseVector:
     )
 
 
-# ── Dense embedding (query side — E5 convention) ──────────────────────────────
+# ── Dense embedding (query side) ──────────────────────────────────────────────
 
 
 def _embed_query(query: str) -> list[float]:
-    model = _get_dense_model()
-    vec = model.encode(
-        [f"query: {query}"],
-        show_progress_bar=False,
-        normalize_embeddings=True,
-    )[0]
-    return vec.tolist()  # type: ignore[return-value]
+    return _embed_texts([query])[0]

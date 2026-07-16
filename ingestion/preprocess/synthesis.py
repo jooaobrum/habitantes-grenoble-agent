@@ -93,12 +93,13 @@ async def synthesize_qa(
                 return None
 
             result = row.copy()
+            result["raw_answer"] = row.get("answer")  # keep lineage of the raw chat
             result.update(
                 {
                     "category": parsed.category,
                     "subcategory": parsed.subcategory,
                     "question": parsed.question,
-                    "synthetic_answer": parsed.answer,
+                    "answer": parsed.answer,
                     "answer_confirmed": parsed.answer_confirmed,
                     "info_might_be_outdated": parsed.info_might_be_outdated,
                     "tags": parsed.tags,

@@ -1,16 +1,17 @@
 # ── Global Defaults ──────────────────────────────────────────────────────────
 llm:
   model_name: "gpt-4o-mini"
-  embedding_model_name: "intfloat/multilingual-e5-large"
+  embedding_model_name: "text-embedding-3-small"
 
 vector_store:
   qdrant_url: "http://qdrant:6333"
+  qdrant_timeout_seconds: 3
 
 api:
   rate_limit_per_hour: 100
   max_tokens_per_response: 1024
   request_timeout_seconds: 30
-  eval_gate_enabled: true
+  openai_timeout_seconds: 8
 
 telegram:
   api_url: "http://api:8000"
@@ -26,6 +27,16 @@ search:
   w_dense: 0.7
   w_sparse: 0.3
   rrf_k: 60
+  # Relevance gate: minimum dense cosine similarity (query↔stored question) for a
+  # chunk to be kept. If no chunk clears this floor the agent returns the no-results
+  # fallback without an LLM synthesis call. This is a *backstop* — clearly off-topic
+  # queries are already rejected upstream by intent classification (out_of_scope),
+  # so this floor only guards qa-intent questions with weak retrieval.
+  # Tuned for OpenAI text-embedding-3-small: on the 38-case golden set the lowest
+  # true-positive top dense = 0.6504 (with category filter). 0.55 leaves ~0.10 margin
+  # so the agent's query rephrasing can't gate real matches, while still dropping
+  # genuinely weak retrievals.
+  min_relevance: 0.55
 
 ranking:
   anchor_bonus: 0.05
@@ -98,22 +109,20 @@ categories:
 environments:
   dev:
     vector_store:
-      collection_name: "habitantes_chat_kb_hybrid"
+      collection_name: "habitantes_qa_chat_kb"
     api:
       log_level: "DEBUG"
-      eval_gate_enabled: false
     ingestion:
-      collection_name: "habitantes_chat_kb_hybrid"
+      collection_name: "habitantes_qa_chat_kb"
       overwrite_collection: false
 
   prod:
     vector_store:
-      collection_name: "habitantes_chat_kb_hybrid"
+      collection_name: "habitantes_qa_chat_kb"
     api:
       log_level: "WARNING"
-      eval_gate_enabled: true
     ingestion:
-      collection_name: "habitantes_chat_kb_hybrid"
+      collection_name: "habitantes_qa_chat_kb"
       overwrite_collection: false
 
 # ── Ingestion Pipeline ────────────────────────────────────────────────────────
