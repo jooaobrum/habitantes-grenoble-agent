@@ -217,6 +217,3 @@ logs/
 
 .claude/checkpoints/
 .claude/SUGGESTIONS.md
-
-# Large generated eval/ingestion data artifacts
-tests/eval/fixtures/
