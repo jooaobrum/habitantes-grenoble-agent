@@ -1,6 +1,10 @@
-.PHONY: build up down logs run test lint eval help
+.PHONY: build up down logs run test lint eval install help
 
 ENV ?= dev
+
+# ── Setup ────────────────────────────────────────────────────────────────────
+install:
+	uv sync --extra dev
 
 # ── Docker management ───────────────────────────────────────────────────────
 build:
@@ -27,13 +31,13 @@ ingest:
 	uv run env PYTHONPATH=$(CURDIR):$(CURDIR)/api/src python ingestion/pipeline.py
 
 load-only:
-	uv run env PYTHONPATH=$(CURDIR):$(CURDIR)/api/src python ingestion/load_only.py
+	uv run env PYTHONPATH=$(CURDIR):$(CURDIR)/api/src python ingestion/load_only.py $(if $(INPUT_FILE),--input_file $(INPUT_FILE),)
 # ── Quality & Linting ────────────────────────────────────────────────────────
 setup-hooks:
 	pre-commit install
 
 test:
-	uv run pytest tests/ -v
+	uv run pytest tests/ api/tests -v
 
 lint-format:
 	uv run pre-commit run --all-files
@@ -50,6 +54,9 @@ help:
 	@echo "  make up ENV=prod   Start all services in prod mode"
 	@echo "  make down          Stop all services"
 	@echo "  make logs          Follow logs"
+	@echo ""
+	@echo "Setup:"
+	@echo "  make install     Sync runtime + dev dependencies (uv sync --extra dev)"
 	@echo ""
 	@echo "Local Dev (requires venv):"
 	@echo "  make run-api     Run FastAPI service with reload"

@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
@@ -11,49 +11,57 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pre-commit
-          pip install -r api/requirements.txt
-          pip install -r app/requirements.txt
+        run: uv sync --extra dev
 
-      - name: Run lint and format checks
-        run: make lint-format
+      - name: Lint and format checks (pre-commit)
+        run: uvx pre-commit run --all-files
 
-      - name: Run tests
-        run: make test
+      - name: Run unit tests
+        run: uv run pytest tests/unit api/tests
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+  eval:
+    runs-on: ubuntu-latest
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
+    services:
+      qdrant:
+        image: qdrant/qdrant:v1.12.0
+        ports:
+          - 6333:6333
+
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      QDRANT_URL: http://localhost:6333
+      APP_ENV: dev
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          python-version: "3.12"
 
-      - name: Build and push Docker images
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/habitantes-grenoble-agent:latest
+      - name: Install dependencies
+        run: uv sync --extra dev
 
-      - name: Trigger deployment on VPS
-        uses: appleboy/ssh-action@v0.1.7
+      - name: Load eval fixture into Qdrant
+        run: make load-only INPUT_FILE=tests/eval/fixtures/synthesis_results.jsonl
+
+      - name: Run eval gate
+        run: make eval
+
+      - name: Upload eval report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            cd /path/to/deployment/directory
-            docker compose pull
-            docker compose up -d
+          name: eval-report
+          path: tests/eval/report.json
