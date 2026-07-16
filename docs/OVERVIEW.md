@@ -47,18 +47,19 @@ A **knowledge-based chatbot** that:
 6. **Categorizes topics** - Visa, housing, healthcare, banking, transport, education, CAF
 
 ### How it works (simplified)
-```
-User asks question (Telegram)
-    ↓
-Layer 1: classify intent (greeting / qa / feedback / out_of_scope)
-    ↓
-Layer 2: ReAct Agent (LLM + tool calling loop)
-    │
-    ├── Check response cache (if QA) → Returns instantly if found
-    ├── If miss: Tool calling loop (max 5 iterations)
-    └── Otherwise → responds directly (no tool needed)
-    ↓
-Returns response in Portuguese
+```mermaid
+flowchart TD
+    User([User asks question<br>via Telegram]) --> Intent["Layer 1: Classify intent<br>(greeting / qa / feedback / out_of_scope)"]
+    Intent --> Agent["Layer 2: ReAct Agent<br>(LLM + tool calling loop)"]
+
+    Agent --> Cache{"Check response cache<br>(if QA)"}
+    Cache -->|Hit| Resp([Returns response<br>in Portuguese])
+
+    Cache -->|Miss| Loop{"Tool calling loop<br>(max 5 iterations)"}
+    Loop --> Resp
+
+    Cache -->|Not QA| Direct["Responds directly<br>(no tool needed)"]
+    Direct --> Resp
 ```
 
 ### Example interaction

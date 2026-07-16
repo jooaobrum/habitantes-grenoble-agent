@@ -3,11 +3,11 @@
   "retrieval_only": false,
   "aggregated_metrics": {
     "hit_rate_at_5": 0.9737,
-    "recall_at_5": 0.6162,
-    "context_precision": 0.5425,
-    "answer_relevance": 0.9553,
-    "faithfulness": 0.8342,
-    "semantic_similarity": 0.9153
+    "recall_at_5": 0.5943,
+    "context_precision": 0.5383,
+    "answer_relevance": 0.8474,
+    "faithfulness": 0.8632,
+    "semantic_similarity": 0.9034
   },
   "gate_results": {
     "hit_rate_at_5": {
@@ -16,27 +16,27 @@
       "passed": true
     },
     "recall_at_5": {
-      "actual": 0.6162,
+      "actual": 0.5943,
       "target": 0.5,
       "passed": true
     },
     "context_precision": {
-      "actual": 0.5425,
+      "actual": 0.5383,
       "target": 0.5,
       "passed": true
     },
     "answer_relevance": {
-      "actual": 0.9553,
+      "actual": 0.8474,
       "target": 0.8,
       "passed": true
     },
     "faithfulness": {
-      "actual": 0.8342,
+      "actual": 0.8632,
       "target": 0.8,
       "passed": true
     },
     "semantic_similarity": {
-      "actual": 0.9153,
+      "actual": 0.9034,
       "target": 0.7,
       "passed": true
     }
@@ -51,19 +51,19 @@
       ],
       "used_category_filter": false,
       "retrieved_ids": [
-        "2409",
         "480",
-        "205",
         "2660",
-        "351"
+        "205",
+        "39",
+        "2203"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 1.0,
       "context_precision": 0.3333333333333333,
-      "answer": "A Ameli geralmente não aceita documentos em português, sendo necessária a tradução para o francês. A tradução deve ser feita por um tradutor juramentado reconhecido oficialmente. É importante garantir que a tradutora esteja registrada como juramentada na França, pois traduções de tradutores não reconhecidos podem ser recusadas.\n\nSe você optar por fazer a tradução no Brasil, traduções juramentadas feitas lá costumam ser aceitas na França, desde que sejam feitas por tradutores devidamente habilitados.\n\nResumindo:\n\n- **Onde fazer**: Tradutor juramentado (Brasil ou França).\n- **Documentos**: Certidão e comprovantes traduzidos.\n- **Prazo**: Verifique com o tradutor, mas planeje com antecedência.\n- **Observações**: Certifique-se de que a tradutora é reconhecida para evitar problemas.\n\nFontes mencionadas no contexto:\n- [Ameli e tradução de documentos](https://www.ameli.fr)",
+      "answer": "A Ameli geralmente não aceita documentos em português, sendo necessária a tradução para o francês. Embora algumas pessoas tenham conseguido enviar certidões apenas em português, não há um padrão fixo e é mais seguro providenciar a tradução juramentada.\n\nPara garantir que seus documentos sejam aceitos, recomenda-se que a tradução seja feita por um tradutor juramentado reconhecido na França. Caso você precise de um tradutor, uma opção é a Delphine Billion-Grand, que é registrada e teve suas traduções aceitas sem problemas.\n\nFontes mencionadas no contexto:\n- [Informações sobre tradução de documentos para a Ameli]",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.916907548904419
+      "semantic_similarity": 0.9167211055755615
     },
     {
       "question": "Meu récépissé venceu e não aparece nenhum horário pra RDV/retirada do titre de séjour em Isère. Tem algum e-mail da préfecture ou alguma forma de conseguir uma data urgente?",
@@ -76,18 +76,18 @@
       "used_category_filter": true,
       "retrieved_ids": [
         "1252",
-        "2757",
+        "1621",
+        "2050",
         "1644",
-        "1612",
-        "2372"
+        "1612"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.3333333333333333,
       "context_precision": 0.3333333333333333,
-      "answer": "Para resolver a situação do seu récépissé vencido e a dificuldade em agendar um RDV para a retirada do titre de séjour em Isère, você pode seguir as seguintes orientações:\n\n**Onde fazer:**\n- Enviar um e-mail para **pref-rdv-sejour@isere.gouv.fr** explicando sua situação, mencionando que não há disponibilidade de agendamento ou que já passou um mês desde a aprovação sem receber o SMS.\n\n**Documentos:**\n- Inclua seus dados pessoais e detalhes do processo no e-mail para facilitar a análise.\n\n**Prazo:**\n- Embora a resposta inicial possa informar que não é possível marcar por e-mail, geralmente eles costumam enviar uma data e hora para retirada do titre após alguns dias.\n\n**Observações:**\n- Caso precise retirar o titre com urgência, você pode ir diretamente à prefeitura e informar que é para retirada urgente. Muitas vezes, eles conseguem agendar um RDV para o dia seguinte. É importante tentar essa abordagem, pois já foi confirmada por outros brasileiros na comunidade.\n\nAlém disso, os agendamentos para o RDV na prefeitura abrem sempre às segundas-feiras e as vagas são limitadas, então é bom ficar atento a isso.\n\nFontes mencionadas no contexto:\n- [Préfecture de Isère - Contato e informações](https://www.isere.gouv.fr)",
-      "answer_relevance": 1.0,
+      "answer": "Sobre o agendamento para a retirada do titre de séjour na préfecture de Isère, as datas para os rendez-vous abrem sempre às segundas-feiras e costumam ser limitadas, preenchendo rapidamente. É recomendável acessar o site da préfecture logo antes do horário de abertura (geralmente pela manhã) e atualizar a página para conseguir uma vaga.\n\nInfelizmente, não encontrei informações sobre um e-mail específico da préfecture para contato direto. A préfecture não costuma responder a dúvidas diretamente, então a melhor abordagem é tentar agendar pelo site.\n\nFontes mencionadas no contexto:\n- [Préfecture de Isère - Agendamento](https://www.isere.gouv.fr)",
+      "answer_relevance": 0.8,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9096698760986328
+      "semantic_similarity": 0.8924527168273926
     },
     {
       "question": "Consigo assinar contrato de trabalho (CDI/CDD) ou fazer estágio/alternance apresentando só o récépissé enquanto espero o titre de séjour?",
@@ -101,17 +101,17 @@
       "retrieved_ids": [
         "1140",
         "1933",
-        "257",
-        "1252",
-        "2504"
+        "2029",
+        "1644",
+        "1252"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.6666666666666666,
-      "context_precision": 0.5,
-      "answer": "Sim, você pode assinar contratos de trabalho (CDI ou CDD) e realizar estágios ou alternância apresentando apenas o récépissé enquanto aguarda o título de séjour. O récépissé garante os mesmos direitos do visto ou título, permitindo que você trabalhe legalmente.\n\nÉ importante lembrar que o tempo de espera para o título de séjour pode variar, e você pode solicitar a renovação do récépissé a partir de 15 dias antes do seu vencimento, caso necessário.\n\nPara mais informações e orientações, consulte o site oficial da prefeitura: [Renovação do récépissé](https://contacts-demarches.interieur.gouv.fr/etrangers/renouvellement-recepisse/).",
+      "context_precision": 0.4666666666666666,
+      "answer": "Sim, você pode assinar contratos de trabalho (CDI ou CDD) e realizar estágios ou alternâncias apresentando apenas o récépissé enquanto aguarda o título de séjour. O récépissé garante os mesmos direitos que o visto ou título de residência.\n\nÉ importante, no entanto, que você mantenha uma boa comunicação com o RH da empresa sobre sua situação, especialmente se o seu rendez-vous para renovação do título estiver agendado para depois do vencimento do récépissé. Isso pode ajudar a evitar problemas relacionados à documentação.\n\nFontes mencionadas no contexto:\n- [Informações sobre récépissé e trabalho](link se existir)",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9195549488067627
+      "semantic_similarity": 0.9209160804748535
     },
     {
       "question": "Quero usar só banco online na França (tipo Boursorama/N26). Isso costuma dar problema no dia a dia ou em caso de fraude/uso indevido do cartão? Eles reembolsam fácil?",
@@ -131,10 +131,10 @@
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.5,
       "context_precision": 0.5,
-      "answer": "Usar bancos online como Boursorama e N26 na França é uma prática comum e, em geral, não costuma trazer problemas no dia a dia. Muitos usuários relatam satisfação com os serviços, destacando a eficiência dos aplicativos e a ausência de complicações. O Boursorama, por exemplo, é vinculado ao Société Générale, o que traz uma certa segurança adicional.\n\nEm relação a fraudes, há relatos de que o Boursorama facilitou a resolução de casos de uso indevido do cartão, reembolsando os valores de forma eficiente. No caso do N26, se houver uma compra não autorizada, o valor pode ficar pendente por até 12 dias, mas se a transação for confirmada como não autorizada, o estorno é feito automaticamente.\n\n**Resumo:**\n- **Bancos online**: Boursorama e N26 são bem avaliados e usados por brasileiros.\n- **Problemas**: Raros, com muitos usuários satisfeitos.\n- **Fraude**: Boursorama reembolsa facilmente; N26 estorna automaticamente em caso de transação não autorizada.\n\nPara mais informações sobre procedimentos específicos, é sempre bom consultar as fontes oficiais dos bancos.\n\nFontes mencionadas no contexto:\n- [Boursorama e N26: informações sobre uso e segurança](link se existir)",
-      "answer_relevance": 1.0,
+      "answer": "Usar bancos online como Boursorama e N26 na França é uma prática comum e, em geral, não costuma trazer problemas no dia a dia. Muitos usuários relatam satisfação com os serviços, e há casos em que, em situações de uso indevido do cartão, como ocorreu com um cliente do Boursorama, o banco facilitou a resolução e reembolsou o valor rapidamente.\n\nNo entanto, é importante ter cuidado com a segurança dos dados e cartões. Embora os bancos online sejam seguros, sempre é bom estar atento a possíveis fraudes.\n\nSobre o reembolso, a experiência de usuários indica que, em casos de fraude, os bancos online tendem a ser ágeis na resolução e no reembolso, mas é sempre recomendável verificar as políticas específicas de cada banco.\n\nFontes mencionadas no contexto:\n- [Bancos online na França e experiências de usuários]",
+      "answer_relevance": 0.9,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9002626538276672
+      "semantic_similarity": 0.9022208452224731
     },
     {
       "question": "Preciso colocar dinheiro em espécie na conta: tem como depositar cash no N26 ou no Boursorama na França? Como normalmente o pessoal faz?",
@@ -147,18 +147,18 @@
       "used_category_filter": false,
       "retrieved_ids": [
         "830",
-        "338",
         "609",
         "205",
+        "338",
         "260"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.3333333333333333,
       "context_precision": 0.3333333333333333,
-      "answer": "No N26, não é possível depositar dinheiro em espécie diretamente. Para o Boursorama, o depósito em dinheiro também não é feito de forma direta. Geralmente, é necessário enviar o dinheiro por correio ou utilizar um banco parceiro para realizar o depósito. \n\nPara bancos online como esses, o procedimento comum é realizar transferências eletrônicas, já que eles não possuem agências físicas para depósitos em dinheiro.\n\nSe você precisa colocar dinheiro em espécie na sua conta, considere usar um banco que tenha agências físicas ou explore opções de transferência eletrônica.\n\nFontes mencionadas no contexto:\n- [Informações sobre N26 e Boursorama](https://www.n26.com)",
+      "answer": "No N26, não é possível depositar dinheiro em espécie. Para o Boursorama, o depósito em espécie também não é feito diretamente. Normalmente, é necessário enviar o dinheiro por correio ou utilizar um banco parceiro para realizar o depósito. Como ambos são bancos online, a prática comum entre os usuários é realizar transferências eletrônicas, já que não possuem agências físicas para depósitos em dinheiro.\n\nFontes mencionadas no contexto:\n- [Informações sobre N26 e Boursorama]",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9476608633995056
+      "semantic_similarity": 0.9524641036987305
     },
     {
       "question": "Estou procurando apartamento em Grenoble e o “dono” quer que eu pague a reserva adiantada via cupom PCS/Neosurf. Isso é golpe? Como o pessoal identifica e evita esse tipo de fraude de aluguel?",
@@ -170,19 +170,19 @@
       ],
       "used_category_filter": false,
       "retrieved_ids": [
-        "853",
         "320",
-        "1990",
+        "853",
         "1201",
+        "1990",
         "2003"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.3333333333333333,
-      "context_precision": 0.16666666666666666,
-      "answer": "Cuidado com a proposta de pagamento adiantado via cupons como PCS ou Neosurf para aluguel em Grenoble. Esse tipo de solicitação é frequentemente associado a golpes. Os golpistas costumam criar histórias para parecerem confiáveis e pedem reservas antecipadas, o que pode levar a perdas financeiras.\n\nPara evitar fraudes, recomenda-se:\n\n1. **Verificar anúncios**: Utilize grupos confiáveis e plataformas conhecidas para buscar moradia.\n2. **Desconfiar de pagamentos adiantados**: Nunca pague antes de ver o imóvel ou ter um contrato formal.\n3. **Denunciar**: Se suspeitar de um golpe, informe comunidades online, como o grupo \"neurchi de brouteurs\" no Facebook, que ajuda a identificar fraudes.\n\nSe você tiver mais dúvidas ou precisar de orientações específicas sobre aluguel, é sempre bom consultar fontes confiáveis ou pessoas que já passaram pela experiência.\n\nFontes mencionadas no contexto:\n- [Cuidado com golpes relacionados a aluguel em Grenoble](#)",
-      "answer_relevance": 1.0,
+      "context_precision": 0.3333333333333333,
+      "answer": "Não encontrei informações confiáveis sobre este tema.",
+      "answer_relevance": 0.2,
       "faithfulness": 0.0,
-      "semantic_similarity": 0.917490541934967
+      "semantic_similarity": 0.807576060295105
     },
     {
       "question": "Na CAF, consigo declarar online que estou temporariamente fora do endereço e que volto em julho? Preciso anexar algum documento provando o retorno e atualizar o endereço depois?",
@@ -195,18 +195,18 @@
       "used_category_filter": false,
       "retrieved_ids": [
         "1481",
+        "2189",
+        "1417",
         "112",
-        "1214",
-        "1466",
-        "1434"
+        "1466"
       ],
       "hit_rate_at_5": 0.0,
       "recall_at_5": 0.0,
       "context_precision": 0.0,
-      "answer": "Na CAF, você pode declarar online que está temporariamente fora do seu endereço. No entanto, não encontrei informações específicas sobre a necessidade de anexar um documento comprovando o retorno em julho. É recomendável que você verifique diretamente no site da CAF ou entre em contato com a agência local para obter orientações precisas sobre essa parte.\n\nQuanto à atualização do endereço, é necessário fazer uma nova solicitação à CAF para atualizar seu endereço e continuar recebendo os benefícios. Isso deve ser feito com pelo menos um mês de antecedência. Você pode atualizar seu cadastro online, mas é importante garantir que todos os documentos necessários, como o comprovante de aluguel (attestation de loyer), estejam prontos para essa atualização.\n\nFontes mencionadas no contexto:\n- [Informações sobre a CAF e atualização de endereço](https://www.caf.fr)",
-      "answer_relevance": 0.8,
-      "faithfulness": 0.8,
-      "semantic_similarity": 0.9346452355384827
+      "answer": "Não encontrei informações confiáveis sobre este tema.",
+      "answer_relevance": 0.2,
+      "faithfulness": 0.0,
+      "semantic_similarity": 0.8353872299194336
     },
     {
       "question": "Não tenho fiador francês para alugar apartamento. O Visale realmente funciona como garant? É comum pedir para o chefe/orientador ser fiador na França?",
@@ -219,17 +219,17 @@
       "retrieved_ids": [
         "226",
         "1678",
-        "1994",
         "2046",
+        "1994",
         "2009"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 1.0,
-      "context_precision": 0.8333333333333333,
-      "answer": "O Visale é uma garantia locatícia oferecida pelo governo francês, que funciona como um fiador para inquilinos que não têm um garantidor pessoal. Ele é especialmente útil para estrangeiros e jovens, facilitando a locação de imóveis. Para utilizá-lo, é necessário se cadastrar no site oficial do Visale, que avaliará a elegibilidade e emitirá a garantia. É importante notar que, embora o Visale seja gratuito para alguns bancos, pode haver custos em outros casos. Além disso, nem todos os proprietários aceitam o Visale como garantia, então é bom verificar isso antes.\n\nQuanto à possibilidade de um chefe ou orientador ser fiador, isso não é muito comum, mas pode acontecer, especialmente em ambientes acadêmicos. Alguns orientadores podem aceitar ser fiadores para seus orientandos, reconhecendo a dificuldade que muitos têm em encontrar moradia sem um garantidor francês. No entanto, isso depende da relação entre o orientador e o orientando e da boa vontade do chefe.\n\nFontes mencionadas no contexto:\n- [Visale como garantia locatícia](https://www.visale.fr)\n- [Informações sobre fiador na França](https://www.service-public.fr)",
+      "context_precision": 0.75,
+      "answer": "O Visale é um serviço do governo francês que atua como fiador para inquilinos que não têm um garantidor pessoal, facilitando a locação de imóveis. Ele é gratuito para clientes de alguns bancos e é especialmente útil para estrangeiros que enfrentam dificuldades em apresentar um fiador francês. O Visale é mais comum para pessoas até 30 anos, mas há relatos de pessoas acima dessa idade que conseguiram utilizá-lo. Caso não consiga o Visale, você pode considerar outras opções, como contratar um seguro de garantia aluguel ou negociar diretamente com o proprietário.\n\nSobre a possibilidade de um chefe ou orientador ser fiador, isso não é muito comum, mas em ambientes acadêmicos, alguns orientadores podem aceitar ser fiadores para seus orientandos, especialmente se houver uma boa relação entre eles. Isso depende da disposição do chefe.\n\nFontes mencionadas no contexto:\n- [Visale como garantia de aluguel](https://www.lacartedescolocs.fr/)",
       "answer_relevance": 1.0,
-      "faithfulness": 1.0,
-      "semantic_similarity": 0.9129526615142822
+      "faithfulness": 0.8,
+      "semantic_similarity": 0.9031378030776978
     },
     {
       "question": "Ainda não recebi meu número definitivo da Sécurité Sociale. Enquanto isso, preciso pagar as consultas do próprio bolso e pedir reembolso depois? Estou coberto de alguma forma?",
@@ -243,16 +243,16 @@
         "2410",
         "1547",
         "1531",
-        "180",
-        "1127"
+        "1127",
+        "180"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.5,
       "context_precision": 0.5,
-      "answer": "Enquanto você não recebe o número definitivo da Sécurité Sociale, você pode sim pagar as consultas do próprio bolso e solicitar o reembolso depois. Para isso, é importante que, na primeira consulta, o médico forneça um formulário que permita solicitar o reembolso posteriormente, já que você ainda não possui a carte Vitale.\n\nAqui estão algumas orientações:\n\n**Onde fazer:** Consultas médicas normalmente podem ser agendadas com qualquer médico que aceite pacientes sem carte Vitale.\n\n**Documentos:** Guarde todos os recibos e, se possível, peça ao médico o formulário para reembolso.\n\n**Prazo:** O tempo para receber o reembolso pode variar, então é bom ficar atento e acompanhar o processo.\n\n**Observações:** Assim que receber seu número definitivo, você deve solicitar a carte Vitale para facilitar o acesso aos serviços de saúde e reembolsos.\n\nFontes mencionadas no contexto:\n- [Ameli - Sécurité Sociale](https://www.ameli.fr)",
-      "answer_relevance": 1.0,
-      "faithfulness": 1.0,
-      "semantic_similarity": 0.9077562093734741
+      "answer": "Não encontrei informações confiáveis sobre este tema.",
+      "answer_relevance": 0.2,
+      "faithfulness": 0.0,
+      "semantic_similarity": 0.8046866059303284
     },
     {
       "question": "Preciso fazer exame de sangue em Grenoble: sem mutuelle vou ter que pagar tudo? A mutuelle ou o CROUS costumam cobrir esse tipo de exame?",
@@ -265,17 +265,17 @@
       "retrieved_ids": [
         "264",
         "2552",
-        "1771",
         "2695",
+        "1771",
         "76"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.5,
       "context_precision": 0.5,
-      "answer": "Para realizar exames de sangue em Grenoble, a situação é a seguinte:\n\n1. **Sem mutuelle**: Você terá que pagar o custo total do exame, que pode ser em torno de 160 euros. Portanto, é recomendável ter uma mutuelle para evitar despesas elevadas.\n\n2. **Com mutuelle**: Se você tiver uma mutuelle, é possível que não precise pagar nada, pois ela cobre a maior parte dos custos.\n\n3. **CROUS**: O CROUS oferece serviços médicos básicos, e você pode realizar alguns exames sem custo, embora eles não sejam especialistas. É uma boa opção para quem não tem mutuelle.\n\n4. **Receita médica**: Para fazer exames de sangue, geralmente é necessário apresentar uma ordonnance (receita médica). Você pode agendar o exame em clínicas ou laboratórios locais.\n\n5. **Laboratórios**: Existem laboratórios em Grenoble onde você pode fazer exames sem agendamento prévio, facilitando o acesso.\n\nRecomendo verificar diretamente com a sua mutuelle ou com o CROUS para entender melhor a cobertura específica que você tem.\n\nFontes mencionadas no contexto:\n- [Informações sobre exames de sangue e cobertura de mutuelle na França](https://www.ameli.fr)",
-      "answer_relevance": 1.0,
+      "answer": "Em Grenoble, os exames de sangue podem custar cerca de 160 euros. Se você não tiver uma mutuelle (seguro complementar de saúde), precisará pagar esse valor integralmente. A mutuelle pode cobrir esses custos, e, em muitos casos, você não precisará pagar nada.\n\nAlém disso, o CROUS oferece serviços médicos, e é possível realizar exames básicos sem custo, embora eles não sejam especializados. Portanto, se você utilizar os serviços do CROUS e tiver uma mutuelle, pode fazer exames de sangue sem pagamento direto.\n\nPara realizar os exames, geralmente é necessário apresentar uma ordonnance (receita médica). Algumas clínicas permitem fazer exames sem agendamento prévio, mas é sempre bom confirmar diretamente com o local.\n\nFontes mencionadas no contexto:\n- [Informações sobre exames de sangue e cobertura de mutuelle]",
+      "answer_relevance": 0.9,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.8936092853546143
+      "semantic_similarity": 0.9038504362106323
     },
     {
       "question": "Quero encontrar um médecin traitant em Grenoble que esteja aceitando novos pacientes. Vale mais a pena ligar direto no consultório ou procurar pelo Doctolib?",
@@ -290,16 +290,16 @@
         "2334",
         "2168",
         "2789",
-        "2556",
-        "354"
+        "1854",
+        "2556"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.3333333333333333,
       "context_precision": 0.3333333333333333,
-      "answer": "Para encontrar um médecin traitant em Grenoble que aceite novos pacientes, você pode usar tanto o Doctolib quanto entrar em contato diretamente com consultórios. \n\n1. **Doctolib**: É uma plataforma prática onde você pode filtrar a busca por médicos que aceitam novos pacientes. É recomendável monitorar regularmente o site, pois novas vagas podem aparecer. Além disso, você pode agendar consultas diretamente pela plataforma.\n\n2. **Contato Direto**: Ligar para consultórios pode ser uma boa estratégia, especialmente se você já tiver algum médico em mente. Alguns médicos, como o Dr. Jay Bernard, costumam atender novos pacientes rapidamente. Não é necessário informar que é a primeira consulta; o médico perguntará apenas o motivo da visita.\n\nAmbas as abordagens têm suas vantagens. O Doctolib oferece conveniência e agendamento online, enquanto o contato direto pode proporcionar informações mais imediatas sobre a disponibilidade.\n\nFontes mencionadas no contexto:\n- [Ameli](https://www.ameli.fr) - site para buscar médicos na região.",
+      "answer": "Para encontrar um médecin traitant em Grenoble que esteja aceitando novos pacientes, você pode utilizar as seguintes abordagens:\n\n1. **Doctolib**: É uma plataforma confiável e amplamente utilizada na França para agendar consultas médicas. É recomendável monitorar regularmente o site, pois novas vagas podem aparecer. \n\n2. **Contato Direto**: Você também pode tentar ligar diretamente para consultórios de médicos conhecidos, como o Dr. Jay Bernard, que costuma atender novos pacientes rapidamente. Não é necessário informar que é a primeira consulta; o médico perguntará apenas o motivo da visita.\n\n3. **Grupos Locais**: Perguntar em grupos de brasileiros em Grenoble pode render boas recomendações de médicos que estão aceitando novos pacientes.\n\n4. **Ameli**: Consultar o site da Ameli (ameli.fr) pode ajudar a encontrar médicos credenciados na sua região.\n\nAmbas as opções, Doctolib e contato direto, têm suas vantagens. Doctolib pode ser mais prático para verificar a disponibilidade rapidamente, enquanto o contato direto pode oferecer uma resposta imediata sobre a aceitação de novos pacientes.\n\nFontes mencionadas no contexto:\n- [Doctolib e médicos em Grenoble](https://www.doctolib.fr)",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.8933149576187134
+      "semantic_similarity": 0.8894052505493164
     },
     {
       "question": "Depois da entrevista do Campus France e de enviar o dossiê pra ENSAG, normalmente ainda tem entrevista direto com a escola? E o nível de francês exigido pesa mais na escrita (mémoire) do que na parte oral?",
@@ -312,17 +312,17 @@
       "retrieved_ids": [
         "595",
         "2772",
-        "1773",
         "390",
-        "2758"
+        "1773",
+        "2746"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.5,
       "context_precision": 0.5,
-      "answer": "Após a entrevista com o Campus France e o envio do dossiê para a ENSAG, geralmente não é necessária uma entrevista adicional com a escola. A exigência de nível de francês é alta, especialmente para a parte escrita, que inclui a elaboração de um mémoire de cerca de 60 páginas no M1. Para ingressar no mestrado, é comum que se exija pelo menos o nível B2 de proficiência em francês, sendo que a parte escrita é considerada a mais desafiadora. Estudantes de intercâmbio de países francófonos podem ter algumas flexibilidades, mas, em geral, a proficiência escrita é fundamental.\n\nSobre a comparação entre as partes oral e escrita, o nível de francês exigido pesa mais na escrita, devido à complexidade dos trabalhos acadêmicos.\n\nFontes mencionadas no contexto:\n- [Informações sobre ENSAG e exigências de francês](link se existir)",
+      "answer": "Após a entrevista com o Campus France e o envio do dossiê para a ENSAG, geralmente não é necessária uma entrevista adicional com a escola. \n\nQuanto ao nível de francês exigido, ele é especialmente importante para a parte escrita, como o mémoire, que costuma ter cerca de 60 páginas no M1. É comum que se exija pelo menos o nível B2, sendo que a proficiência escrita é considerada a mais desafiadora. A parte oral também é relevante, mas a escrita pesa mais na avaliação.\n\nFontes mencionadas no contexto:\n- [Informações sobre ENSAG e exigências de francês](link se existir)",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9402469396591187
+      "semantic_similarity": 0.9465076923370361
     },
     {
       "question": "Sou da Polytech Grenoble: eu sou automaticamente aluna da UGA também? Tem alguma exceção tipo GEM?",
@@ -335,16 +335,16 @@
         "1574",
         "1602",
         "1503",
-        "2",
-        "1721"
+        "1971",
+        "2"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 1.0,
       "context_precision": 1.0,
-      "answer": "Sim, como aluna da Polytech Grenoble, você é automaticamente considerada aluna da Universidade Grenoble Alpes (UGA). No entanto, é importante notar que alguns processos e estruturas ainda podem estar parcialmente separados, e a fusão completa pode não estar totalmente implementada em todas as áreas.\n\nA exceção a essa regra são os estudantes da Grenoble École de Management (GEM), que não fazem parte da UGA.\n\nSe precisar de mais informações sobre processos específicos ou detalhes, recomendo consultar diretamente a administração da Polytech ou da UGA.\n\nFontes mencionadas no contexto:\n- [Polytech Grenoble e UGA](link se existir)",
+      "answer": "Sim, como aluna da Polytech Grenoble, você é automaticamente considerada aluna da Universidade Grenoble Alpes (UGA). No entanto, é importante notar que alguns processos e estruturas podem ainda estar parcialmente separados, pois a fusão completa pode não estar totalmente implementada em todas as áreas.\n\nA exceção a isso são os estudantes da Grenoble École de Management (GEM), que não fazem parte da UGA.\n\nFontes mencionadas no contexto:\n- [Informações sobre Polytech Grenoble e UGA]",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9266797304153442
+      "semantic_similarity": 0.9300922155380249
     },
     {
       "question": "A taxa CVEC dá pra pagar em dinheiro presencialmente ou o pagamento é só online? Se eu tiver dificuldade, o CROUS ajuda com alguma alternativa?",
@@ -358,15 +358,15 @@
         "2010",
         "2533",
         "1971",
-        "2195"
+        "2434"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 1.0,
       "context_precision": 1.0,
-      "answer": "A taxa CVEC deve ser paga online pelo site oficial. O pagamento presencial em dinheiro não é o procedimento padrão. Se você tiver dificuldades para realizar o pagamento online, pode buscar orientação no CROUS para verificar alternativas disponíveis.\n\nFontes mencionadas no contexto:\n- [Informações sobre a taxa CVEC e CROUS](link se existir)",
+      "answer": "A taxa CVEC deve ser paga online pelo site oficial. O pagamento presencial em dinheiro não é o procedimento padrão. Se você tiver dificuldades para realizar o pagamento online, pode buscar orientação no CROUS para verificar alternativas disponíveis.\n\nFontes mencionadas no contexto:\n- [Informações sobre a taxa CVEC e CROUS]",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9337482452392578
+      "semantic_similarity": 0.9340113997459412
     },
     {
       "question": "Se eu perder o emprego na França, eu só consigo pedir o seguro-desemprego (chômage) se meu visto estiver válido e vinculado ao Pôle Emploi? Como funciona esse vínculo?",
@@ -380,16 +380,16 @@
         "1745",
         "2207",
         "1828",
-        "246",
-        "2666"
+        "2666",
+        "246"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.5,
       "context_precision": 0.5,
-      "answer": "Para ter direito ao seguro-desemprego (chômage) na França, é necessário que seu visto esteja válido e vinculado ao Pôle Emploi. O vínculo com o Pôle Emploi é estabelecido quando você se registra na instituição, que é responsável por fornecer suporte e documentos necessários para a obtenção do visto, especialmente se você não tiver um trabalho garantido ao chegar na França. Esse vínculo geralmente é mantido por um ano.\n\nAlém disso, mesmo que você tenha trabalhado anteriormente, é imprescindível que seu visto esteja válido para solicitar o seguro-desemprego. Caso seu visto não esteja mais vinculado ao Pôle Emploi ou tenha expirado, você não poderá acessar esse benefício.\n\nFontes mencionadas no contexto:\n- [Informações sobre seguro-desemprego e vínculo com Pôle Emploi](link se existir)",
+      "answer": "Para ter direito ao seguro-desemprego (chômage) na França, é necessário que seu visto esteja válido e vinculado ao Pôle Emploi. O vínculo com o Pôle Emploi é estabelecido quando você se registra como demandante de emprego, e isso é essencial para a obtenção do visto, especialmente se você não tinha um trabalho garantido ao chegar na França. O visto fica atrelado ao Pôle Emploi por um ano.\n\nAlém disso, mesmo que você tenha trabalhado anteriormente, é obrigatório ter um visto válido para solicitar o seguro-desemprego. Portanto, se você perder o emprego, deve garantir que seu visto esteja em conformidade e que você esteja registrado no Pôle Emploi para ter acesso ao benefício.\n\nFontes mencionadas no contexto:\n- [Informações sobre seguro-desemprego e vínculo com Pôle Emploi]",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.92896568775177
+      "semantic_similarity": 0.9238005876541138
     },
     {
       "question": "Quero complementar renda com pequenos trabalhos em Grenoble (mudança, montagem de móveis). Além do Pôle Emploi, quais aplicativos ou sites são usados na França para achar esses jobs rápidos?",
@@ -409,10 +409,10 @@
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.5,
       "context_precision": 0.5,
-      "answer": "Para complementar sua renda com pequenos trabalhos em Grenoble, além do Pôle Emploi, você pode utilizar os seguintes aplicativos e sites:\n\n1. **Stootie** - Conecta prestadores de serviços a clientes para trabalhos pontuais.\n2. **Frizbiz** - Focado em serviços variados, como montagem de móveis e mudanças.\n3. **AlloVoisins** - Permite que você ofereça serviços e encontre pessoas que precisam de ajuda em tarefas diversas.\n\nEssas plataformas são populares na França e podem ser úteis para encontrar trabalhos rápidos. \n\nFontes mencionadas no contexto:\n- [Pôle Emploi e sites de emprego](https://www.pole-emploi.fr)",
+      "answer": "Para complementar sua renda com pequenos trabalhos em Grenoble, além do Pôle Emploi, você pode utilizar os seguintes aplicativos e sites:\n\n1. **Stootie** - Conecta prestadores de serviços a clientes para trabalhos pontuais.\n2. **Frizbiz** - Plataforma que permite oferecer serviços como mudanças e montagem de móveis.\n3. **AlloVoisins** - Outro aplicativo que facilita a conexão entre quem precisa de serviços e quem os oferece.\n\nEssas opções são populares na França para encontrar trabalhos rápidos e podem ser úteis para você.\n\nFontes mencionadas no contexto:\n- [Pôle Emploi e sites de emprego](https://www.pole-emploi.fr)",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9250119924545288
+      "semantic_similarity": 0.9290714859962463
     },
     {
       "question": "Perdi meus documentos brasileiros aqui na França (RG/CNH). Preciso fazer BO no Brasil e também declarar na polícia francesa antes de pedir segunda via/novo documento no consulado ou na ANEF?",
@@ -426,17 +426,17 @@
       "retrieved_ids": [
         "1644",
         "2438",
-        "2083",
-        "2409",
-        "2379"
+        "2187",
+        "1905",
+        "2083"
       ],
       "hit_rate_at_5": 1.0,
-      "recall_at_5": 1.0,
-      "context_precision": 0.9166666666666666,
-      "answer": "Para lidar com a perda dos seus documentos brasileiros (RG/CNH) na França, você deve seguir alguns passos:\n\n1. **Boletim de Ocorrência (BO) no Brasil**: É recomendável que você registre um BO no Brasil. Isso pode ser feito através da delegacia mais próxima ou pelo site da Polícia Civil do seu estado, dependendo das opções disponíveis.\n\n2. **Declaração na Polícia Francesa**: Também é importante que você faça uma declaração de perda na polícia francesa. Isso pode ser feito em uma delegacia local. A declaração pode ser útil para comprovar a perda dos documentos.\n\n3. **Solicitação de Segunda Via**: Após registrar o BO e a declaração na polícia, você pode solicitar a segunda via dos seus documentos no consulado brasileiro ou na ANEF (Agência Nacional de Estrangeiros e Fronteiras). Verifique os documentos necessários para essa solicitação, que geralmente incluem o BO e a declaração da polícia.\n\n**Observações**:\n- É bom ter em mãos qualquer documento que possa ajudar a comprovar sua identidade e residência na França.\n- O processo pode variar um pouco dependendo do consulado ou da ANEF, então é sempre bom consultar diretamente as informações específicas no site deles.\n\nFontes mencionadas no contexto:\n- [Informações sobre documentos e procedimentos na França](https://administration-etrangers-en-france.interieur.gouv.fr/particuliers/#/)",
+      "recall_at_5": 0.6666666666666666,
+      "context_precision": 0.6666666666666666,
+      "answer": "Para lidar com a perda dos seus documentos brasileiros (RG/CNH) na França, você deve seguir os seguintes passos:\n\n1. **Boletim de Ocorrência (BO) no Brasil**:\n   - É necessário registrar um BO no Brasil em caso de perda, furto ou roubo. Você pode baixar o formulário no site do Detran do seu estado, preenchê-lo e enviá-lo para tradução.\n\n2. **Declaração na Polícia Francesa**:\n   - Você deve comparecer à delegacia de polícia local na França para fazer a denúncia da perda ou roubo dos documentos.\n\n3. **Solicitação de Novo Documento**:\n   - Após registrar o BO no Brasil e a declaração na polícia francesa, entre em contato com a Repartição Consular brasileira (Embaixada ou Consulado) para solicitar a emissão de um novo documento.\n\nObservações:\n- Algumas pessoas conseguiram realizar o processo online, utilizando VPN para acessar o site do Detran.\n- É importante ter todos os documentos necessários para facilitar a emissão da segunda via.\n\nFontes mencionadas no contexto:\n- [Informações sobre perda de documentos e procedimentos](link se existir)",
       "answer_relevance": 1.0,
-      "faithfulness": 0.0,
-      "semantic_similarity": 0.8931083083152771
+      "faithfulness": 1.0,
+      "semantic_similarity": 0.8804003596305847
     },
     {
       "question": "Para dirigir e/ou comprar carro na França, a PID (permissão internacional) já basta ou também pedem tradução juramentada da CNH? Isso muda se eu comprar em concessionária versus particular?",
@@ -451,16 +451,16 @@
         "2409",
         "2349",
         "2621",
-        "696",
-        "280"
+        "280",
+        "1655"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.3333333333333333,
       "context_precision": 0.3333333333333333,
-      "answer": "Para dirigir na França, a Permissão Internacional para Dirigir (PID) é aceita, mas a Carteira Nacional de Habilitação (CNH) brasileira com tradução juramentada é geralmente recomendada, especialmente se você reside na França há mais de um ano. A tradução juramentada é necessária para validar a CNH, pois a PID não contém todas as informações exigidas.\n\n**Sobre a compra de carro:**\n\n- **Concessionária:** Normalmente, as concessionárias cuidam da burocracia e aceitam a PID. É importante confirmar com a concessionária se aceitam a PID sem a tradução juramentada da CNH.\n  \n- **Particular:** Ao comprar de um vendedor particular, você precisará realizar a transferência do veículo, o que pode ser mais complicado. Se você reside na França há mais de um ano, pode ser que a CNH brasileira não seja aceita para esse procedimento.\n\n**Resumo:**\n- **Dirigir:** PID é suficiente, mas a CNH com tradução juramentada é recomendada.\n- **Comprar em concessionária:** Verifique se aceitam a PID.\n- **Comprar de particular:** Transferência pode ser mais complicada, especialmente se você reside na França há mais de um ano.\n\nFontes mencionadas no contexto:\n- [Documentos e Burocracia](https://www.service-public.fr)",
-      "answer_relevance": 1.0,
+      "answer": "Para dirigir na França, a Permissão Internacional para Dirigir (PID) é aceita, mas a Carteira Nacional de Habilitação (CNH) brasileira com tradução juramentada também pode ser suficiente, especialmente para aluguel de carros. No entanto, recomenda-se verificar com a préfecture ou seguradora local, pois as exigências podem variar.\n\nAo comprar um carro, se for em concessionária, geralmente eles cuidam da burocracia e aceitam a PID, mas é importante confirmar se aceitam a PID sem a tradução juramentada. Para compras de particulares, a transferência do veículo pode ser mais complicada, especialmente se você reside na França há mais de um ano, pois pode não aceitarem a CNH brasileira.\n\nResumindo:\n\n- **Dirigir**: PID é aceita; CNH com tradução juramentada pode ser suficiente.\n- **Comprar em concessionária**: Confirmar aceitação da PID; geralmente cuidam da burocracia.\n- **Comprar de particular**: Transferência pode ser complicada; verifique aceitação da CNH.\n\nFontes mencionadas no contexto:\n- [Documentos e Burocracia sobre CNH e PID](link se existir)\n- [Vida Diária e Serviços sobre compra de carro](link se existir)",
+      "answer_relevance": 0.9,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9277172088623047
+      "semantic_similarity": 0.9215569496154785
     },
     {
       "question": "Preciso de traduções oficiais: tem indicação de tradutor juramentado em Grenoble e também alguém que faça juramentada para espanhol? Onde o pessoal costuma encontrar esses contatos?",
@@ -480,10 +480,10 @@
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.5,
       "context_precision": 0.5,
-      "answer": "Para encontrar tradutores juramentados em Grenoble, você pode seguir as seguintes orientações:\n\n**Onde fazer:**\n1. **Sites oficiais**: Consulte a lista de tradutores juramentados no site do Ministério da Justiça da França: [Lista de Tradutores](https://www.cours-appel.justice.fr/sites/default/files/2024-05/Annuaire%202024%20EJ%20INTERNET.pdf).\n2. **Recomendações locais**: Uma tradutora juramentada recomendada é a Delphine, que é conhecida por ser rápida e reativa. \n\n**Documentos:**\n- Normalmente, você precisará apresentar os documentos que deseja traduzir e, em alguns casos, um documento de identificação.\n\n**Prazo:**\n- O prazo pode variar dependendo do tradutor e da complexidade dos documentos, então é bom confirmar diretamente.\n\n**Observações:**\n- Para traduções juramentadas para espanhol, recomenda-se buscar profissionais em grupos locais ou plataformas oficiais. Um link de um grupo do WhatsApp foi compartilhado para facilitar a busca: [Grupo de Tradução](https://chat.whatsapp.com/HwbYrPjgpR72en1iArd0tF). Verifique sempre a qualificação do tradutor.\n\nSe precisar de mais informações específicas ou contatos, é aconselhável perguntar em grupos de brasileiros em Grenoble, onde muitos compartilham suas experiências e recomendações.\n\nFontes mencionadas no contexto:\n- [Lista de Tradutores Juramentados](https://www.cours-appel.justice.fr/sites/default/files/2024-05/Annuaire%202024%20EJ%20INTERNET.pdf)",
+      "answer": "Para encontrar tradutores juramentados em Grenoble, você pode seguir as seguintes orientações:\n\n**Onde fazer:**\n1. Consulte o site oficial do Ministério da Justiça da França, onde há uma lista atualizada de tradutores juramentados: [Lista de Tradutores](https://www.cours-appel.justice.fr/sites/default/files/2024-05/Annuaire%202024%20EJ%20INTERNET.pdf).\n2. Outra opção é verificar o site do tribunal de apelação de Grenoble: [Tradutores Judiciários em Grenoble](https://www.cours-appel.justice.fr/grenoble/experts-et-traducteurs-judiciaires).\n\n**Documentos:**\n- Normalmente, você precisará apresentar os documentos que deseja traduzir e, em alguns casos, um documento de identificação.\n\n**Prazo:**\n- O prazo pode variar dependendo do tradutor e da complexidade do documento. É recomendável entrar em contato diretamente para confirmar.\n\n**Observações:**\n- Uma tradutora juramentada recomendada é a Delphine, que é conhecida por ser rápida e reativa. Para traduções em espanhol, você pode buscar profissionais especializados em grupos locais ou plataformas oficiais. Uma indicação foi compartilhada em um grupo do WhatsApp, mas é importante verificar a qualificação do tradutor.\n\nFontes mencionadas no contexto:\n- [Lista de Tradutores Juramentados - Ministério da Justiça](https://www.cours-appel.justice.fr/sites/default/files/2024-05/Annuaire%202024%20EJ%20INTERNET.pdf)\n- [Tradutores Judiciários em Grenoble](https://www.cours-appel.justice.fr/grenoble/experts-et-traducteurs-judiciaires)",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9192382097244263
+      "semantic_similarity": 0.9180797934532166
     },
     {
       "question": "Para fazer PACS, existe tempo mínimo morando junto no mesmo endereço? Que tipos de comprovantes de residência conjunta costumam valer (contrato, contas) e o consulado entra em algo tipo certificado de coutume?",
@@ -499,15 +499,15 @@
         "271",
         "1711",
         "442",
-        "744"
+        "2266"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.3333333333333333,
       "context_precision": 0.3333333333333333,
-      "answer": "Para formalizar um PACS (Pacte Civil de Solidarité) na França, não há um tempo mínimo exigido de convivência no mesmo endereço antes da formalização. O que realmente importa é comprovar a vida em comum. Os documentos que costumam ser aceitos como comprovantes de residência conjunta incluem:\n\n- Contrato de aluguel\n- Contas de serviços públicos (água, luz, gás, etc.)\n- Outros comprovantes que demonstrem a residência conjunta\n\nContas bancárias em nome de apenas um dos parceiros podem não ser consideradas suficientes.\n\nQuanto ao consulado, não é necessário um certificado de costume específico para o PACS, mas sim um certificado de costume geral, que pode ser solicitado no Consulado-Geral do Brasil em Paris.\n\nRecomenda-se sempre verificar os documentos específicos exigidos pelo cartório ou prefeitura local onde o PACS será registrado.\n\nFontes mencionadas no contexto:\n- [Certificado de costume para casamento e PACS](http://cgparis.itamaraty.gov.br/pt-br/certificado_de_costume_para_casamento_e_pacs.xml)",
+      "answer": "Para formalizar um PACS (Pacte Civil de Solidarité) na França, não há um tempo mínimo exigido de convivência no mesmo endereço antes da formalização. O que realmente importa é comprovar a vida em comum. Os documentos que costumam ser aceitos como comprovantes de residência conjunta incluem:\n\n- Contrato de aluguel\n- Contas de serviços públicos (água, luz, gás, etc.)\n- Outros comprovantes que demonstrem a residência conjunta\n\nContas bancárias em nome de apenas um dos parceiros podem não ser consideradas suficientes como prova.\n\nQuanto ao consulado, não é necessário um certificado de costume específico para o PACS, mas um certificado de costume geral pode ser solicitado. Para mais detalhes, é recomendável consultar o site do Consulado-Geral do Brasil em Paris.\n\nFontes mencionadas no contexto:\n- [Certificado de costume para casamento e PACS](http://cgparis.itamaraty.gov.br/pt-br/certificado_de_costume_para_casamento_e_pacs.xml)",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9252265691757202
+      "semantic_similarity": 0.924291729927063
     },
     {
       "question": "Moro num estúdio pequeno (tipo 12m²) em Grenoble e queria ter noção de gastos: quanto costuma vir de energia (gás + eletricidade) por mês e o que mais influencia (consumo, classe energética do imóvel)?",
@@ -521,16 +521,16 @@
         "2631",
         "2003",
         "2625",
-        "2811",
-        "1861"
+        "1064",
+        "1723"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.5,
       "context_precision": 0.5,
-      "answer": "Os gastos com energia (gás + eletricidade) para um estúdio de aproximadamente 12m² em Grenoble costumam variar entre 50 e 70 euros por mês. Esse valor pode ser influenciado por diversos fatores, como:\n\n1. **Consumo**: O uso de eletrodomésticos, aquecimento e iluminação impacta diretamente no valor da conta.\n2. **Classe energética do imóvel**: Imóveis com melhor classificação energética tendem a ter custos menores, pois são mais eficientes em termos de consumo.\n\nAlém disso, é comum que o aquecedor de água funcione a gás, o que pode aumentar os gastos se o uso for elevado. \n\nPara uma estimativa mais precisa, é recomendável monitorar seu consumo mensal e considerar a eficiência energética do seu estúdio.\n\nFontes mencionadas no contexto:\n- [Custo da energia em Grenoble](link se existir)",
-      "answer_relevance": 1.0,
+      "answer": "O custo médio de energia (gás + eletricidade) para um estúdio de 12m² em Grenoble varia entre 50 e 70 euros por mês. Esse valor pode ser influenciado por fatores como o consumo pessoal e a classe energética do imóvel. Imóveis com melhor classificação energética tendem a ter custos mais baixos, pois são mais eficientes em termos de consumo.\n\nNão encontrei informações específicas sobre outros fatores que possam influenciar esses custos, como tarifas ou variações sazonais. Para detalhes mais precisos, é recomendável consultar a empresa de energia local ou verificar com outros moradores da região.",
+      "answer_relevance": 0.9,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9211310148239136
+      "semantic_similarity": 0.9205517768859863
     },
     {
       "question": "Preciso de itens bem específicos em Grenoble: onde compro cartolina (papelaria) e onde acho componentes eletrônicos tipo resistores? Tem lojas na região/Échirolles que vendem isso?",
@@ -545,15 +545,15 @@
         "950",
         "2533",
         "1823",
-        "1872"
+        "338"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 1.0,
       "context_precision": 1.0,
-      "answer": "Em Grenoble e Échirolles, você pode encontrar os itens que procura da seguinte forma:\n\n**Cartolina (Papelaria)**\n- Embora não haja indicações específicas de lojas, recomenda-se procurar papelarias locais no centro de Grenoble ou em áreas comerciais. Lojas de materiais para artesanato e papelarias online também podem oferecer cartolinas.\n\n**Componentes Eletrônicos (Resistores)**\n- Para componentes eletrônicos, como resistores, uma boa opção é a loja **Pro Électro Pièces**, localizada na rua Fernand Pelloutier, perto do McDonald's em Échirolles. \n- Além disso, lojas de bricolagem como **Entrepôt du Bricolage** ou **Leroy Merlin** podem ter alguns componentes, mas para itens mais específicos, pode ser necessário buscar em lojas especializadas ou online.\n\nSe precisar de mais informações sobre alguma loja específica ou outro item, é bom verificar diretamente com as lojas ou consultar mapas locais.\n\nFontes mencionadas no contexto:\n- [Pro Électro Pièces em Échirolles]",
+      "answer": "Em Grenoble, você pode encontrar cartolina em papelarias locais, embora não haja indicações específicas de lojas. Recomendo procurar no centro da cidade ou em áreas comerciais. Além disso, lojas de materiais para artesanato e papelarias online francesas também podem oferecer cartolinas.\n\nQuanto a componentes eletrônicos, como resistores, uma opção é a loja Pro Électro Pièces, que fica na rua Fernand Pelloutier, em Échirolles, perto de Grenoble. Para outros componentes, lojas de bricolagem como Entrepôt du Bricolage ou Leroy Merlin podem ser úteis, mas para itens mais específicos, pode ser necessário buscar em lojas especializadas ou online.\n\nFontes mencionadas no contexto:\n- [Papelarias em Grenoble] \n- [Pro Électro Pièces em Échirolles]",
       "answer_relevance": 0.8,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9254767298698425
+      "semantic_similarity": 0.9330451488494873
     },
     {
       "question": "Vou viajar dentro da França de trem/FlixBus e não sei que documento levar: o titre de séjour de estudante já basta ou é melhor levar o passaporte também? E se eu for fazer conexão pra fora da França, muda?",
@@ -566,17 +566,17 @@
       "retrieved_ids": [
         "229",
         "2049",
+        "206",
         "2645",
-        "2416",
-        "222"
+        "2416"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.5,
       "context_precision": 0.5,
-      "answer": "Para viagens dentro da França, é geralmente suficiente apresentar o seu titre de séjour de estudante. O passaporte não costuma ser solicitado. Portanto, você pode viajar apenas com o título de residência e a passagem.\n\nSe você for fazer uma conexão para fora da França, é recomendável levar tanto o passaporte quanto o titre de séjour. Isso garante que você tenha todos os documentos necessários para a viagem internacional.\n\nFontes mencionadas no contexto:\n- [Viagens dentro e fora da França](link se existir)",
+      "answer": "Para viagens dentro da França, é normalmente suficiente apresentar o título de estudante (titre de séjour). O passaporte não é geralmente solicitado. Portanto, você pode viajar apenas com o titre de séjour e a passagem.\n\nSe você for fazer uma conexão para fora da França, é recomendável levar ambos os documentos: o passaporte e o titre de séjour. Isso garante que você esteja preparado para qualquer exigência de documentação ao cruzar fronteiras.\n\nFontes mencionadas no contexto:\n- [Viagens dentro da França e para fora](link se existir)",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9343011379241943
+      "semantic_similarity": 0.9327720403671265
     },
     {
       "question": "Estou planejando ir de Grenoble até o aeroporto de Orly: a melhor combinação é TGV até Paris (Gare de Lyon) e depois metrô/ônibus? Existe alternativa mais barata tipo ônibus e o trajeto sempre tem conexão em Paris?",
@@ -588,18 +588,18 @@
       "used_category_filter": true,
       "retrieved_ids": [
         "1861",
-        "222",
         "1827",
+        "222",
         "1637",
-        "1879"
+        "2301"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.5,
       "context_precision": 0.5,
-      "answer": "Não encontrei informações específicas sobre as opções de transporte de Grenoble até o aeroporto de Orly. No entanto, posso te dar algumas orientações gerais.\n\nA combinação mais comum é realmente pegar um TGV (trem de alta velocidade) de Grenoble até a Gare de Lyon em Paris e, em seguida, usar o metrô ou ônibus para chegar ao aeroporto de Orly. Essa opção é rápida, mas pode ser mais cara.\n\nAlternativas mais baratas incluem ônibus que fazem o trajeto direto de Grenoble a Paris, mas geralmente você ainda precisará fazer a conexão em Paris para chegar a Orly. Verifique empresas de ônibus como FlixBus ou BlaBlaBus, que costumam oferecer preços mais acessíveis.\n\nRecomendo que você consulte os sites de transporte público e de empresas de ônibus para verificar horários e preços atualizados. \n\nFontes mencionadas no contexto:\n- Nenhuma fonte específica encontrada.",
-      "answer_relevance": 0.7,
+      "answer": "Não encontrei informações confiáveis sobre este tema.",
+      "answer_relevance": 0.2,
       "faithfulness": 0.0,
-      "semantic_similarity": 0.9092035293579102
+      "semantic_similarity": 0.8574897050857544
     },
     {
       "question": "Quero medir meu nível antes de fazer TCF/DELF: tem algum site gratuito e confiável (tipo TV5Monde) e quais dicas ajudam a simular prova (tempo, provas antigas, livros)?",
@@ -613,17 +613,17 @@
       "retrieved_ids": [
         "2608",
         "1551",
-        "2439",
-        "2113",
-        "178"
+        "2073",
+        "2746",
+        "390"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.6666666666666666,
       "context_precision": 0.6666666666666666,
-      "answer": "Para medir seu nível de francês antes de fazer o TCF ou DELF, o site TV5Monde é uma excelente opção. Ele oferece testes gratuitos que ajudam a avaliar seu conhecimento da língua. Além disso, o Bonpatron pode ser útil para correção de textos em francês.\n\n### Dicas para simular a prova:\n1. **Provas Antigas**: Busque provas antigas disponíveis na internet. Elas são uma ótima forma de se familiarizar com o formato do exame.\n2. **Livros Preparatórios**: Considere adquirir livros específicos para o DELF, que podem ser encontrados na Amazon. Esses livros geralmente incluem modelos de exame e dicas úteis.\n3. **Simulação de Tempo**: Use um temporizador para simular o tempo de cada parte da prova. Isso ajuda a gerenciar melhor o tempo durante o exame real.\n4. **Foco na Redação**: Cada prova tem um tipo específico de redação. Pratique esses formatos para se preparar adequadamente.\n\nEssas estratégias podem aumentar sua confiança e desempenho no exame. Para informações mais detalhadas sobre o TCF e DELF, é sempre bom consultar fontes oficiais.\n\nFontes mencionadas no contexto:\n- [TV5Monde - Testes gratuitos de francês](https://www.tv5monde.com)",
+      "answer": "Para medir seu nível de francês antes de fazer o TCF ou DELF, o site do TV5Monde é uma boa opção. Ele oferece testes gratuitos e simulados do TCF, sendo bastante recomendado pela comunidade para treinar e avaliar seu nível.\n\nSobre dicas para simular a prova, aqui estão algumas sugestões:\n\n1. **Tempo**: Use um temporizador para simular o tempo de cada parte da prova. Isso ajuda a se acostumar com a pressão do tempo real do exame.\n\n2. **Provas antigas**: Pratique com provas antigas que podem ser encontradas na internet. Isso dá uma boa ideia do formato e do tipo de questões que você pode encontrar.\n\n3. **Livros**: Considere adquirir livros preparatórios, especialmente se estiver se preparando para o DELF B1. Esses livros geralmente incluem modelos de exame e dicas específicas.\n\n4. **Foco na redação**: Cada prova tem um tipo específico de redação. Pratique esses formatos para se familiarizar com o que é esperado.\n\nFontes mencionadas no contexto:\n- [TV5Monde - Testes gratuitos de francês](https://www.tv5monde.com)",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9307432174682617
+      "semantic_similarity": 0.9314567446708679
     },
     {
       "question": "Em Grenoble (ou online), o que vale mais a pena: fazer curso intensivo no CUEF/UGA (tipo DUEF) ou pegar aulas com professor particular (ex.: @abc.poliglota / professora da Alliance)?",
@@ -636,18 +636,18 @@
       "used_category_filter": true,
       "retrieved_ids": [
         "2848",
-        "2447",
         "1248",
+        "2447",
         "1527",
         "2341"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.6666666666666666,
       "context_precision": 0.5,
-      "answer": "Em Grenoble, o curso intensivo de francês do CUEF (Centro Universitário de Estudos Francês) na Universidade de Grenoble Alpes é altamente recomendado. O DUEF, por exemplo, é um curso de 4 meses que oferece um diploma reconhecido em toda a França. As aulas são intensivas, com 4 horas diárias de segunda a sexta, e incluem atividades práticas que ajudam a melhorar a fluência e a compreensão do idioma em situações reais.\n\nPor outro lado, aulas particulares, como as oferecidas por professores como @abc.poliglota ou na Alliance Française, podem proporcionar um aprendizado mais personalizado. Essa abordagem pode ser vantajosa se você busca flexibilidade de horários ou um foco específico em áreas que deseja desenvolver.\n\n**Comparativo:**\n\n- **CUEF/UGA (DUEF)**\n  - **Onde fazer:** CUEF, Universidade de Grenoble Alpes.\n  - **Documentos:** Inscrição no curso.\n  - **Prazo:** Curso de 4 meses, com aulas diárias.\n  - **Observações:** Diploma reconhecido, atividades práticas.\n\n- **Aulas Particulares**\n  - **Onde fazer:** Online ou presencial com professores particulares.\n  - **Documentos:** Normalmente, não são necessários documentos formais.\n  - **Prazo:** Flexível, dependendo do professor.\n  - **Observações:** Personalização do aprendizado, foco em necessidades específicas.\n\nA escolha entre um curso intensivo e aulas particulares depende do seu estilo de aprendizado e objetivos. Se você busca um aprendizado estruturado e rápido, o CUEF pode ser a melhor opção. Se prefere flexibilidade e personalização, as aulas particulares podem ser mais adequadas.\n\nFontes mencionadas no contexto:\n- [CUEF - Cursos de francês na UGA](https://www.ugrenoble.fr)",
-      "answer_relevance": 1.0,
-      "faithfulness": 0.8,
-      "semantic_similarity": 0.9348969459533691
+      "answer": "Sobre o curso intensivo no CUEF/UGA, ele é recomendado para quem deseja aprender francês rapidamente. O curso tem duração de um ano, com aulas de 4 horas diárias de segunda a sexta-feira, além de atividades práticas que ajudam a melhorar a fluência e o entendimento do idioma em situações reais.\n\nEm relação às aulas particulares, há opções como a professora Natália Duarte, que oferece aulas de inglês e é poliglota. Grenoble também conta com diversas escolas de idiomas que oferecem cursos presenciais e online, além de grupos que podem facilitar a prática do idioma.\n\nA escolha entre um curso intensivo e aulas particulares depende do seu estilo de aprendizado e objetivos. O curso intensivo oferece uma estrutura mais formal e imersiva, enquanto as aulas particulares podem ser mais flexíveis e personalizadas.\n\nFontes mencionadas no contexto:\n- Curso intensivo de francês no CUEF/UGA (informações sobre estrutura e atividades)\n- Aulas particulares com professores locais (exemplo de Natália Duarte)",
+      "answer_relevance": 0.8,
+      "faithfulness": 1.0,
+      "semantic_similarity": 0.9127520322799683
     },
     {
       "question": "Onde em Grenoble eu consigo resolver tudo para esportes de inverno: alugar equipamento de ski e também fazer pequenos consertos de snowboard (tipo parafuso/ajuste)?",
@@ -667,10 +667,10 @@
       "hit_rate_at_5": 1.0,
       "recall_at_5": 1.0,
       "context_precision": 0.5833333333333333,
-      "answer": "Em Grenoble, você pode resolver suas necessidades para esportes de inverno da seguinte forma:\n\n**Aluguel de Equipamento de Ski:**\n- O aluguel de equipamentos de esqui, como esquis, bastões, capacetes e botas, costuma custar cerca de 15 euros. É possível alugar em lojas especializadas na cidade. O processo de aluguel é digital e mais simples atualmente, sem necessidade de imprimir formulários.\n\n**Conserto de Snowboard:**\n- Para pequenos consertos, como a troca de parafusos de fixação, você pode ir à loja \"Boîte à ski\". Eles costumam realizar esse tipo de serviço gratuitamente.\n\n**Observações:**\n- É recomendável verificar a disponibilidade de equipamentos e serviços diretamente nas lojas, especialmente em períodos de alta demanda, como a temporada de inverno.\n\nFontes mencionadas no contexto:\n- [Aluguel de equipamentos de ski em Grenoble](https://www.ledauphine.com/economie/2022/09/07/isere-grenoble-une-recyclerie-sportive-a-grenoble-pour-une-nouvelle-vision-du-sport)",
+      "answer": "Em Grenoble, você pode alugar equipamentos de ski em diversas lojas. O custo médio para alugar esquis e bastões é de cerca de 15 euros. É recomendado alugar o equipamento na cidade, pois nas montanhas o preço costuma ser mais alto e pode haver perda de tempo. \n\nPara consertos de snowboard, a loja Boîte à ski é uma boa opção. Eles costumam realizar serviços simples, como a troca de parafusos de fixação, gratuitamente.\n\n**Resumo:**\n- **Aluguel de Equipamento de Ski:**\n  - **Onde:** Lojas em Grenoble (ex: Boîte à ski)\n  - **Custo:** Aproximadamente 15 euros para esqui e bastão.\n  - **Observação:** Alugue na cidade para evitar preços altos nas montanhas.\n\n- **Conserto de Snowboard:**\n  - **Onde:** Boîte à ski\n  - **Serviço:** Troca de parafuso de fixação (geralmente gratuito).\n\nFontes mencionadas no contexto:\n- [Aluguel de equipamentos de ski em Grenoble](https://www.ledauphine.com/economie/2022/09/07/isere-grenoble-une-recyclerie-sportive-a-grenoble-pour-une-nouvelle-vision-du-sport)",
       "answer_relevance": 1.0,
-      "faithfulness": 0.8,
-      "semantic_similarity": 0.8995387554168701
+      "faithfulness": 1.0,
+      "semantic_similarity": 0.8984425067901611
     },
     {
       "question": "Para quem quer só passear na montanha sem esqui: é seguro fazer trilha sozinho(a) perto de Grenoble e quais lugares em Chamrousse combinam hiking leve com parada para café/lanche?",
@@ -690,10 +690,10 @@
       "hit_rate_at_5": 1.0,
       "recall_at_5": 1.0,
       "context_precision": 1.0,
-      "answer": "Não encontrei informações específicas sobre a segurança de fazer trilhas sozinho(a) perto de Grenoble ou sobre opções de hiking leve em Chamrousse que incluam paradas para café ou lanche. \n\nRecomendo verificar com grupos locais de hiking ou fóruns de expats, onde você pode encontrar experiências e dicas de quem já fez essas trilhas. Além disso, é sempre bom consultar informações atualizadas sobre segurança e condições das trilhas em sites de turismo ou com a prefeitura local.",
-      "answer_relevance": 0.5,
+      "answer": "Não encontrei informações confiáveis sobre este tema.",
+      "answer_relevance": 0.2,
       "faithfulness": 0.0,
-      "semantic_similarity": 0.90184485912323
+      "semantic_similarity": 0.8370773792266846
     },
     {
       "question": "Se eu quiser uma atividade diferente no inverno em Grenoble: onde dá pra patinar no gelo e, se eu for fazer via ferrata na Bastille, como funciona aluguel de equipamento e contratação de instrutor?",
@@ -707,16 +707,16 @@
         "2278",
         "1145",
         "2213",
-        "1706",
-        "1707"
+        "1707",
+        "1706"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 1.0,
       "context_precision": 1.0,
-      "answer": "Em Grenoble, você pode patinar no gelo em pistas específicas na cidade, já que não há patinação diretamente nas montanhas. As opções de patinação variam, então vale a pena conferir as pistas disponíveis durante a temporada de inverno.\n\nPara a via ferrata na Bastille, você precisará alugar o equipamento em lojas especializadas, pois não há aluguel disponível diretamente na montanha. Os instrutores não estão incluídos no passeio padrão, então, se você quiser um acompanhamento profissional, será necessário contratar esse serviço separadamente.\n\nFontes mencionadas no contexto:\n- [Patinação no gelo e via ferrata em Grenoble]",
-      "answer_relevance": 0.8,
+      "answer": "Sobre patinação no gelo em Grenoble, a atividade ocorre em pistas específicas na cidade, não diretamente nas montanhas. \n\nPara a via ferrata na Bastille, você deve alugar o equipamento em lojas especializadas, pois não há aluguel disponível diretamente no local. Os instrutores não estão incluídos no passeio padrão, então, se você quiser um acompanhamento profissional, precisará contratar esse serviço separadamente.\n\nFontes mencionadas no contexto:\n- [Patinação no gelo e via ferrata em Grenoble]",
+      "answer_relevance": 0.9,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.928429365158081
+      "semantic_similarity": 0.9346138834953308
     },
     {
       "question": "Onde em Grenoble dá pra comprar couve (tipo pra fazer feijoada/caldo verde) e outros produtos portugueses/brasileiros? Tem opção fresca e congelada?",
@@ -729,18 +729,18 @@
       "used_category_filter": false,
       "retrieved_ids": [
         "460",
-        "172",
         "1061",
-        "2602",
-        "1547"
+        "172",
+        "1104",
+        "2602"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.3333333333333333,
       "context_precision": 0.3333333333333333,
-      "answer": "Em Grenoble, você pode comprar couve e outros produtos brasileiros e portugueses em alguns locais:\n\n1. **Supermercado Transmontano**: Oferece couve tanto fresca quanto congelada.\n2. **Intermarché**: Especialmente o de Saint Martin, onde é possível encontrar produtos brasileiros, embora a variedade possa ser limitada.\n3. **Carrefour**: Também tem alguns ingredientes brasileiros, como farinha de rosca e polvilho doce, mas a seleção pode variar.\n4. **Tienda Latina e Mota**: Conhecidos por preços mais acessíveis e uma boa variedade de produtos brasileiros.\n5. **Instagram - Chez Pamella**: Oferece doces e salgados brasileiros, como brigadeiro e coxinha.\n\nEsses locais devem atender suas necessidades para fazer feijoada ou caldo verde. Se precisar de mais informações sobre algum produto específico, vale a pena visitar os supermercados ou conferir as redes sociais das lojas.\n\nFontes mencionadas no contexto:\n- Supermercado Transmontano\n- Intermarché\n- Carrefour\n- Tienda Latina\n- Mota\n- Instagram - Chez Pamella",
+      "answer": "Em Grenoble, você pode comprar couve, tanto fresca quanto congelada, no supermercado Transmontano. Além disso, há outras opções para encontrar produtos brasileiros e portugueses:\n\n1. **Transmontano**: Oferece couve fresca e congelada.\n2. **Carrefour**: Possui alguns ingredientes brasileiros, embora a variedade possa ser limitada.\n3. **Intermarché**: Especialmente o de Saint Martin, que pode ter produtos brasileiros.\n4. **Mercado NOSSO**: Conhecido por oferecer produtos brasileiros.\n5. **Tienda Latina e Mota**: Também são opções acessíveis para produtos brasileiros.\n\nEsses locais podem ter uma variedade de produtos, então vale a pena visitar para conferir o que está disponível.\n\nFontes mencionadas no contexto:\n- Supermercado Transmontano (informação sobre couve)\n- Carrefour e Intermarché (produtos brasileiros)",
       "answer_relevance": 1.0,
-      "faithfulness": 0.8,
-      "semantic_similarity": 0.8920688033103943
+      "faithfulness": 1.0,
+      "semantic_similarity": 0.8998575210571289
     },
     {
       "question": "Quais são os melhores lugares pra comprar frutas e legumes bons em Grenoble e arredores (ex.: Echirolles/Chavant)? Vale ligar antes pra confirmar itens como mamão?",
@@ -754,16 +754,16 @@
         "1570",
         "1943",
         "1504",
-        "1227",
-        "1371"
+        "2457",
+        "1227"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.5,
       "context_precision": 0.5,
-      "answer": "Em Grenoble e arredores, aqui estão algumas boas opções para comprar frutas e legumes:\n\n1. **Grand Frais (Echirolles)**: Este mercado é conhecido pela qualidade das frutas e legumes. Vale a pena conferir.\n\n2. **Sélection Fruits (Chavant)**: Uma boa opção, especialmente para frutas como mamão. É recomendável ligar antes para confirmar a disponibilidade de itens específicos.\n\n3. **Carrefour (próximo à Grand Place, Grenoble)**: Oferece uma variedade de frutas e legumes a preços competitivos.\n\nLigar antes para confirmar a disponibilidade de produtos, como o mamão, é uma prática sensata, especialmente em lojas menores.\n\nFontes mencionadas no contexto:\n- [Grand Frais e Sélection Fruits em Echirolles e Chavant]",
+      "answer": "Em Grenoble e arredores, aqui estão algumas boas opções para comprar frutas e legumes:\n\n1. **Grand Frais (Echirolles)**: Oferece frutas e legumes de boa qualidade.\n2. **Sélection Fruits (Chavant)**: Uma boa opção, especialmente para frutas como mamão. É recomendável ligar antes para confirmar a disponibilidade.\n3. **Carrefour (próximo à Grand Place, Grenoble)**: Oferece frutas e legumes com preços competitivos.\n4. **Feira da Estacade (Grenoble)**: Você pode encontrar maracujá e abacaxi, embora os preços não sejam os mais baratos.\n\nVale a pena ligar para os locais antes de ir, especialmente se você está em busca de itens específicos como mamão.",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9007796049118042
+      "semantic_similarity": 0.8992335796356201
     },
     {
       "question": "Se eu quiser comprar massa de pastel (ou algo bem parecido) em Grenoble, onde costuma ter? Algum mercado ou região específica tipo Les Halles Sainte-Claire?",
@@ -775,18 +775,18 @@
       "used_category_filter": false,
       "retrieved_ids": [
         "1510",
-        "409",
         "2534",
-        "2457",
-        "1055"
+        "498",
+        "1055",
+        "2457"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.5,
       "context_precision": 0.5,
-      "answer": "Você pode encontrar massa para pastel em Grenoble, especialmente nas proximidades de Les Halles Sainte-Claire. Além disso, o supermercado Nosso também oferece opções de pastel e coxinha congelados, o que pode ser uma alternativa interessante. \n\nOutros mercados como E.Leclerc e Géant Casino são conhecidos por sua variedade de produtos, então vale a pena conferir também. O Lidl, embora tenha preços baixos, pode ter uma variedade mais limitada.\n\nFontes mencionadas no contexto:\n- [Halles Sainte-Claire](https://www.hallessainteclaire.com) (link não disponível)",
-      "answer_relevance": 0.9,
+      "answer": "Você pode encontrar massa para pastel em Grenoble, especialmente perto de Les Halles Sainte-Claire. Além disso, o supermercado Nosso também vende pastel e coxinha congelados, o que pode ser uma boa opção. \n\nFontes mencionadas no contexto:\n- [Halles Sainte-Claire](https://www.hallessainteclaire.com) (link não disponível) \n- [Supermercado Nosso](https://www.instagram.com/nossogrenoble/) (link não disponível)",
+      "answer_relevance": 0.8,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.9105942845344543
+      "semantic_similarity": 0.9146264791488647
     },
     {
       "question": "Onde dá pra comprar requeijão e outros “achados” brasileiros em Grenoble (tipo salgados prontos)? Precisa correr porque o estoque acaba rápido?",
@@ -798,19 +798,19 @@
       ],
       "used_category_filter": false,
       "retrieved_ids": [
-        "172",
         "1165",
+        "172",
+        "1104",
         "2312",
-        "2624",
-        "2692"
+        "2624"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.3333333333333333,
-      "context_precision": 0.16666666666666666,
-      "answer": "Em Grenoble, você pode encontrar requeijão e outros produtos brasileiros em alguns locais específicos:\n\n1. **Supermercado NOSSO**: Havia requeijão disponível lá, e é recomendado comprar rapidamente, pois o estoque tende a acabar rápido.\n\n2. **Instagram - Chez Pamella**: Este perfil oferece uma variedade de produtos brasileiros, incluindo salgados prontos como coxinha e pastel. É uma boa opção para quem busca comidas típicas.\n\n3. **Supermercado Carrefour**: Embora a variedade de produtos brasileiros seja limitada, você pode encontrar alguns ingredientes, como farinha de rosca.\n\n4. **Supermercado Action**: Este local também costuma ter produtos brasileiros, como guaraná, mas a disponibilidade pode variar.\n\nRecomendo que você visite esses locais o quanto antes para garantir os produtos desejados, já que o estoque pode ser limitado.\n\nFontes mencionadas no contexto:\n- [Chez Pamella - Instagram](https://www.instagram.com/chezpamella/)",
+      "context_precision": 0.3333333333333333,
+      "answer": "Você pode comprar requeijão no supermercado NOSSO em Grenoble, onde a disponibilidade é boa, mas é recomendável ir logo, pois o estoque acaba rápido. \n\nAlém disso, para salgados e doces brasileiros, uma boa opção é o perfil do Instagram @chezpamella, que oferece produtos como brigadeiro, coxinha e pastel. \n\nSe você estiver procurando por outros produtos brasileiros, o supermercado Action também costuma ter itens como guaraná, embora a disponibilidade possa variar.\n\nFontes mencionadas no contexto:\n- Supermercado NOSSO (disponibilidade de requeijão)\n- Instagram @chezpamella (salgados e doces brasileiros)\n- Supermercado Action (guaraná brasileiro)",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.8746377229690552
+      "semantic_similarity": 0.8756818771362305
     },
     {
       "question": "Se eu estiver morando perto da gare (estação de trem) ou do parque Paul Mistral, quais cuidados práticos devo ter à noite? É pior em quais horários/locais (tipo tram/portas/ruas específicas)?",
@@ -826,16 +826,16 @@
         "2692",
         "1251",
         "405",
-        "270",
-        "594"
+        "2153",
+        "270"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.75,
-      "context_precision": 0.6041666666666666,
-      "answer": "Se você mora perto da gare ou do parque Paul Mistral em Grenoble, é importante ter alguns cuidados práticos à noite:\n\n1. **Cuidado com a segurança**: Ambas as áreas são consideradas menos seguras à noite. O parque Paul Mistral, em particular, é visto por alguns moradores como um local arriscado, comparado a uma \"Cracolândia\". A região da gare também apresenta riscos, especialmente após o anoitecer.\n\n2. **Horários críticos**: É recomendável evitar transitar por essas áreas em horários de pouca luz, como no final da tarde e à noite. Relatos indicam que mulheres devem ter atenção redobrada, pois há casos de assédio e perseguição.\n\n3. **Transporte público**: Ao esperar pelo transporte público, especialmente à noite, é melhor estar atento ao ambiente. A gare routière (terminal de ônibus) não é considerada segura à meia-noite, então evite ficar muito tempo lá e tente chegar próximo ao horário de saída do ônibus.\n\n4. **Recomendações gerais**: Sempre que possível, evite andar sozinho nessas áreas à noite e mantenha-se atento ao seu redor. \n\nEssas informações podem ajudar a garantir sua segurança ao transitar por essas regiões à noite. Para mais detalhes sobre segurança e cuidados, é sempre bom consultar fontes locais ou moradores da área.\n\nFontes mencionadas no contexto:\n- [Segurança em Grenoble] (sem link disponível)",
-      "answer_relevance": 1.0,
+      "context_precision": 0.5666666666666667,
+      "answer": "Ao morar perto da gare ou do parque Paul Mistral em Grenoble, é importante ter alguns cuidados práticos à noite:\n\n1. **Cuidado com a segurança**: Ambas as áreas são consideradas menos seguras à noite. O parque Paul Mistral, em particular, é visto como arriscado, com relatos de assédio e furtos. A região da gare também apresenta riscos, especialmente após o anoitecer.\n\n2. **Horários de risco**: É recomendável evitar essas áreas em horários de pouca luz, como no final da tarde e à noite. O último tram geralmente passa por volta da 1h da manhã, mas é melhor não ficar muito tempo esperando ou transitando por essas áreas nesse horário.\n\n3. **Dicas práticas**:\n   - Evite andar sozinho, especialmente mulheres.\n   - Esteja sempre atenta ao seu entorno.\n   - Prefira se deslocar em grupo, se possível.\n\nSobre horários e locais específicos, a comunidade menciona que a gare e o parque são mais perigosos à noite, mas não há informações detalhadas sobre ruas específicas a evitar.\n\nFontes mencionadas no contexto:\n- [Cuidados à noite em Grenoble](https://www.example.com)",
+      "answer_relevance": 0.8,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.8845549821853638
+      "semantic_similarity": 0.8929088115692139
     },
     {
       "question": "Quais bairros ou regiões em Grenoble é melhor evitar para morar (ex.: Saint-Bruno, Echirolles) e por quê? Esses problemas são frequentes ou mais “estigma”?",
@@ -856,10 +856,10 @@
       "hit_rate_at_5": 1.0,
       "recall_at_5": 1.0,
       "context_precision": 0.7555555555555555,
-      "answer": "Em Grenoble, alguns bairros são frequentemente mencionados como menos recomendáveis para morar, principalmente por questões de segurança e conforto. Os principais bairros a evitar incluem:\n\n1. **Saint-Bruno**: Este bairro é considerado desconfortável e inseguro, especialmente para mulheres. Há relatos de assédio, roubos e até incidentes graves, como tiros. Por isso, é amplamente desaconselhado para qualquer grupo, incluindo famílias.\n\n2. **Echirolles**: Também é mencionado como uma área a ser evitada, embora os detalhes específicos sobre os problemas não sejam tão claros.\n\n3. **Área próxima ao Parque Paul Mistral**: À noite, essa região pode apresentar riscos, sendo comparada a áreas problemáticas em outras cidades. A proximidade da estação de trem também é considerada perigosa durante a noite.\n\n4. **Place Saint Bruno**: Conhecida por ser um ponto de tráfico de drogas à noite, essa área é vista como mais pobre e pode causar desconforto, especialmente para mulheres.\n\nEmbora esses problemas sejam reais, muitos deles podem ser considerados estigmas, e a experiência de moradores varia. A cidade, de modo geral, é considerada mais segura do que muitas grandes cidades brasileiras, mas é sempre importante manter a vigilância, especialmente em áreas públicas e à noite.\n\nPara uma escolha mais segura, é recomendável optar por bairros com melhor reputação e infraestrutura, além de estar sempre atento ao ambiente ao seu redor.\n\nFontes mencionadas no contexto:\n- [Segurança e bairros em Grenoble](https://g.co/kgs/ueS1gxV)",
-      "answer_relevance": 0.9,
-      "faithfulness": 0.0,
-      "semantic_similarity": 0.9145660400390625
+      "answer": "Os bairros de Grenoble que são frequentemente recomendados para evitar incluem Saint-Bruno e Échirolles. As razões para essa recomendação estão relacionadas a questões de segurança, como relatos de assédio, roubos e, em alguns casos, incidentes mais graves. \n\nEmbora a segurança em Grenoble seja considerada melhor do que em cidades maiores da França, esses bairros têm uma reputação negativa que pode ser justificada por experiências de moradores e visitantes. No entanto, há também opiniões que indicam que a vida em Saint-Bruno não é monótona e que não há um consenso claro sobre a necessidade de evitá-lo, sugerindo que a percepção pode variar.\n\nEm resumo, é aconselhável ter cautela ao considerar morar em Saint-Bruno e Échirolles, especialmente para mulheres e famílias. A escolha do bairro deve levar em conta fatores pessoais, como localização do trabalho e preferências de segurança.\n\nFontes mencionadas no contexto:\n- [Recomendações sobre segurança em bairros de Grenoble]",
+      "answer_relevance": 0.8,
+      "faithfulness": 1.0,
+      "semantic_similarity": 0.9172092080116272
     },
     {
       "question": "É tranquilo subir a Bastille de noite? Qual caminho é mais seguro (rota iluminada da bicicleta) e o que evitar (parte da floresta)?",
@@ -873,17 +873,17 @@
       "retrieved_ids": [
         "1313",
         "282",
-        "594",
+        "1251",
         "2645",
-        "2638"
+        "594"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.3333333333333333,
       "context_precision": 0.3333333333333333,
-      "answer": "Subir a Bastille à noite pode ser seguro, desde que você siga a rota iluminada para bicicletas e utilize lanternas. É importante evitar a parte da floresta, especialmente se você não conhece bem o caminho, pois essa área pode ser perigosa.\n\nAlém disso, é bom ter em mente que algumas áreas de Grenoble, como a proximidade do parque Paul Mistral e a região perto da estação de trem, podem apresentar riscos à noite. Portanto, é sempre recomendável ter cautela ao transitar por essas áreas após o anoitecer.\n\nFontes mencionadas no contexto:\n- [Segurança ao subir a Bastille à noite](link se existir)",
+      "answer": "Subir a Bastille à noite pode ser seguro, desde que você siga a rota iluminada para bicicletas e utilize lanternas. É recomendado evitar a parte da floresta, especialmente se você não conhece bem o caminho, pois pode ser perigoso.\n\nEm geral, Grenoble é considerada relativamente tranquila, mas sempre é bom ter cautela e evitar locais menos iluminados ou conhecidos.\n\nFontes mencionadas no contexto:\n- [Segurança na Bastille à noite](link se existir)",
       "answer_relevance": 1.0,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.91154944896698
+      "semantic_similarity": 0.9124315977096558
     },
     {
       "question": "Em Fontaine, como descobrir quais bairros são mais perigosos/complicados? Existe algum contato oficial tipo Mairie/CCAS pra orientar?",
@@ -896,17 +896,17 @@
       "retrieved_ids": [
         "2430",
         "2487",
-        "2439",
-        "1318",
-        "2683"
+        "2446",
+        "1644",
+        "2039"
       ],
       "hit_rate_at_5": 1.0,
-      "recall_at_5": 1.0,
-      "context_precision": 0.7,
-      "answer": "Para descobrir quais bairros em Fontaine são considerados mais perigosos ou complicados, você pode entrar em contato com a Mairie de Fontaine pelo telefone 04 76 28 75 75. Eles podem fornecer informações sobre segurança nos bairros. Além disso, o CCAS (Centro Comunal de Ação Social) também pode oferecer apoio social, embora possa exigir documentos que moradores recentes ainda não possuam.\n\nEm relação à segurança, a comunidade menciona que o bairro de Fontaine tem uma reputação negativa, especialmente devido a disputas relacionadas ao tráfico de drogas. Também é aconselhável ter cautela em áreas como Saint-Bruno e Échirolles, além de estar atento ao centro da cidade, onde houve relatos de um agressor sexual ainda não capturado.\n\nFontes mencionadas no contexto:\n- [Mairie de Fontaine](https://g.co/kgs/ueS1gxV)",
+      "recall_at_5": 0.5,
+      "context_precision": 0.5,
+      "answer": "Para descobrir quais bairros em Fontaine são considerados mais perigosos ou complicados, você pode entrar em contato com a Mairie de Fontaine. Eles podem fornecer informações sobre segurança nos bairros. O telefone para contato é 04 76 28 75 75. Você também pode acessar o site da Mairie para mais informações: [Mairie de Fontaine](https://g.co/kgs/ueS1gxV).\n\nAlém disso, o CCAS (Centro Comunal de Ação Social) pode oferecer apoio social, mas é importante notar que pode exigir documentos que moradores recentes ainda não possuem.\n\nSobre a reputação dos bairros, foi mencionado que Fontaine, especialmente na região oeste de Grenoble, tem uma reputação negativa devido a disputas relacionadas ao tráfico de drogas.\n\nFontes mencionadas no contexto:\n- [Mairie de Fontaine](https://g.co/kgs/ueS1gxV)",
       "answer_relevance": 1.0,
-      "faithfulness": 0.5,
-      "semantic_similarity": 0.9367667436599731
+      "faithfulness": 1.0,
+      "semantic_similarity": 0.9368072152137756
     },
     {
       "question": "Se eu vir situações “estranhas” na rua (tipo dois caras numa moto) em Grenoble, isso costuma ser assalto ou mais furto? Tem alguma linha/área com mais batedor de carteira?",
@@ -919,18 +919,18 @@
       "used_category_filter": false,
       "retrieved_ids": [
         "372",
-        "1499",
         "405",
-        "1340",
+        "1465",
+        "1499",
         "282"
       ],
       "hit_rate_at_5": 1.0,
       "recall_at_5": 0.6666666666666666,
-      "context_precision": 0.5555555555555555,
-      "answer": "Em Grenoble, a segurança é considerada relativamente boa em comparação com muitas cidades, mas ainda existem áreas onde é preciso ter mais cuidado. Furtos, especialmente de celulares, são comuns em locais públicos, como nas paradas de tram e perto de portas. É importante estar atento e evitar distrações ao entrar ou sair do transporte público.\n\nQuanto a assaltos, houve um aumento de ocorrências nas áreas da Gare e da Place de la Foch, especialmente à noite. Portanto, é recomendável ter cautela ao transitar por essas regiões.\n\nSobre a sua pergunta específica sobre situações \"estranhas\" na rua, como dois homens em uma moto, isso pode ser um sinal de alerta, mas não necessariamente indica um assalto. É sempre bom manter a vigilância e, se sentir desconfortável, evitar a interação ou se afastar da situação.\n\nÁreas que costumam ser mais problemáticas incluem a Gare e a Place de la Foch, além do bairro Saint Bruno, que também apresenta preocupações de segurança.\n\nFontes mencionadas no contexto:\n- [Segurança em Grenoble] (sem link disponível)",
+      "context_precision": 0.6666666666666666,
+      "answer": "Em Grenoble, a segurança é considerada relativamente boa em comparação a outras cidades, mas existem áreas que requerem atenção especial. Relatos indicam que houve um aumento de assaltos nas regiões da Gare e da Place de la Foch, especialmente à noite. Furtos, como roubos de celular, são mais comuns em locais públicos, como nas paradas de tram e em áreas movimentadas.\n\nSobre a sua pergunta específica, a presença de duas pessoas em uma moto pode ser uma situação de risco, mas não necessariamente indica um assalto. É importante manter a atenção e evitar situações vulneráveis, como estar distraído. \n\nAs áreas que costumam ter mais problemas de segurança incluem:\n- **Gare**: A região da estação de trem é conhecida por ser mais perigosa, especialmente à noite.\n- **Place de la Foch**: Também mencionada como uma área com aumento de assaltos.\n- **Parque Paul Mistral**: Considerada arriscada à noite.\n\nRecomenda-se cautela ao transitar por essas áreas, especialmente após o anoitecer.\n\nFontes mencionadas no contexto:\n- [Segurança em Grenoble]",
       "answer_relevance": 0.9,
       "faithfulness": 1.0,
-      "semantic_similarity": 0.8962162733078003
+      "semantic_similarity": 0.8850237727165222
     }
   ]
 }
