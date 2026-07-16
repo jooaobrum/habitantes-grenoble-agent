@@ -1,5 +1,8 @@
 import logging
 from typing import Any
+
+import httpx
+
 from ._embedding import _embed_query, _embed_sparse_query, _DENSE_VECTOR, _SPARSE_VECTOR
 from ._ranking import (
     _calculate_date_decay,
@@ -29,8 +32,23 @@ def _get_qdrant_client():
         from habitantes.config import load_settings
 
         settings = load_settings()
-        _qdrant_client = QdrantClient(url=settings.vector_store.qdrant_url)
+        _qdrant_client = QdrantClient(
+            url=settings.vector_store.qdrant_url,
+            timeout=settings.vector_store.qdrant_timeout_seconds,
+        )
     return _qdrant_client
+
+
+def _classify_qdrant_error(exc: Exception) -> str:
+    """Map a raised Qdrant-client exception to QDRANT_TIMEOUT or QDRANT_UNREACHABLE.
+
+    qdrant-client wraps the underlying httpx exception in ResponseHandlingException
+    (exposed via `.source`); a plain builtin TimeoutError never surfaces here.
+    """
+    cause = getattr(exc, "source", None) or exc
+    if isinstance(cause, httpx.TimeoutException):
+        return "QDRANT_TIMEOUT"
+    return "QDRANT_UNREACHABLE"
 
 
 # ── Public tool function ──────────────────────────────────────────────────────
@@ -124,9 +142,13 @@ def hybrid_search(
 
         scores: dict[str, float] = {}
         points_map: dict[str, Any] = {}
+        # Real dense cosine similarity per chunk (query↔stored question). RRF below
+        # encodes rank, not relevance, so we preserve this for the relevance gate.
+        dense_scores: dict[str, float] = {}
 
         for i, p in enumerate(dense_prefetch):
             pid = str(p.id)
+            dense_scores[pid] = float(p.score)
             date_str = p.payload.get("date") if p.payload else None
             decay = _calculate_date_decay(date_str)
             scores[pid] = scores.get(pid, 0) + W_DENSE * (1.0 / (RRF_K + i + 1)) * decay
@@ -149,20 +171,12 @@ def hybrid_search(
         for p in points:
             p.score = scores[str(p.id)]
 
-    except TimeoutError as exc:
-        logger.error("Qdrant timeout: %s", exc)
-        return {
-            "error": {
-                "error_code": "QDRANT_TIMEOUT",
-                "message": str(exc),
-                "retryable": True,
-            }
-        }
     except Exception as exc:
-        logger.error("Qdrant unreachable: %s", exc)
+        error_code = _classify_qdrant_error(exc)
+        logger.error("Qdrant %s: %s", error_code, exc)
         return {
             "error": {
-                "error_code": "QDRANT_UNREACHABLE",
+                "error_code": error_code,
                 "message": str(exc),
                 "retryable": True,
             }
@@ -188,6 +202,7 @@ def hybrid_search(
                 "date": pl.get("thread_start", ""),
                 "category": pl.get("category", ""),
                 "score": float(p.score),
+                "dense_score": dense_scores.get(str(p.id), 0.0),
             }
         )
 
@@ -291,7 +306,9 @@ def _make_search_tool():
         )
 
         if "error" in result:
-            return f"Erro na busca: {result['error']['message']}"
+            # Preserve the {"chunks": [...]} / {"error": {...}} contract so the
+            # orchestrator can short-circuit with the spec's PT failure message.
+            return result
 
         chunks = result.get("chunks", [])
         if not chunks:

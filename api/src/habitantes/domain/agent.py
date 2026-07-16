@@ -24,6 +24,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
+from openai import APIConnectionError, APITimeoutError, OpenAIError, RateLimitError
 
 from habitantes.config import load_settings
 from habitantes.domain.cache import get_cache
@@ -34,7 +35,10 @@ from habitantes.domain.categories import (
     resolve_number,
 )
 from habitantes.domain.prompts.intent import build_intent_messages
-from habitantes.domain.prompts.synthesis import REACT_SYSTEM_PROMPT
+from habitantes.domain.prompts.synthesis import (
+    _NO_RESULTS_FALLBACK,
+    REACT_SYSTEM_PROMPT,
+)
 from habitantes.domain.state import AgentState
 from habitantes.domain.tools import (
     get_get_category_chunks_tool,
@@ -98,7 +102,7 @@ def _get_llm():
             api_key=settings.llm.openai_api_key,
             temperature=settings.agent.temperature,
             max_tokens=settings.api.max_tokens_per_response,
-            request_timeout=settings.api.request_timeout_seconds,
+            request_timeout=settings.api.openai_timeout_seconds,
         )
     return _llm
 
@@ -113,6 +117,74 @@ def _get_greeting_text() -> str:
     if _greeting_text is None:
         _greeting_text = build_greeting_text(load_settings().categories)
     return _greeting_text
+
+
+# ── Error taxonomy (spec.md §6) ──────────────────────────────────────────────
+
+_QDRANT_DOWN_MSG = (
+    "Serviço temporariamente indisponível. Tente novamente em alguns minutos."
+)
+_OPENAI_DOWN_MSG = "Não consegui processar sua pergunta. Tente novamente."
+_OPENAI_RATE_LIMIT_MSG = (
+    "O sistema está muito ocupado agora. Tente novamente em 1 minuto."
+)
+
+
+def _map_openai_error(exc: Exception) -> dict:
+    """Map an OpenAI SDK exception to the structured {error_code, message, retryable}."""
+    if isinstance(exc, RateLimitError):
+        return {
+            "error_code": "OPENAI_RATE_LIMIT",
+            "message": _OPENAI_RATE_LIMIT_MSG,
+            "retryable": True,
+        }
+    if isinstance(exc, (APIConnectionError, APITimeoutError)):
+        return {
+            "error_code": "OPENAI_UNREACHABLE",
+            "message": _OPENAI_DOWN_MSG,
+            "retryable": True,
+        }
+    return {
+        "error_code": "OPENAI_ERROR",
+        "message": _OPENAI_DOWN_MSG,
+        "retryable": False,
+    }
+
+
+def _map_search_error(tool_error: dict) -> dict:
+    """Map a search-tool {"error": {...}} contract to the user-facing PT message."""
+    return {
+        "error_code": tool_error.get("error_code", "SEARCH_ERROR"),
+        "message": _QDRANT_DOWN_MSG,
+        "retryable": tool_error.get("retryable", True),
+    }
+
+
+def _error_result(state: AgentState, error: dict) -> dict:
+    """Build the run()-level error result: state fields + structured log."""
+    logger.error(
+        "Agent failure: %s",
+        error["error_code"],
+        extra={"trace_id": state.get("trace_id"), "error_code": error["error_code"]},
+    )
+    return {
+        "answer": error["message"],
+        "sources": [],
+        "confidence": 0.0,
+        "context_chunks": [],
+        "error": error,
+    }
+
+
+def _finalize_with_error(
+    state: AgentState, chat_id: str, message: str, exc: Exception
+) -> AgentState:
+    """Apply an OpenAI failure to state, persist memory, and return the turn result."""
+    state.update(_error_result(state, _map_openai_error(exc)))
+    _update_memory(
+        chat_id, message, state["answer"], state["category"], state["intent"]
+    )
+    return state
 
 
 # ── Layer 1: Intent Classification ───────────────────────────────────────────
@@ -254,8 +326,13 @@ def _run_react_loop(state: AgentState) -> dict:
     else:
         llm_with_tools = llm
 
+    min_relevance = load_settings().search.min_relevance
+
     msgs = _build_react_messages(state)
     context_chunks: list[dict] = []
+    gated = False
+    gated_top_dense = 0.0
+    search_error: dict | None = None
 
     # ReAct loop
     for _ in range(_get_agent_settings().max_react_iterations):
@@ -280,11 +357,57 @@ def _run_react_loop(state: AgentState) -> dict:
 
                 tool_result = tool_map[tool_name].invoke(tool_args)
 
-                # If tool_result is a dict with "chunks" (from search_knowledge_base), capture them
-                if isinstance(tool_result, dict) and "chunks" in tool_result:
+                # If the tool surfaced a structured {"error": {...}}, short-circuit
+                # with the spec's PT failure message — no further LLM calls.
+                if isinstance(tool_result, dict) and "error" in tool_result:
+                    search_error = _map_search_error(tool_result["error"])
+                    logger.error(
+                        "Search tool failure: %s",
+                        tool_result["error"].get("message"),
+                        extra={
+                            "trace_id": state.get("trace_id"),
+                            "error_code": search_error["error_code"],
+                        },
+                    )
                     context_chunks.clear()
-                    context_chunks.extend(tool_result["chunks"])
-                    tool_content = tool_result["formatted"]
+                    break
+
+                # If tool_result is a dict with "chunks" (from search_knowledge_base),
+                # apply the relevance gate before letting the LLM synthesize.
+                if isinstance(tool_result, dict) and "chunks" in tool_result:
+                    raw_chunks = tool_result["chunks"]
+                    relevant = [
+                        c
+                        for c in raw_chunks
+                        if float(c.get("dense_score", 0.0)) >= min_relevance
+                    ]
+                    if not relevant and not context_chunks:
+                        # Nothing clears the floor on any search this turn →
+                        # off-topic / no reliable match. Short-circuit with the
+                        # fallback, no synthesis LLM call.
+                        gated = True
+                        gated_top_dense = max(
+                            (float(c.get("dense_score", 0.0)) for c in raw_chunks),
+                            default=0.0,
+                        )
+                        break
+                    elif not relevant:
+                        # This particular search came up empty, but an earlier
+                        # search this turn already found relevant context —
+                        # let the LLM decide whether to retry or synthesize.
+                        tool_content = (
+                            "Nenhum resultado relevante encontrado para esta busca."
+                        )
+                    else:
+                        # Accumulate across every search_knowledge_base call this
+                        # turn (dedup by thread_id) so context_chunks reflects
+                        # everything the LLM actually saw, not just the last call.
+                        seen_ids = {c.get("thread_id") for c in context_chunks}
+                        for c in relevant:
+                            if c.get("thread_id") not in seen_ids:
+                                context_chunks.append(c)
+                                seen_ids.add(c.get("thread_id"))
+                        tool_content = _format_relevant_chunks(relevant)
                 else:
                     tool_content = str(tool_result)
 
@@ -302,13 +425,21 @@ def _run_react_loop(state: AgentState) -> dict:
                     )
                 )
 
+        if gated or search_error:
+            break
+
     # Extract final answer from the last LLM response
-    answer = ""
-    if msgs:
-        last = msgs[-1]
-        content = getattr(last, "content", None)
-        if content:
-            answer = str(content)
+    if search_error:
+        answer = search_error["message"]
+    elif gated:
+        answer = _NO_RESULTS_FALLBACK
+    else:
+        answer = ""
+        if msgs:
+            last = msgs[-1]
+            content = getattr(last, "content", None)
+            if content:
+                answer = str(content)
 
     # Build sources from context_chunks
     sources = [
@@ -320,8 +451,15 @@ def _run_react_loop(state: AgentState) -> dict:
         for chunk in context_chunks
     ]
 
-    top_score = max((c.get("score", 0.0) for c in context_chunks), default=0.0)
-    confidence = _compute_confidence(intent, context_chunks, top_score)
+    top_dense = max(
+        (float(c.get("dense_score", 0.0)) for c in context_chunks),
+        default=gated_top_dense,
+    )
+    confidence = (
+        0.0
+        if search_error
+        else _compute_confidence(intent, context_chunks, top_dense, gated)
+    )
 
     elapsed_ms = (time.monotonic() - t0) * 1000
     timings = {**(state.get("timings") or {}), "react_ms": elapsed_ms}
@@ -332,17 +470,32 @@ def _run_react_loop(state: AgentState) -> dict:
         "confidence": confidence,
         "context_chunks": context_chunks,
         "timings": timings,
-        "error": None,
+        "error": search_error,
     }
 
 
-def _compute_confidence(intent: str, chunks: list, top_score: float) -> float:
-    """Compute confidence based on intent and retrieval results."""
+def _format_relevant_chunks(chunks: list[dict]) -> str:
+    """Format gate-passing chunks into the ReAct tool-message context block."""
+    parts = []
+    for i, chunk in enumerate(chunks, 1):
+        cat = chunk.get("category", "geral")
+        date = chunk.get("date", "data desconhecida")
+        text = chunk.get("text") or chunk.get("answer", "")
+        parts.append(f"[{i}] Categoria: {cat} | Data: {date}\n{text}")
+    return "\n\n".join(parts)
+
+
+def _compute_confidence(
+    intent: str, chunks: list, top_dense: float, gated: bool = False
+) -> float:
+    """Compute confidence from intent and the top dense cosine similarity."""
     if intent in ("greeting", "out_of_scope", "feedback"):
         return 1.0
+    if gated:
+        return float(top_dense)  # below the relevance floor → intentionally low
     if intent == "qa" and not chunks:
-        return 0.5  # clarification or no results
-    return min(1.0, float(top_score)) if top_score > 0 else 0.0
+        return 0.5  # clarification (short query, no search performed)
+    return min(1.0, float(top_dense)) if top_dense > 0 else 0.0
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -388,7 +541,10 @@ def run(
     }
 
     # Layer 1: Intent classification
-    classification = _classify_intent(initial_state)
+    try:
+        classification = _classify_intent(initial_state)
+    except OpenAIError as exc:
+        return _finalize_with_error(initial_state, chat_id, message, exc)
     initial_state.update(classification)
 
     # Cache check (only for QA intent with sufficient length)
@@ -408,7 +564,10 @@ def run(
             return initial_state
 
     # Layer 2: ReAct agent
-    result = _run_react_loop(initial_state)
+    try:
+        result = _run_react_loop(initial_state)
+    except OpenAIError as exc:
+        return _finalize_with_error(initial_state, chat_id, message, exc)
     initial_state.update(result)
 
     # Store in cache if successful
