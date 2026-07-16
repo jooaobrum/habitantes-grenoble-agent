@@ -1,4 +1,11 @@
+import os
+
 import pytest
+
+# Unit/integration tests mock every OpenAI + Qdrant call, but Settings still
+# requires OPENAI_API_KEY to validate. Provide a dummy so the suite is
+# self-contained (no .env needed) and passes in CI where no key is present.
+os.environ.setdefault("OPENAI_API_KEY", "sk-test-dummy")
 
 
 @pytest.fixture(autouse=True)
