@@ -181,8 +181,14 @@ def _finalize_with_error(
 ) -> AgentState:
     """Apply an OpenAI failure to state, persist memory, and return the turn result."""
     state.update(_error_result(state, _map_openai_error(exc)))
+    # Use .get() so the error path never crashes if the failure happens before
+    # intent/category are populated (e.g. auth error on the first OpenAI call).
     _update_memory(
-        chat_id, message, state["answer"], state["category"], state["intent"]
+        chat_id,
+        message,
+        state["answer"],
+        state.get("category", ""),
+        state.get("intent", ""),
     )
     return state
 

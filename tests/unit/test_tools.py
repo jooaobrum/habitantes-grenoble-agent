@@ -248,6 +248,7 @@ class TestHybridSearchSuccess:
             "date",
             "category",
             "score",
+            "dense_score",
         ):
             assert field in chunk, f"Missing field: {field}"
 
@@ -261,7 +262,12 @@ class TestHybridSearchSuccess:
         monkeypatch.setattr(_embedding, "_sparse_model", None)
 
         result = hybrid_search("test")
-        assert isinstance(result["chunks"][0]["score"], float)
+        chunk = result["chunks"][0]
+        assert isinstance(chunk["score"], float)  # fused RRF score
+        # dense_score is the raw cosine similarity the relevance gate reads; it
+        # must be a float and map to the underlying dense point's score.
+        assert isinstance(chunk["dense_score"], float)
+        assert chunk["dense_score"] == pytest.approx(0.88)
 
     def test_empty_qdrant_returns_empty_chunks(self, monkeypatch):
         monkeypatch.setattr(search, "_get_qdrant_client", lambda: _mock_qdrant([]))

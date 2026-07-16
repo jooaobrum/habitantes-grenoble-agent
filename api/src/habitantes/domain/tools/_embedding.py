@@ -25,13 +25,23 @@ def _get_openai_client():
 
 
 def _embed_texts(texts: list[str]) -> list[list[float]]:
-    """Dense-embed a batch of texts with OpenAI. Vectors are L2-normalized."""
+    """Dense-embed a batch of texts with OpenAI, L2-normalized to unit length.
+
+    Normalization is explicit (not relying on the model's own convention) so the
+    stored and query vectors are consistently unit-length; Qdrant's cosine score
+    — surfaced as dense_score for the relevance gate — is then a true cosine sim.
+    """
+    import numpy as np
+
     from habitantes.config import load_settings
 
     client = _get_openai_client()
     model = load_settings().llm.embedding_model_name
     resp = client.embeddings.create(model=model, input=texts)
-    return [d.embedding for d in resp.data]
+    vectors = np.array([d.embedding for d in resp.data], dtype="float32")
+    norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+    norms[norms == 0] = 1.0
+    return (vectors / norms).tolist()
 
 
 def _get_sparse_model():
