@@ -212,5 +212,8 @@ data/
 infra/qdrant_storage/
 .env
 
+api/logs/
+logs/
+
 .claude/checkpoints/
 .claude/SUGGESTIONS.md

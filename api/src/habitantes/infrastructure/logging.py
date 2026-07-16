@@ -64,8 +64,43 @@ class InteractionLogger:
         self.logger.info(json.dumps(record, ensure_ascii=False))
 
 
-# Singleton instance
+class FeedbackLogger:
+    """Helper to append user thumbs-up/down feedback to a structured JSONL file."""
+
+    def __init__(self):
+        settings = load_settings()
+        root_dir = Path(__file__).parents[3]
+        log_file = root_dir / settings.logging.feedback_path
+
+        # Ensure log directory exists
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+
+        self.log_file = str(log_file)
+        self.logger = loguru_logger.bind(feedback=True)
+
+        loguru_logger.add(
+            self.log_file,
+            rotation=settings.logging.rotation,
+            retention=settings.logging.retention,
+            filter=lambda record: "feedback" in record["extra"],
+            format="{message}",
+        )
+
+    def log_feedback(self, chat_id: str, message_id: str, rating: str, trace_id: str):
+        """Serialize a single feedback event to one JSON line."""
+        record = {
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "rating": rating,
+            "trace_id": trace_id,
+        }
+        self.logger.info(json.dumps(record, ensure_ascii=False))
+
+
+# Singleton instances
 _interaction_logger: InteractionLogger | None = None
+_feedback_logger: FeedbackLogger | None = None
 
 
 def get_interaction_logger() -> InteractionLogger:
@@ -74,3 +109,11 @@ def get_interaction_logger() -> InteractionLogger:
     if _interaction_logger is None:
         _interaction_logger = InteractionLogger()
     return _interaction_logger
+
+
+def get_feedback_logger() -> FeedbackLogger:
+    """Lazy factory for the FeedbackLogger."""
+    global _feedback_logger
+    if _feedback_logger is None:
+        _feedback_logger = FeedbackLogger()
+    return _feedback_logger

@@ -6,6 +6,11 @@ from typing import Optional
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer, util
 
+# Fixed, product-independent similarity judge. Decoupled from the KB embedding on
+# purpose: swapping the retrieval model must not shift the eval metric's scale (and
+# thus its gate target). Keep this pinned even though the KB now uses OpenAI.
+_SEMANTIC_SIM_MODEL = "intfloat/multilingual-e5-large"
+
 
 def recall_at_k(retrieved_ids: list[str], relevant_ids: list[str], k: int = 5) -> float:
     """Fraction of relevant docs found in top-k retrieved.
@@ -90,13 +95,10 @@ def _get_client() -> OpenAI:
 
 
 def _get_embed_model() -> SentenceTransformer:
-    """Lazy-load SentenceTransformer model for similarity."""
+    """Lazy-load the fixed SentenceTransformer used for semantic_similarity."""
     global _embed_model
     if _embed_model is None:
-        from habitantes.config import load_settings
-
-        settings = load_settings()
-        _embed_model = SentenceTransformer(settings.llm.embedding_model_name)
+        _embed_model = SentenceTransformer(_SEMANTIC_SIM_MODEL)
     return _embed_model
 
 
@@ -183,8 +185,6 @@ def semantic_similarity(answer: str, reference: str) -> float:
     # E5 models require 'query: ' prefix for comparison tasks
     embeddings = model.encode([f"query: {answer}", f"query: {reference}"])
 
-    # util.cos_sim returns a matrix
     score = util.cos_sim(embeddings[0], embeddings[1])
 
-    # Convert from tensor/numpy to float
     return float(score.item())

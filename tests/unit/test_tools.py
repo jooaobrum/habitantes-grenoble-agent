@@ -7,6 +7,7 @@ is exercised with real code.
 
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 
 from habitantes.domain.tools import hybrid_search
@@ -28,6 +29,11 @@ def mock_collection_name(monkeypatch):
     """Always return a test collection name so no real settings are needed."""
     monkeypatch.setattr(search, "_get_collection_name", lambda: "test_collection")
     monkeypatch.setattr(search, "_collection_name", None)
+    # Mock dense embedding to avoid real OpenAI calls (values are irrelevant since
+    # the Qdrant client is mocked too).
+    monkeypatch.setattr(
+        _embedding, "_embed_texts", lambda texts: [[0.0, 0.0, 0.0, 0.0] for _ in texts]
+    )
     # Also mock sparse model to avoid loading actual FastEmbed
     monkeypatch.setattr(_embedding, "_get_sparse_model", _mock_sparse_model)
     monkeypatch.setattr(_embedding, "_sparse_model", None)
@@ -71,14 +77,6 @@ def _mock_qdrant(points: list) -> MagicMock:
     result.points = points
     client.query_points.return_value = result
     return client
-
-
-def _mock_dense_model(dim: int = 4) -> MagicMock:
-    import numpy as np
-
-    model = MagicMock()
-    model.encode.return_value = np.zeros((1, dim), dtype="float32")
-    return model
 
 
 def _mock_sparse_embedding(text: str) -> MagicMock:
@@ -221,9 +219,7 @@ class TestHybridSearchSuccess:
     def test_returns_chunks_list(self, monkeypatch):
         points = [_make_scored_point(score=0.92), _make_scored_point(score=0.85)]
         monkeypatch.setattr(search, "_get_qdrant_client", lambda: _mock_qdrant(points))
-        monkeypatch.setattr(_embedding, "_get_dense_model", lambda: _mock_dense_model())
         monkeypatch.setattr(search, "_qdrant_client", None)
-        monkeypatch.setattr(_embedding, "_dense_model", None)
 
         result = hybrid_search(
             "Como renovar titre de séjour?", categories=["Visa & Residency"]
@@ -238,9 +234,7 @@ class TestHybridSearchSuccess:
             "_get_qdrant_client",
             lambda: _mock_qdrant([_make_scored_point()]),
         )
-        monkeypatch.setattr(_embedding, "_get_dense_model", lambda: _mock_dense_model())
         monkeypatch.setattr(search, "_qdrant_client", None)
-        monkeypatch.setattr(_embedding, "_dense_model", None)
         monkeypatch.setattr(_embedding, "_sparse_model", None)
 
         result = hybrid_search("pergunta", categories=None)
@@ -254,6 +248,7 @@ class TestHybridSearchSuccess:
             "date",
             "category",
             "score",
+            "dense_score",
         ):
             assert field in chunk, f"Missing field: {field}"
 
@@ -263,19 +258,20 @@ class TestHybridSearchSuccess:
             "_get_qdrant_client",
             lambda: _mock_qdrant([_make_scored_point(score=0.88)]),
         )
-        monkeypatch.setattr(_embedding, "_get_dense_model", lambda: _mock_dense_model())
         monkeypatch.setattr(search, "_qdrant_client", None)
-        monkeypatch.setattr(_embedding, "_dense_model", None)
         monkeypatch.setattr(_embedding, "_sparse_model", None)
 
         result = hybrid_search("test")
-        assert isinstance(result["chunks"][0]["score"], float)
+        chunk = result["chunks"][0]
+        assert isinstance(chunk["score"], float)  # fused RRF score
+        # dense_score is the raw cosine similarity the relevance gate reads; it
+        # must be a float and map to the underlying dense point's score.
+        assert isinstance(chunk["dense_score"], float)
+        assert chunk["dense_score"] == pytest.approx(0.88)
 
     def test_empty_qdrant_returns_empty_chunks(self, monkeypatch):
         monkeypatch.setattr(search, "_get_qdrant_client", lambda: _mock_qdrant([]))
-        monkeypatch.setattr(_embedding, "_get_dense_model", lambda: _mock_dense_model())
         monkeypatch.setattr(search, "_qdrant_client", None)
-        monkeypatch.setattr(_embedding, "_dense_model", None)
 
         result = hybrid_search("sem resultados")
         assert result == {"chunks": []}
@@ -283,9 +279,7 @@ class TestHybridSearchSuccess:
     def test_top_k_limits_results(self, monkeypatch):
         points = [_make_scored_point(score=1.0 - i * 0.1) for i in range(10)]
         monkeypatch.setattr(search, "_get_qdrant_client", lambda: _mock_qdrant(points))
-        monkeypatch.setattr(_embedding, "_get_dense_model", lambda: _mock_dense_model())
         monkeypatch.setattr(search, "_qdrant_client", None)
-        monkeypatch.setattr(_embedding, "_dense_model", None)
 
         result = hybrid_search("pergunta", top_k=3)
         assert len(result["chunks"]) == 3
@@ -296,9 +290,7 @@ class TestHybridSearchSuccess:
             "_get_qdrant_client",
             lambda: _mock_qdrant([_make_scored_point()]),
         )
-        monkeypatch.setattr(_embedding, "_get_dense_model", lambda: _mock_dense_model())
         monkeypatch.setattr(search, "_qdrant_client", None)
-        monkeypatch.setattr(_embedding, "_dense_model", None)
         monkeypatch.setattr(_embedding, "_sparse_model", None)
 
         result = hybrid_search("qualquer pergunta", categories=None)
@@ -310,9 +302,7 @@ class TestHybridSearchSuccess:
             "_get_qdrant_client",
             lambda: _mock_qdrant([_make_scored_point()]),
         )
-        monkeypatch.setattr(_embedding, "_get_dense_model", lambda: _mock_dense_model())
         monkeypatch.setattr(search, "_qdrant_client", None)
-        monkeypatch.setattr(_embedding, "_dense_model", None)
         monkeypatch.setattr(_embedding, "_sparse_model", None)
 
         result = hybrid_search("test", categories=["Visa & Residency", "Housing & CAF"])
@@ -335,15 +325,18 @@ class TestHybridSearchErrors:
         assert result["error"]["retryable"] is False
 
     def test_qdrant_timeout_returns_error(self, monkeypatch):
+        """qdrant-client never raises builtin TimeoutError — it raises the
+        underlying httpx timeout (wrapped in ResponseHandlingException in the
+        real client). Exercise the exception shape that actually surfaces.
+        """
+
         def _bad_client():
             client = MagicMock()
-            client.query_points.side_effect = TimeoutError("timed out")
+            client.query_points.side_effect = httpx.ReadTimeout("timed out")
             return client
 
         monkeypatch.setattr(search, "_get_qdrant_client", _bad_client)
-        monkeypatch.setattr(_embedding, "_get_dense_model", lambda: _mock_dense_model())
         monkeypatch.setattr(search, "_qdrant_client", None)
-        monkeypatch.setattr(_embedding, "_dense_model", None)
 
         result = hybrid_search("test")
         assert result["error"]["error_code"] == "QDRANT_TIMEOUT"
@@ -356,9 +349,7 @@ class TestHybridSearchErrors:
             return client
 
         monkeypatch.setattr(search, "_get_qdrant_client", _bad_client)
-        monkeypatch.setattr(_embedding, "_get_dense_model", lambda: _mock_dense_model())
         monkeypatch.setattr(search, "_qdrant_client", None)
-        monkeypatch.setattr(_embedding, "_dense_model", None)
 
         result = hybrid_search("test")
         assert result["error"]["error_code"] == "QDRANT_UNREACHABLE"

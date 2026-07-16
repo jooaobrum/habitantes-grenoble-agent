@@ -6,7 +6,7 @@ router = APIRouter()
 
 
 @router.get("/", response_model=HealthResponse)
-async def get_health():
+def get_health():
     """Check health and connectivity to external services."""
     qdrant_status = "connected"
     try:

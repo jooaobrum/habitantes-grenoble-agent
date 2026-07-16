@@ -6,128 +6,89 @@ Knowledge-based chatbot serving Brazilian expats in Grenoble via Telegram. Handl
 
 ## System Diagram
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                          LOW-COST VPS (Hetzner/OVH)                    │
-│                                                                         │
-│  ┌──────────┐         ┌─────────────────────────────────────────┐     │
-│  │   User   │────────▶│  Telegram Bot (long polling)            │     │
-│  └──────────┘         │  - Message deduplication                │     │
-│                       │  - Per-chat locks                        │     │
-│                       └────────────────┬────────────────────────┘     │
-│                                        │                               │
-│                       ┌────────────────▼────────────────────────┐     │
-│                       │  FastAPI Service                         │     │
-│                       │                                          │     │
-│                       │  POST /chat                              │     │
-│                       │  POST /feedback                          │     │
-│                       └────────────────┬────────────────────────┘     │
-│                                        │                               │
-│  ┌─────────────────────────────────────▼───────────────────────────┐ │
-│  │              AGENT ORCHESTRATOR (ReAct Loop)                    │ │
-│  │                                                                 │ │
-│  │  ┌──────────────────┐       ┌─────────────────┐                 │ │
-│  │  │ 1. Intent        │──────▶│ 2. Category     │                 │ │
-│  │  │    Classifier    │       │    Classifier   │                 │ │
-│  │  │    - Greeting    │       │    (if QA)      │                 │ │
-│  │  │    - QA          │       │    - Visa       │                 │ │
-│  │  │    - Feedback    │       │    - Housing    │                 │ │
-│  │  │    - Out-of-scope│       │    - Healthcare │                 │ │
-│  │  └──────────────────┘       │    - Banking    │                 │ │
-│  │                             │    - Transport  │                 │ │
-│  │                             │    - Education  │                 │ │
-│  │                             │    - General    │                 │ │
-│  │                             └────────┬────────┘                 │ │
-│  │                                      │                          │ │
-│  │                             ┌────────▼────────┐                 │ │
-│  │                             │ 3. Router       │                 │ │
-│  │                             │    - Direct     │                 │ │
-│  │                             │    - RAG        │                 │ │
-│  │                             │    - Clarify    │                 │ │
-│  │                             └────────┬────────┘                 │ │
-│  │                                      │                          │ │
-│  │  ┌───────────────────────────────────▼─────────┐                │ │
-│  │  │  3. Tools                                   │                │ │
-│  │  │                                             │                │ │
-│  │  │  ┌──────────────────────────────┐           │                │ │
-│  │  │  │  Hybrid Search Tool          │           │                │ │
-│  │  │  │                              │           │                │ │
-│  │  │  │  Dense: SentenceTransformer  │           │                │ │
-│  │  │  │         (Portuguese)         │           │                │ │
-│  │  │  │                              │           │                │ │
-│  │  │  │  Sparse: BM25                │           │                │ │
-│  │  │  │          (Portuguese)        │           │                │ │
-│  │  │  │                              │           │                │ │
-│  │  │  │  Fusion: RRF (top-k=5)      │──────┐    │                │ │
-│  │  │  └──────────────────────────────┘      │    │                │ │
-│  │  └──────────────────────────────────────────────┘                │ │
-│  │                                            │                     │ │
-│  │  ┌─────────────────────────────────────────▼──────┐              │ │
-│  │  │  4. Response Generator                         │              │ │
-│  │  │     - OpenAI synthesis (gpt-4o-mini)          │              │ │
-│  │  │     - Source attribution                       │              │ │
-│  │  │     - Confidence indicator                     │              │ │
-│  │  └────────────────────────────────────────────────┘              │ │
-│  │                                                                   │ │
-│  │  ┌──────────────────────────────────────────────────────────────┐ │
-│  │  │  Short-term Memory (MemoryState)                             │ │
-│  │  │  - Last 5 messages per chat                                  │ │
-│  │  │  - In-memory only (MVP)                                      │ │
-│  │  └──────────────────────────────────────────────────────────────┘ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-│                                        │                               │
-│                       ┌────────────────▼────────────────────────┐     │
-│                       │  Qdrant (Vector Store)                  │     │
-│                       │                                          │     │
-│                       │  Collection: qa_base                     │     │
-│                       │  - Dense vectors (1024d)                 │     │
-│                       │  - Sparse vectors (BM25)                 │     │
-│                       │  - Metadata: source, date, category      │     │
-│                       └──────────────────────────────────────────┘     │
-│                                                                         │
-└─────────────────────────────────────┬───────────────────────────────────┘
-                                      │
-                         ┌────────────▼───────────┐
-                         │  OpenAI API            │
-                         │  - gpt-4o-mini         │
-                         │  - Text generation     │
-                         └────────────────────────┘
+```mermaid
+flowchart TD
+    User([User])
+
+    subgraph VPS["LOW-COST VPS (Hetzner/OVH)"]
+        TG["Telegram Bot (long polling)<br>- Message deduplication<br>- Per-chat locks"]
+        API["FastAPI Service<br>POST /chat<br>POST /feedback"]
+
+        subgraph Agent["AGENT ORCHESTRATOR (ReAct Loop)"]
+            Intent["1. Intent Classifier<br>- Greeting<br>- QA<br>- Feedback<br>- Out-of-scope"]
+            Category["2. Category Classifier (if QA)<br>- Visa, Housing, etc."]
+            Router["3. Router<br>- Direct<br>- RAG<br>- Clarify"]
+
+            subgraph Tools["4. Tools"]
+                Search["Hybrid Search Tool<br>Dense: SentenceTransformer<br>Sparse: BM25<br>Fusion: RRF (top-k=5)"]
+            end
+
+            Gen["5. Response Generator<br>- OpenAI synthesis<br>- Source attribution<br>- Confidence indicator"]
+            Memory[/"Short-term Memory (MemoryState)<br>- Last 5 messages per chat"/]
+        end
+
+        DB[("Qdrant (Vector Store)<br>Collection: qa_base<br>- Dense/Sparse vectors<br>- Metadata")]
+    end
+
+    OAI["OpenAI API<br>- gpt-4o-mini"]
+
+    User <-->|Chat| TG
+    TG <--> API
+    API <--> Intent
+    Intent -->|QA| Category
+    Category --> Router
+    Router -->|RAG| Search
+    Search --> Gen
+    Gen --> Router
+
+    Search <--> DB
+    Gen <--> OAI
+    Agent <--> Memory
 ```
 
 ## Key Flows
 
 ### 1. Chat Flow
-```
-User → Telegram → FastAPI /chat → Intent Classification
-  ↓
-If intent = QA:
-  → Category Classification → Category tag (e.g., "visa", "housing")
-  → Response Cache Check (normalized query + category)
-  ↓
-If cache miss:
-  → Router Decision
-  ↓
-If RAG needed:
-  → Hybrid Search (Dense + Sparse) + Category filter → Qdrant → Top 5 results
-  → OpenAI synthesis with context → Response
-  ↓
-Response → FastAPI → Telegram → User
+```mermaid
+flowchart TD
+    User([User]) -->|Chat| TG[Telegram]
+    TG --> API[FastAPI /chat]
+    API --> Intent[Intent Classification]
+
+    Intent -->|If QA| Cat[Category Classification]
+    Cat --> Cache{Response Cache Check}
+    Cache -->|Hit| Resp([Response])
+    Cache -->|Miss| Router{Router Decision}
+
+    Router -->|RAG Needed| Search[Hybrid Search + Category Filter]
+    Search -->|Top 5 Results| Synth[OpenAI Synthesis with Context]
+    Synth --> Resp
+
+    Resp --> API
+    API --> TG
+    TG --> User
 ```
 
 ### 2. Retrieval Flow
-Query text
-  ↓
-├─→ SentenceTransformer-PT → Dense vector (1024d)
-│
-└─→ BM25-PT → Sparse vector
-  ↓
-Hybrid fusion (RRF) → Qdrant query → Top-k results
+```mermaid
+flowchart TD
+    Query([Query text])
+    Query --> Dense[SentenceTransformer-PT]
+    Query --> Sparse[BM25-PT]
+
+    Dense -->|Dense vector 1024d| Fusion
+    Sparse -->|Sparse vector| Fusion
+
+    Fusion[Hybrid fusion RRF] --> DB[(Qdrant query)]
+    DB --> TopK([Top-k results])
 ```
 
 ### 3. Feedback Flow (MVP Simplified)
-```
-User rating → FastAPI /feedback → Log to file
-(Future: aggregate metrics, quality tracking)
+```mermaid
+flowchart LR
+    User([User rating]) --> API[FastAPI /feedback]
+    API --> Log[/Log to file/]
+    Log -.-> Future[Future: aggregate metrics, quality tracking]
 ```
 
 ## Component Details

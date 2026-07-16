@@ -67,6 +67,7 @@ _CHUNK_VISA = {
     "date": "2024-05-01",
     "category": "Visa & Residency",
     "score": 0.92,
+    "dense_score": 0.92,
 }
 
 _CHUNK_CAF = {
@@ -78,6 +79,7 @@ _CHUNK_CAF = {
     "date": "2024-03-10",
     "category": "Housing & CAF",
     "score": 0.88,
+    "dense_score": 0.88,
 }
 
 

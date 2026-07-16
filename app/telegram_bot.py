@@ -6,9 +6,15 @@ from collections import defaultdict
 from pathlib import Path
 
 import httpx
-from telegram import Update, constants
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Update,
+    constants,
+)
 from telegram.ext import (
     ApplicationBuilder,
+    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
@@ -143,14 +149,62 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if source_links:
                         final_text += "\n\n📚 *Fontes:*\n" + "\n".join(source_links)
 
+                feedback_keyboard = InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton("👍", callback_data="fb:up"),
+                            InlineKeyboardButton("👎", callback_data="fb:down"),
+                        ]
+                    ]
+                )
                 await update.message.reply_text(
-                    final_text, parse_mode=constants.ParseMode.MARKDOWN
+                    final_text,
+                    parse_mode=constants.ParseMode.MARKDOWN,
+                    reply_markup=feedback_keyboard,
                 )
         except Exception:
             logger.exception("Unexpected error in handle_message")
             await update.message.reply_text(
                 "Ocorreu um erro técnico. Estamos trabalhando para resolver!"
             )
+
+
+async def handle_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle 👍/👎 taps by POSTing the rating to the API feedback endpoint."""
+    query = update.callback_query
+    if not query or not query.data or not query.data.startswith("fb:"):
+        return
+
+    rating = query.data.split(":", 1)[1]  # "up" or "down"
+    chat_id = str(update.effective_chat.id)
+    message_id = str(query.message.message_id)
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=float(settings.api.request_timeout_seconds)
+        ) as client:
+            response = await client.post(
+                f"{API_URL}/feedback/",
+                json={
+                    "chat_id": chat_id,
+                    "message_id": message_id,
+                    "rating": rating,
+                },
+                headers={"X-Chat-Id": chat_id},
+            )
+        if response.status_code != 200:
+            logger.error(
+                f"Feedback API Error ({response.status_code}): {response.text}"
+            )
+            await query.answer("Não foi possível registrar seu feedback.")
+            return
+    except Exception:
+        logger.exception("Unexpected error in handle_feedback")
+        await query.answer("Não foi possível registrar seu feedback.")
+        return
+
+    await query.answer("Obrigado pelo seu feedback! 🙏")
+    await query.edit_message_reply_markup(reply_markup=None)
 
 
 async def post_init(application):
@@ -168,8 +222,11 @@ def main():
     start_handler = CommandHandler("start", start)
     message_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message)
 
+    feedback_handler = CallbackQueryHandler(handle_feedback, pattern=r"^fb:")
+
     application.add_handler(start_handler)
     application.add_handler(message_handler)
+    application.add_handler(feedback_handler)
 
     logger.info("Bot starting...")
     application.run_polling()

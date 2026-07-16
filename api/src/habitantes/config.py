@@ -17,7 +17,7 @@ class CategoryEntry(BaseModel):
 class LLMConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     model_name: str = "gpt-4o-mini"
-    embedding_model_name: str = "intfloat/multilingual-e5-small"
+    embedding_model_name: str = "text-embedding-3-small"
     openai_api_key: str = Field(..., alias="OPENAI_API_KEY")
 
 
@@ -25,6 +25,7 @@ class VectorStoreConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     collection_name: str = "qa_base"
     qdrant_url: str = "http://qdrant:6333"
+    qdrant_timeout_seconds: int = 3
 
 
 class ApiConfig(BaseModel):
@@ -33,7 +34,7 @@ class ApiConfig(BaseModel):
     rate_limit_per_hour: int = 100
     max_tokens_per_response: int = 1024
     request_timeout_seconds: int = 30
-    eval_gate_enabled: bool = True
+    openai_timeout_seconds: int = 8
 
 
 class TelegramConfig(BaseModel):
@@ -52,6 +53,7 @@ class SearchConfig(BaseModel):
     w_dense: float = 0.7
     w_sparse: float = 0.3
     rrf_k: int = 60
+    min_relevance: float = 0.85
 
 
 class RankingConfig(BaseModel):
@@ -75,6 +77,7 @@ class CacheConfig(BaseModel):
 
 class LoggingConfig(BaseModel):
     interaction_path: str = "logs/interactions.jsonl"
+    feedback_path: str = "logs/feedback.jsonl"
     rotation: str = "10 MB"
     retention: str = "30 days"
 
@@ -162,17 +165,14 @@ def load_settings() -> Settings:
         "COLLECTION_NAME": ("vector_store", "collection_name"),
         "LOG_LEVEL": ("api", "log_level"),
         "RATE_LIMIT_PER_HOUR": ("api", "rate_limit_per_hour"),
-        "EVAL_GATE_ENABLED": ("api", "eval_gate_enabled"),
         "API_URL": ("telegram", "api_url"),
     }
 
     for env_key, (section, key) in env_map.items():
         if env_key in os.environ:
             val = os.environ[env_key]
-            # Simple type conversion for known bool/int
-            if key == "eval_gate_enabled":
-                val = val.lower() in ("true", "1", "yes")
-            elif key == "rate_limit_per_hour":
+            # Simple type conversion for known int fields
+            if key == "rate_limit_per_hour":
                 val = int(val)
             config_data.setdefault(section, {})[key] = val
 

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import uuid
 from fastapi import APIRouter, Request
@@ -22,7 +23,8 @@ async def post_chat(chat_request: ChatRequest, request: Request):
         trace_id,
     )
 
-    result = run_agent(
+    result = await asyncio.to_thread(
+        run_agent,
         chat_id=chat_request.chat_id,
         message=chat_request.message,
         message_id=chat_request.message_id,

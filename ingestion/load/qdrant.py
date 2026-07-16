@@ -10,11 +10,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
-from sentence_transformers import SentenceTransformer
 from fastembed import SparseTextEmbedding
 
 
 from habitantes.domain.tools import enrich_bm25_input, strip_accents
+from habitantes.domain.tools._embedding import _embed_texts
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 logger = logging.getLogger(__name__)
@@ -88,19 +88,8 @@ def build_sparse_text(question: str, key_terms: List[str]) -> str:
     return enrich_bm25_input(norm_text)
 
 
-def dense_embed_questions(
-    model: SentenceTransformer,
-    questions: List[str],
-    batch_size: int,
-) -> List[List[float]]:
-    passages = [f"passage: {q}" for q in questions]
-    emb = model.encode(
-        passages,
-        batch_size=batch_size,
-        show_progress_bar=False,
-        normalize_embeddings=True,
-    )
-    return emb.tolist()  # type: ignore
+def dense_embed_questions(questions: List[str]) -> List[List[float]]:
+    return _embed_texts(questions)
 
 
 # ── Qdrant Helpers ───────────────────────────────────────────────────────────
@@ -160,10 +149,27 @@ def _normalize_str_list(items: Any) -> List[str]:
     return result
 
 
+# Explicit whitelist — never copy raw chat fields (question_user, answer_users,
+# context) into Qdrant; they contain real names and break anonymization.
+_PAYLOAD_FIELDS = (
+    "question",
+    "answer",
+    "category",
+    "subcategory",
+    "tags",
+    "key_terms",
+    "thread_id",
+    "thread_start",
+    "question_time",
+    "tier",
+    "confidence",
+)
+
+
 def make_payload(
     rec: Dict[str, Any], source_path: Path, sparse_text: str
 ) -> Dict[str, Any]:
-    payload = dict(rec)
+    payload = {k: rec[k] for k in _PAYLOAD_FIELDS if k in rec}
     payload["key_terms"] = _normalize_str_list(rec.get("key_terms", []))
     payload["tags"] = _normalize_str_list(rec.get("tags", []))
     payload["_meta"] = {"source_path": str(source_path)}
@@ -199,7 +205,6 @@ def run_qdrant_loader(
 
     qclient = QdrantClient(url=qdrant_url, api_key=os.getenv("QDRANT_API_KEY"))
 
-    dense_model = SentenceTransformer("intfloat/multilingual-e5-large")
     sparse_model = SparseTextEmbedding(model_name="Qdrant/bm25")
 
     kept: List[Tuple[Dict[str, Any], Path]] = []
@@ -236,9 +241,7 @@ def run_qdrant_loader(
                 f.write(json.dumps(out, ensure_ascii=False) + "\n")
 
     # Ensure Collection
-    test_vec = dense_embed_questions(
-        dense_model, [str(kept[0][0]["question"])], batch_size=1
-    )[0]
+    test_vec = dense_embed_questions([str(kept[0][0]["question"])])[0]
     ensure_collection(qclient, collection_name, len(test_vec), overwrite_collection)
 
     # Process batches
@@ -250,7 +253,7 @@ def run_qdrant_loader(
             for q, r in zip(q_texts, batch)
         ]
 
-        d_vecs = dense_embed_questions(dense_model, q_texts, dense_batch_size)
+        d_vecs = dense_embed_questions(q_texts)
         s_vecs_raw = list(sparse_model.embed(sparse_texts))
         s_vecs = [
             qmodels.SparseVector(indices=sv.indices.tolist(), values=sv.values.tolist())

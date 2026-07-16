@@ -6,7 +6,9 @@ The two-layer ReAct agent is exercised end-to-end. All external calls
 
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
+from openai import APIConnectionError, AuthenticationError, RateLimitError
 
 import habitantes.domain.agent as agent_module
 import habitantes.domain.categories as categories_module
@@ -53,6 +55,36 @@ def _run(message: str, chat_id: str = "chat-test", **kwargs) -> dict:
         trace_id="trace-1",
         **kwargs,
     )
+
+
+_FAKE_REQUEST = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+
+
+def _rate_limit_error() -> RateLimitError:
+    resp = httpx.Response(
+        429, request=_FAKE_REQUEST, json={"error": {"message": "rate limited"}}
+    )
+    return RateLimitError("rate limited", response=resp, body=None)
+
+
+def _auth_error() -> AuthenticationError:
+    resp = httpx.Response(
+        401, request=_FAKE_REQUEST, json={"error": {"message": "invalid api key"}}
+    )
+    return AuthenticationError("invalid api key", response=resp, body=None)
+
+
+def _connection_error() -> APIConnectionError:
+    return APIConnectionError(request=_FAKE_REQUEST)
+
+
+def _make_raising_llm(exc: Exception, *ok_responses) -> MagicMock:
+    """LLM mock whose .invoke() raises `exc` after any successful `ok_responses`."""
+    llm = MagicMock()
+    mocks = [_ai_response(r) if isinstance(r, str) else r for r in ok_responses]
+    llm.invoke.side_effect = [*mocks, exc]
+    llm.bind_tools = MagicMock(return_value=llm)
+    return llm
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -266,6 +298,7 @@ def test_qa_rag_happy_path(monkeypatch):
                     "date": "2024-05-01",
                     "category": "Visa & Residency",
                     "score": 0.92,
+                    "dense_score": 0.92,
                 }
             ]
         },
@@ -321,6 +354,94 @@ def test_qa_rag_search_error_returns_answer(monkeypatch):
 
     assert result["intent"] == "qa"
     assert len(result["answer"]) > 0
+
+
+# ── Error taxonomy (P2-01) ───────────────────────────────────────────────────
+
+
+def test_openai_auth_failure_returns_pt_fallback(monkeypatch):
+    """Killing the OpenAI key blows up on the intent-classification LLM call."""
+    shared_llm = _make_raising_llm(_auth_error())
+    monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
+
+    result = _run("Como renovar o titre de séjour?")
+
+    assert result["answer"] == "Não consegui processar sua pergunta. Tente novamente."
+    assert result["error"] == {
+        "error_code": "OPENAI_ERROR",
+        "message": "Não consegui processar sua pergunta. Tente novamente.",
+        "retryable": False,
+    }
+    assert result["confidence"] == 0.0
+
+
+def test_openai_connection_error_during_react_loop(monkeypatch):
+    """Intent classification succeeds; the ReAct-layer LLM call fails."""
+    shared_llm = _make_raising_llm(_connection_error(), '{"intent": "greeting"}')
+    monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
+
+    result = _run("Oi!")
+
+    assert result["answer"] == "Não consegui processar sua pergunta. Tente novamente."
+    assert result["error"]["error_code"] == "OPENAI_UNREACHABLE"
+    assert result["error"]["retryable"] is True
+
+
+def test_openai_rate_limit_returns_pt_message(monkeypatch):
+    shared_llm = _make_raising_llm(_rate_limit_error(), '{"intent": "greeting"}')
+    monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
+
+    result = _run("Oi!")
+
+    assert (
+        result["answer"]
+        == "O sistema está muito ocupado agora. Tente novamente em 1 minuto."
+    )
+    assert result["error"]["error_code"] == "OPENAI_RATE_LIMIT"
+    assert result["error"]["retryable"] is True
+
+
+def test_qdrant_unreachable_short_circuits_with_pt_message(monkeypatch):
+    """A structured search-tool error must short-circuit — no synthesis LLM call."""
+    tool_call_response = _ai_response(
+        "",
+        tool_calls=[
+            {
+                "name": "search_knowledge_base",
+                "args": {"query": "Como abrir conta no banco?"},
+                "id": "call_err",
+            }
+        ],
+    )
+    # Only 2 LLM responses queued: intent classification + the tool-call decision.
+    # If the orchestrator wrongly asked the LLM to synthesize a 3rd time, this
+    # mock would raise StopIteration.
+    shared_llm = _make_llm('{"intent": "qa"}', tool_call_response)
+    monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
+
+    # search_knowledge_base is a real LangChain tool wrapper around hybrid_search;
+    # mock hybrid_search itself (bare-name lookup inside search.py picks this up).
+    monkeypatch.setattr(
+        tools_module,
+        "hybrid_search",
+        lambda **_: {
+            "error": {
+                "error_code": "QDRANT_UNREACHABLE",
+                "message": "connection refused",
+                "retryable": True,
+            }
+        },
+    )
+
+    result = _run("Como abrir conta no banco sendo estrangeiro?")
+
+    assert result["intent"] == "qa"
+    assert (
+        result["answer"]
+        == "Serviço temporariamente indisponível. Tente novamente em alguns minutos."
+    )
+    assert result["error"]["error_code"] == "QDRANT_UNREACHABLE"
+    assert result["confidence"] == 0.0
 
 
 # ── Memory tests ──────────────────────────────────────────────────────────────

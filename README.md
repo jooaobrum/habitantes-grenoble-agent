@@ -6,10 +6,12 @@ An AI-powered assistant that helps Brazilian expats in Grenoble navigate daily l
 
 ## Architecture
 
-```
-Telegram Bot → FastAPI → LangGraph ReAct Agent → Qdrant (hybrid search)
-                                                ↑
-                              Ingestion pipeline (offline only)
+```mermaid
+flowchart LR
+    TG[Telegram Bot] --> API[FastAPI]
+    API --> Agent[LangGraph ReAct Agent]
+    Agent --> DB[(Qdrant<br>hybrid search)]
+    Ingest[Ingestion pipeline<br>offline only] --> DB
 ```
 
 - **Orchestration**: LangGraph ReAct loop with explicit intent routing
@@ -35,8 +37,11 @@ Telegram Bot → FastAPI → LangGraph ReAct Agent → Qdrant (hybrid search)
 ### 1. Install dependencies
 
 ```bash
-uv sync
+uv sync                 # runtime dependencies only
+uv sync --extra dev     # add test/lint tooling (pytest, black, isort, flake8, mypy)
 ```
+
+`make install` runs the `--extra dev` sync for you.
 
 ### 2. Configure secrets
 

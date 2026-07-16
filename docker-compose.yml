@@ -32,7 +32,8 @@ services:
         condition: service_healthy
     volumes:
       - ./config:/app/config
-    command: uv run uvicorn habitantes.infrastructure.api.main:app --host 0.0.0.0 --port 8000 --workers 2
+      - ./logs:/app/logs
+    command: uv run uvicorn habitantes.infrastructure.api.main:app --host 0.0.0.0 --port 8000 --workers 1
 
   # ── Telegram Bot ──────────────────────────────────────────────────────────
   telegram-bot:
