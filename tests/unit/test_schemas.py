@@ -8,6 +8,8 @@ from habitantes.domain.schemas import (
     FeedbackResponse,
     HealthResponse,
     Source,
+    SwitchRequest,
+    ThresholdsRequest,
 )
 from habitantes.domain.state import AgentState
 
@@ -30,6 +32,9 @@ class TestAgentStateImport:
             "sources",
             "confidence",
             "history",
+            "tokens_in",
+            "tokens_out",
+            "cost_usd",
             "timings",
             "cached",
             "error",
@@ -110,3 +115,56 @@ class TestHealthResponse:
         resp = HealthResponse(status="healthy", qdrant="connected", version="0.1.0")
         assert resp.status == "healthy"
         assert resp.qdrant == "connected"
+
+
+class TestSwitchRequest:
+    def test_valid(self):
+        assert SwitchRequest(enabled=False).enabled is False
+
+
+class TestThresholdsRequest:
+    def test_valid(self):
+        req = ThresholdsRequest(
+            daily_cost_limit_usd=5.0,
+            health_grace_checks=3,
+            email_to="ops@example.com",
+            auto_disable_enabled=True,
+        )
+        assert req.daily_cost_limit_usd == 5.0
+        assert req.email_to == "ops@example.com"
+
+    def test_empty_email_allowed(self):
+        req = ThresholdsRequest(
+            daily_cost_limit_usd=5.0,
+            health_grace_checks=3,
+            email_to="",
+            auto_disable_enabled=True,
+        )
+        assert req.email_to == ""
+
+    def test_negative_cost_rejected(self):
+        with pytest.raises(ValidationError):
+            ThresholdsRequest(
+                daily_cost_limit_usd=-1.0,
+                health_grace_checks=3,
+                email_to="ops@example.com",
+                auto_disable_enabled=True,
+            )
+
+    def test_invalid_email_rejected(self):
+        with pytest.raises(ValidationError):
+            ThresholdsRequest(
+                daily_cost_limit_usd=5.0,
+                health_grace_checks=3,
+                email_to="not-an-email",
+                auto_disable_enabled=True,
+            )
+
+    def test_zero_grace_checks_rejected(self):
+        with pytest.raises(ValidationError):
+            ThresholdsRequest(
+                daily_cost_limit_usd=5.0,
+                health_grace_checks=0,
+                email_to="ops@example.com",
+                auto_disable_enabled=True,
+            )

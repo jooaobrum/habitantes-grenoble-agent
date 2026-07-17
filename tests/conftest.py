@@ -6,6 +6,21 @@ import pytest
 # requires OPENAI_API_KEY to validate. Provide a dummy so the suite is
 # self-contained (no .env needed) and passes in CI where no key is present.
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-dummy")
+# ADMIN_TOKEN is required by Settings (Control Center); provide a dummy so the
+# suite is self-contained and passes in CI where no real token is present.
+os.environ.setdefault("ADMIN_TOKEN", "test-admin-token")
+# Alert email fields are env-only (never in yaml) and load_settings() reads a
+# developer's real .env via load_dotenv(override=False). Pin them empty here
+# so a developer's real SMTP credentials never leak into a test run and
+# trigger a live send — tests that need SMTP config mock os.environ directly.
+for _alerts_env_key in (
+    "EMAIL_TO",
+    "SMTP_HOST",
+    "SMTP_USER",
+    "SMTP_FROM",
+    "SMTP_PASSWORD",
+):
+    os.environ.setdefault(_alerts_env_key, "")
 
 
 @pytest.fixture(autouse=True)

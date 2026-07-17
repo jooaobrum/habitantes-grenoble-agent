@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Control Center — Habitantes de Grenoble</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0b0d12;
+        --panel: #12151c;
+        --panel-border: #232837;
+        --text: #e6e9ef;
+        --muted: #8b93a3;
+        --ok: #35c471;
+        --degraded: #e8b339;
+        --critical: #e8544a;
+        --unreachable: #8b93a3;
+        --accent: #4f8cff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px 20px 60px;
+      }
+      h1 { font-size: 1.4rem; margin: 0; }
+      h2 { font-size: 0.95rem; margin: 0 0 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+      .banner {
+        display: none;
+        padding: 10px 14px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        font-size: 0.9rem;
+      }
+      .banner.error { display: block; background: rgba(232, 84, 74, 0.15); border: 1px solid var(--critical); color: var(--critical); }
+      .banner.info { display: block; background: rgba(79, 140, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); }
+
+      .control-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 16px 20px;
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
+        margin: 16px 0 24px;
+      }
+      .switch-block { display: flex; align-items: center; gap: 12px; }
+      .switch-meta { font-size: 0.8rem; color: var(--muted); }
+      .toggle {
+        position: relative;
+        width: 52px;
+        height: 28px;
+        flex-shrink: 0;
+      }
+      .toggle input { opacity: 0; width: 0; height: 0; }
+      .toggle .slider {
+        position: absolute; inset: 0; cursor: pointer;
+        background: var(--critical); border-radius: 999px; transition: background 0.15s;
+      }
+      .toggle .slider::before {
+        content: ""; position: absolute; height: 22px; width: 22px; left: 3px; top: 3px;
+        background: white; border-radius: 50%; transition: transform 0.15s;
+      }
+      .toggle input:checked + .slider { background: var(--ok); }
+      .toggle input:checked + .slider::before { transform: translateX(24px); }
+      .toggle input:disabled + .slider { opacity: 0.5; cursor: not-allowed; }
+
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+      .kpi {
+        background: var(--panel); border: 1px solid var(--panel-border); border-radius: 10px;
+        padding: 14px 16px;
+      }
+      .kpi .value { font-size: 1.5rem; font-weight: 600; }
+      .kpi .label { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+
+      section {
+        background: var(--panel); border: 1px solid var(--panel-border); border-radius: 12px;
+        padding: 18px 20px; margin-bottom: 20px;
+      }
+
+      .health-list { display: flex; flex-direction: column; gap: 8px; }
+      .health-row { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; padding: 6px 0; border-bottom: 1px solid var(--panel-border); }
+      .health-row:last-child { border-bottom: none; }
+      .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+      .dot.ok { background: var(--ok); }
+      .dot.degraded { background: var(--degraded); }
+      .dot.critical { background: var(--critical); }
+      .dot.unreachable { background: var(--unreachable); }
+      .health-name { flex: 1; text-transform: capitalize; }
+      .health-detail { color: var(--muted); font-size: 0.8rem; }
+
+      .budget-bar { background: #1c2130; border-radius: 6px; height: 10px; overflow: hidden; margin: 6px 0 4px; }
+      .budget-bar .fill { height: 100%; background: var(--accent); }
+      .budget-bar .fill.over { background: var(--critical); }
+      .budget-label { font-size: 0.78rem; color: var(--muted); }
+
+      .category-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; margin-bottom: 6px; }
+      .category-name { width: 110px; flex-shrink: 0; text-transform: capitalize; }
+      .category-bar { flex: 1; background: #1c2130; border-radius: 4px; height: 8px; overflow: hidden; }
+      .category-bar .fill { height: 100%; background: var(--accent); }
+      .category-count { width: 30px; text-align: right; color: var(--muted); }
+
+      form.thresholds { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; align-items: end; }
+      label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
+      input[type="text"], input[type="number"], input[type="email"] {
+        width: 100%; padding: 8px 10px; background: #0f1219; border: 1px solid var(--panel-border);
+        border-radius: 6px; color: var(--text); font-size: 0.9rem;
+      }
+      .checkbox-row { display: flex; align-items: center; gap: 8px; }
+      .checkbox-row input { width: 16px; height: 16px; }
+      .actions { grid-column: 1 / -1; display: flex; gap: 10px; margin-top: 4px; }
+      button {
+        padding: 9px 16px; border-radius: 8px; border: 1px solid var(--panel-border);
+        background: var(--accent); color: white; font-size: 0.85rem; cursor: pointer;
+      }
+      button.secondary { background: transparent; color: var(--text); }
+      button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+      table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+      th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--panel-border); }
+      th { color: var(--muted); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; }
+      td.status-active { color: var(--critical); }
+      td.status-resolved { color: var(--ok); }
+      .empty { color: var(--muted); font-size: 0.85rem; padding: 8px 0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div id="banner" class="banner"></div>
+
+      <div class="control-bar">
+        <div>
+          <h1>Control Center</h1>
+          <div class="switch-meta" id="switch-meta">Carregando…</div>
+        </div>
+        <div class="switch-block">
+          <span class="switch-meta" id="switch-label">—</span>
+          <label class="toggle">
+            <input type="checkbox" id="switch-toggle" disabled />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid" id="kpi-grid"></div>
+
+      <section>
+        <h2>Saúde dos serviços</h2>
+        <div class="health-list" id="health-list"><div class="empty">Carregando…</div></div>
+      </section>
+
+      <section>
+        <h2>Custo &amp; orçamento</h2>
+        <div class="budget-label">Hoje: <span id="cost-today">—</span> de <span id="budget-daily">—</span></div>
+        <div class="budget-bar"><div class="fill" id="budget-daily-fill"></div></div>
+        <div class="budget-label">Mês: <span id="cost-month">—</span> de <span id="budget-monthly">—</span></div>
+        <div class="budget-bar"><div class="fill" id="budget-monthly-fill"></div></div>
+      </section>
+
+      <section>
+        <h2>Top categorias (hoje)</h2>
+        <div id="categories"><div class="empty">Sem dados ainda.</div></div>
+      </section>
+
+      <section>
+        <h2>Alertas &amp; automação</h2>
+        <form class="thresholds" id="thresholds-form">
+          <div>
+            <label for="daily-limit">Limite diário (USD)</label>
+            <input type="number" step="0.01" min="0.01" id="daily-limit" required />
+          </div>
+          <div>
+            <label for="grace-checks">Falhas consecutivas até desligar</label>
+            <input type="number" step="1" min="1" id="grace-checks" required />
+          </div>
+          <div>
+            <label for="email-to">E-mail do operador</label>
+            <input type="email" id="email-to" placeholder="ops@exemplo.com" />
+          </div>
+          <div class="checkbox-row" style="padding-bottom:9px;">
+            <input type="checkbox" id="auto-disable" />
+            <label for="auto-disable" style="margin:0;">Desligar automaticamente</label>
+          </div>
+          <div class="actions">
+            <button type="submit" id="save-thresholds">Salvar</button>
+            <button type="button" class="secondary" id="send-test-alert">Enviar alerta de teste</button>
+          </div>
+        </form>
+      </section>
+
+      <section>
+        <h2>Histórico de alertas</h2>
+        <table id="alerts-table">
+          <thead>
+            <tr><th>Quando</th><th>Gatilho</th><th>Medido</th><th>Ação</th><th>Status</th></tr>
+          </thead>
+          <tbody id="alerts-body"></tbody>
+        </table>
+        <div class="empty" id="alerts-empty" style="display:none;">Nenhum alerta registrado.</div>
+      </section>
+    </main>
+
+    <script>
+      const REFRESH_MS = 30000;
+      const TOKEN_KEY = "habitantes_admin_token";
+      let token = localStorage.getItem(TOKEN_KEY);
+      let pendingSwitchEnabled = null;
+
+      function ensureToken() {
+        while (!token) {
+          token = window.prompt("Token de administrador (X-Admin-Token):");
+          if (token) localStorage.setItem(TOKEN_KEY, token.trim());
+        }
+        return token;
+      }
+
+      function clearToken() {
+        localStorage.removeItem(TOKEN_KEY);
+        token = null;
+      }
+
+      function showBanner(message, kind) {
+        const el = document.getElementById("banner");
+        el.textContent = message;
+        el.className = "banner " + (kind || "error");
+      }
+
+      function hideBanner() {
+        const el = document.getElementById("banner");
+        el.className = "banner";
+        el.textContent = "";
+      }
+
+      async function adminFetch(path, options) {
+        ensureToken();
+        const resp = await fetch(path, {
+          ...options,
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Token": token,
+            ...(options && options.headers ? options.headers : {}),
+          },
+        });
+        if (resp.status === 401) {
+          clearToken();
+          showBanner("Token inválido — tente novamente.", "error");
+          throw new Error("unauthorized");
+        }
+        return resp;
+      }
+
+      function fmtUsd(n) {
+        return "$" + Number(n || 0).toFixed(2);
+      }
+
+      function fmtPct(n) {
+        return Number(n || 0).toFixed(1) + "%";
+      }
+
+      function fmtWhen(iso) {
+        if (!iso) return "—";
+        try {
+          return new Date(iso).toLocaleString("pt-BR");
+        } catch (e) {
+          return iso;
+        }
+      }
+
+      function renderKpis(kpis) {
+        const grid = document.getElementById("kpi-grid");
+        const items = [
+          ["Pedidos hoje", kpis.requests_today],
+          ["Cache hit rate", fmtPct(kpis.cache_hit_rate * 100)],
+          ["Custo hoje", fmtUsd(kpis.cost_today_usd)],
+          ["Custo no mês", fmtUsd(kpis.cost_month_usd)],
+          ["Uptime 24h", fmtPct(kpis.uptime_24h_pct)],
+        ];
+        grid.innerHTML = items
+          .map(
+            ([label, value]) =>
+              `<div class="kpi"><div class="value">${value}</div><div class="label">${label}</div></div>`
+          )
+          .join("");
+      }
+
+      function renderHealth(services) {
+        const list = document.getElementById("health-list");
+        if (!services.length) {
+          list.innerHTML = '<div class="empty">Sem verificações ainda.</div>';
+          return;
+        }
+        list.innerHTML = services
+          .map((s) => {
+            const detail = s.status === "ok" ? `${s.latency_ms != null ? Math.round(s.latency_ms) + " ms" : ""}` : "";
+            return `<div class="health-row">
+              <span class="dot ${s.status}"></span>
+              <span class="health-name">${s.name.replace(/_/g, " ")}</span>
+              <span class="health-detail">${detail}</span>
+              <span class="health-detail">${fmtWhen(s.checked_at)}</span>
+            </div>`;
+          })
+          .join("");
+      }
+
+      function renderBudget(kpis) {
+        document.getElementById("cost-today").textContent = fmtUsd(kpis.cost_today_usd);
+        document.getElementById("budget-daily").textContent = fmtUsd(kpis.budget_daily_usd);
+        document.getElementById("cost-month").textContent = fmtUsd(kpis.cost_month_usd);
+        document.getElementById("budget-monthly").textContent = fmtUsd(kpis.budget_monthly_usd);
+
+        const dailyPct = kpis.budget_daily_usd > 0 ? (kpis.cost_today_usd / kpis.budget_daily_usd) * 100 : 0;
+        const monthlyPct = kpis.budget_monthly_usd > 0 ? (kpis.cost_month_usd / kpis.budget_monthly_usd) * 100 : 0;
+        const dailyFill = document.getElementById("budget-daily-fill");
+        const monthlyFill = document.getElementById("budget-monthly-fill");
+        dailyFill.style.width = Math.min(dailyPct, 100) + "%";
+        dailyFill.className = "fill" + (dailyPct >= 100 ? " over" : "");
+        monthlyFill.style.width = Math.min(monthlyPct, 100) + "%";
+        monthlyFill.className = "fill" + (monthlyPct >= 100 ? " over" : "");
+      }
+
+      function renderCategories(categories) {
+        const el = document.getElementById("categories");
+        if (!categories.length) {
+          el.innerHTML = '<div class="empty">Sem dados ainda.</div>';
+          return;
+        }
+        const max = Math.max(...categories.map((c) => c.count), 1);
+        el.innerHTML = categories
+          .slice(0, 8)
+          .map(
+            (c) => `<div class="category-row">
+              <span class="category-name">${c.name}</span>
+              <span class="category-bar"><span class="fill" style="width:${(c.count / max) * 100}%"></span></span>
+              <span class="category-count">${c.count}</span>
+            </div>`
+          )
+          .join("");
+      }
+
+      function renderAlerts(alerts) {
+        const body = document.getElementById("alerts-body");
+        const empty = document.getElementById("alerts-empty");
+        if (!alerts.length) {
+          body.innerHTML = "";
+          empty.style.display = "block";
+          return;
+        }
+        empty.style.display = "none";
+        body.innerHTML = alerts
+          .map(
+            (a) => `<tr>
+              <td>${fmtWhen(a.timestamp)}</td>
+              <td>${a.trigger}</td>
+              <td>${a.measured || "—"}</td>
+              <td>${a.action}</td>
+              <td class="status-${a.status}">${a.status}</td>
+            </tr>`
+          )
+          .join("");
+      }
+
+      function renderThresholdsForm(t) {
+        if (document.activeElement && document.activeElement.closest("#thresholds-form")) return;
+        document.getElementById("daily-limit").value = t.daily_cost_limit_usd;
+        document.getElementById("grace-checks").value = t.health_grace_checks;
+        document.getElementById("email-to").value = t.email_to || "";
+        document.getElementById("auto-disable").checked = !!t.auto_disable_enabled;
+      }
+
+      function renderSwitch(sw) {
+        const toggle = document.getElementById("switch-toggle");
+        if (pendingSwitchEnabled === null) {
+          toggle.checked = sw.enabled;
+        }
+        toggle.disabled = false;
+        document.getElementById("switch-label").textContent = sw.enabled ? "Ativo" : "Desligado";
+        document.getElementById("switch-meta").textContent =
+          `Última alteração: ${fmtWhen(sw.changed_at)}`;
+      }
+
+      async function loadStatus() {
+        try {
+          const resp = await adminFetch("/admin/status");
+          if (!resp.ok) {
+            showBanner("Falha ao carregar status (" + resp.status + ").", "error");
+            return;
+          }
+          hideBanner();
+          const data = await resp.json();
+          renderSwitch(data.switch);
+          renderKpis(data.kpis);
+          renderHealth(data.services);
+          renderBudget(data.kpis);
+          renderCategories(data.categories);
+          renderThresholdsForm(data.thresholds);
+          renderAlerts(data.alerts);
+        } catch (err) {
+          if (err.message !== "unauthorized") {
+            showBanner("Não foi possível contatar a API.", "error");
+          }
+        }
+      }
+
+      async function toggleSwitch(enabled) {
+        const toggle = document.getElementById("switch-toggle");
+        toggle.disabled = true;
+        pendingSwitchEnabled = enabled;
+        try {
+          const resp = await adminFetch("/admin/switch", {
+            method: "POST",
+            body: JSON.stringify({ enabled }),
+          });
+          if (!resp.ok) {
+            showBanner("Falha ao alterar o switch.", "error");
+            toggle.checked = !enabled;
+          } else {
+            showBanner(enabled ? "Bot reativado." : "Bot desligado.", "info");
+            await loadStatus();
+          }
+        } catch (err) {
+          if (err.message !== "unauthorized") toggle.checked = !enabled;
+        } finally {
+          pendingSwitchEnabled = null;
+          toggle.disabled = false;
+        }
+      }
+
+      async function saveThresholds(ev) {
+        ev.preventDefault();
+        const button = document.getElementById("save-thresholds");
+        button.disabled = true;
+        const body = {
+          daily_cost_limit_usd: parseFloat(document.getElementById("daily-limit").value),
+          health_grace_checks: parseInt(document.getElementById("grace-checks").value, 10),
+          email_to: document.getElementById("email-to").value.trim(),
+          auto_disable_enabled: document.getElementById("auto-disable").checked,
+        };
+        try {
+          const resp = await adminFetch("/admin/thresholds", {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+          if (resp.status === 422) {
+            const detail = await resp.json();
+            showBanner("Valores inválidos: " + JSON.stringify(detail.detail), "error");
+          } else if (!resp.ok) {
+            showBanner("Falha ao salvar limites.", "error");
+          } else {
+            showBanner("Limites salvos.", "info");
+            await loadStatus();
+          }
+        } catch (err) {
+          /* handled by adminFetch */
+        } finally {
+          button.disabled = false;
+        }
+      }
+
+      async function sendTestAlert() {
+        const button = document.getElementById("send-test-alert");
+        button.disabled = true;
+        try {
+          const resp = await adminFetch("/admin/test-alert", { method: "POST" });
+          const data = await resp.json();
+          showBanner(data.detail || "Alerta de teste enviado.", resp.ok ? "info" : "error");
+          await loadStatus();
+        } catch (err) {
+          /* handled by adminFetch */
+        } finally {
+          button.disabled = false;
+        }
+      }
+
+      document.getElementById("switch-toggle").addEventListener("change", (ev) => {
+        toggleSwitch(ev.target.checked);
+      });
+      document.getElementById("thresholds-form").addEventListener("submit", saveThresholds);
+      document.getElementById("send-test-alert").addEventListener("click", sendTestAlert);
+
+      ensureToken();
+      loadStatus();
+      setInterval(loadStatus, REFRESH_MS);
+    </script>
+  </body>
+</html>

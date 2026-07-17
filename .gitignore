@@ -207,10 +207,12 @@ marimo/_lsp/
 __marimo__/
 
 # Project Specific
+# includes artifacts/control/control.db (Control Center store)
 artifacts/
 data/
 infra/qdrant_storage/
 .env
+.DS_Store
 
 api/logs/
 logs/

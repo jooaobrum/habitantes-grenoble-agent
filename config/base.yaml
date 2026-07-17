@@ -62,6 +62,24 @@ logging:
   rotation: "10 MB"
   retention: "30 days"
 
+# ── Control Center (ops dashboard, kill switch, cost alerting) ───────────────
+admin:
+  # ADMIN_TOKEN env var only — never a plaintext default in yaml
+
+pricing:
+  input_per_1m_usd: 0.15   # gpt-4o-mini list price at time of writing
+  output_per_1m_usd: 0.60
+
+alerts:
+  interval_seconds: 60
+  daily_cost_limit_usd: 5.0
+  monthly_budget_usd: 120.0
+  health_grace_checks: 3
+  auto_disable_enabled: true
+  # email_to / smtp_host / smtp_port / smtp_user / smtp_from / SMTP_PASSWORD
+  # are env-only (see .env.example) — they identify a real mailbox, so they
+  # never go in a checked-in file.
+
 # ── Categories (single source of truth) ──────────────────────────────────────
 # pt_name: shown to users (Portuguese)
 # en_name: used for Qdrant category filter (must match ingestion payload)

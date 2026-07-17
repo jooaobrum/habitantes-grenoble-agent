@@ -82,6 +82,35 @@ class LoggingConfig(BaseModel):
     retention: str = "30 days"
 
 
+class AdminConfig(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    # ADMIN_TOKEN env var only — required so a missing token fails loudly at
+    # startup instead of at the first /admin request.
+    token: str = Field(..., alias="ADMIN_TOKEN")
+
+
+class PricingConfig(BaseModel):
+    input_per_1m_usd: float = 0.15
+    output_per_1m_usd: float = 0.60
+
+
+class AlertsConfig(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    interval_seconds: int = 60
+    daily_cost_limit_usd: float = 5.0
+    monthly_budget_usd: float = 120.0  # display-only in v1, not an alert trigger
+    health_grace_checks: int = 3
+    auto_disable_enabled: bool = True
+    # Recipient + SMTP connection details identify a real person/mailbox, so
+    # they're env-only (never in yaml, never logged) rather than checked in.
+    email_to: str = Field(default="", alias="EMAIL_TO")
+    smtp_host: str = Field(default="", alias="SMTP_HOST")
+    smtp_port: int = Field(default=587, alias="SMTP_PORT")
+    smtp_user: str = Field(default="", alias="SMTP_USER")
+    smtp_from: str = Field(default="", alias="SMTP_FROM")
+    smtp_password: str = Field(default="", alias="SMTP_PASSWORD")
+
+
 class Settings(BaseSettings):
     """
     Main Settings class for the application.
@@ -102,6 +131,9 @@ class Settings(BaseSettings):
     agent: AgentConfig = AgentConfig()
     cache: CacheConfig = CacheConfig()
     logging: LoggingConfig = LoggingConfig()
+    admin: AdminConfig
+    pricing: PricingConfig = PricingConfig()
+    alerts: AlertsConfig = AlertsConfig()
     categories: list[CategoryEntry] = []
     app_env: str = Field("dev", alias="APP_ENV")
 
@@ -156,6 +188,27 @@ def load_settings() -> Settings:
         config_data.setdefault("telegram", {})["bot_token"] = os.environ[
             "TELEGRAM_BOT_TOKEN"
         ]
+    if "ADMIN_TOKEN" in os.environ:
+        # yaml `admin:` block is intentionally empty (None), so build the dict.
+        admin_cfg = config_data.get("admin") or {}
+        admin_cfg["token"] = os.environ["ADMIN_TOKEN"]
+        config_data["admin"] = admin_cfg
+    alerts_env_map = {
+        "EMAIL_TO": "email_to",
+        "SMTP_HOST": "smtp_host",
+        "SMTP_USER": "smtp_user",
+        "SMTP_FROM": "smtp_from",
+        "SMTP_PASSWORD": "smtp_password",
+    }
+    for env_key, field in alerts_env_map.items():
+        if env_key in os.environ:
+            alerts_cfg = config_data.get("alerts") or {}
+            alerts_cfg[field] = os.environ[env_key]
+            config_data["alerts"] = alerts_cfg
+    if "SMTP_PORT" in os.environ:
+        alerts_cfg = config_data.get("alerts") or {}
+        alerts_cfg["smtp_port"] = int(os.environ["SMTP_PORT"])
+        config_data["alerts"] = alerts_cfg
 
     # Other Overrides
     env_map = {

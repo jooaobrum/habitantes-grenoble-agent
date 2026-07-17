@@ -65,6 +65,7 @@ class TestConfig(unittest.TestCase):
         {
             "OPENAI_API_KEY": "sk-test",
             "TELEGRAM_BOT_TOKEN": "123:abc",
+            "ADMIN_TOKEN": "test-admin-token",
             "APP_ENV": "dev",
         },
     )
@@ -87,7 +88,12 @@ class TestConfig(unittest.TestCase):
     @patch("builtins.open", new_callable=mock_open)
     @patch(
         "os.environ",
-        {"OPENAI_API_KEY": "sk-test", "TELEGRAM_BOT_TOKEN": "123:abc", "APP_ENV": "qa"},
+        {
+            "OPENAI_API_KEY": "sk-test",
+            "TELEGRAM_BOT_TOKEN": "123:abc",
+            "ADMIN_TOKEN": "test-admin-token",
+            "APP_ENV": "qa",
+        },
     )
     def test_load_settings_qa(self, mock_file):
         with patch("yaml.safe_load", return_value=self.base_yaml):
@@ -104,6 +110,7 @@ class TestConfig(unittest.TestCase):
         {
             "OPENAI_API_KEY": "sk-test",
             "TELEGRAM_BOT_TOKEN": "123:abc",
+            "ADMIN_TOKEN": "test-admin-token",
             "APP_ENV": "prod",
         },
     )
@@ -122,6 +129,7 @@ class TestConfig(unittest.TestCase):
         {
             "OPENAI_API_KEY": "sk-test",
             "TELEGRAM_BOT_TOKEN": "123:abc",
+            "ADMIN_TOKEN": "test-admin-token",
             "COLLECTION_NAME": "manual_override",
         },
     )
@@ -131,3 +139,55 @@ class TestConfig(unittest.TestCase):
 
             # System env variable should override YAML environment specifics
             self.assertEqual(settings.vector_store.collection_name, "manual_override")
+
+    @patch("builtins.open", new_callable=mock_open)
+    @patch(
+        "os.environ",
+        {
+            "OPENAI_API_KEY": "sk-test",
+            "TELEGRAM_BOT_TOKEN": "123:abc",
+            "ADMIN_TOKEN": "secret-token",
+            "SMTP_PASSWORD": "smtp-secret",
+            "APP_ENV": "dev",
+        },
+    )
+    def test_control_center_config(self, mock_file):
+        yaml_with_control = {
+            **self.base_yaml,
+            "pricing": {"input_per_1m_usd": 0.15, "output_per_1m_usd": 0.60},
+            "alerts": {
+                "interval_seconds": 60,
+                "daily_cost_limit_usd": 5.0,
+                "monthly_budget_usd": 120.0,
+                "health_grace_checks": 3,
+                "auto_disable_enabled": True,
+                "email_to": "",
+            },
+        }
+        with patch("yaml.safe_load", return_value=yaml_with_control):
+            settings = load_settings()
+
+            # Admin token comes from env only, never yaml.
+            self.assertEqual(settings.admin.token, "secret-token")
+            # Alerts + pricing resolve from yaml.
+            self.assertEqual(settings.alerts.daily_cost_limit_usd, 5.0)
+            self.assertEqual(settings.alerts.health_grace_checks, 3)
+            self.assertEqual(settings.pricing.input_per_1m_usd, 0.15)
+            # SMTP password is env-only.
+            self.assertEqual(settings.alerts.smtp_password, "smtp-secret")
+
+    @patch("builtins.open", new_callable=mock_open)
+    @patch(
+        "os.environ",
+        {
+            "OPENAI_API_KEY": "sk-test",
+            "TELEGRAM_BOT_TOKEN": "123:abc",
+            "APP_ENV": "dev",
+        },
+    )
+    def test_missing_admin_token_fails_loudly(self, mock_file):
+        # No ADMIN_TOKEN in env and none in yaml → Settings validation must fail
+        # at load time, not silently at the first admin request.
+        with patch("yaml.safe_load", return_value=self.base_yaml):
+            with self.assertRaises(Exception):
+                load_settings()
