@@ -2,8 +2,9 @@
 
 Each probe returns the same {status, latency_ms, detail} shape and maps a
 working dependency to `ok`, an unreachable one to `unreachable`, and a stale
-Telegram heartbeat to `critical`. `check_openai` must ping metadata only —
-never a completion endpoint — so a health check can't compound token spend.
+Telegram heartbeat to `critical`. `check_openai` (now pinging the OpenRouter
+chat provider) must ping metadata only — a `models.list`, never a completion
+endpoint — so a health check can't compound token spend.
 """
 
 import datetime
@@ -56,8 +57,9 @@ def test_check_openai_ok_and_never_calls_completion(monkeypatch):
 
     result = health_checks.check_openai()
 
-    model_name = load_model_name()
-    client.models.retrieve.assert_called_once_with(model_name)
+    # OpenRouter has no reliable per-model retrieve; a zero-token `models.list`
+    # is the metadata-only probe.
+    client.models.list.assert_called_once_with()
     # Metadata-only guarantee: no completion endpoint may be touched.
     assert not client.chat.completions.create.called
     assert not client.completions.create.called
@@ -68,7 +70,7 @@ def test_check_openai_ok_and_never_calls_completion(monkeypatch):
 
 def test_check_openai_unreachable(monkeypatch):
     client = MagicMock()
-    client.models.retrieve.side_effect = ConnectionError("dns failure")
+    client.models.list.side_effect = ConnectionError("dns failure")
     monkeypatch.setattr(health_checks, "_get_openai_client", lambda: client)
 
     result = health_checks.check_openai()
@@ -113,9 +115,3 @@ def test_check_telegram_heartbeat_missing_is_critical():
 
     assert result["status"] == "critical"
     assert result["detail"] == "no heartbeat recorded"
-
-
-def load_model_name() -> str:
-    from habitantes.config import load_settings
-
-    return load_settings().llm.model_name

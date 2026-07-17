@@ -28,10 +28,11 @@ def _ai_response(content: str, tool_calls=None) -> MagicMock:
 
 
 def _make_llm(*responses) -> MagicMock:
-    """LLM mock whose .invoke() returns successive responses.
+    """LLM mock whose .invoke() returns successive responses (Layer 2: ReAct loop).
 
     Each response can be a string (converted to AIMessage mock) or a
-    pre-built mock (for tool call responses).
+    pre-built mock (for tool call responses). Layer 1 (intent classification)
+    goes through `_get_intent_llm()` instead — see `_make_intent_llm`.
     """
     llm = MagicMock()
     mocks = []
@@ -45,6 +46,34 @@ def _make_llm(*responses) -> MagicMock:
     # bind_tools should return the same LLM (tools are handled in the loop)
     llm.bind_tools = MagicMock(return_value=llm)
     return llm
+
+
+def _make_intent_llm(intent: str) -> MagicMock:
+    """Mock for `_get_intent_llm()`: one `.invoke()` call returning a forced
+    IntentClassification tool call, like `bind_tools(..., tool_choice=...)`
+    produces.
+    """
+    response = _ai_response(
+        "",
+        tool_calls=[
+            {
+                "name": "IntentClassification",
+                "args": {"intent": intent},
+                "id": "call_intent",
+            }
+        ],
+    )
+    response.usage_metadata = {"input_tokens": 10, "output_tokens": 2}
+    intent_llm = MagicMock()
+    intent_llm.invoke.return_value = response
+    return intent_llm
+
+
+def _make_raising_intent_llm(exc: Exception) -> MagicMock:
+    """Mock for `_get_intent_llm()` whose `.invoke()` raises `exc`."""
+    intent_llm = MagicMock()
+    intent_llm.invoke.side_effect = exc
+    return intent_llm
 
 
 def _run(message: str, chat_id: str = "chat-test", **kwargs) -> dict:
@@ -95,9 +124,11 @@ def clear_singletons():
     """Reset in-process memory and LLM singletons before every test."""
     agent_module._memory.clear()
     agent_module._llm = None
+    agent_module._intent_llm = None
     yield
     agent_module._memory.clear()
     agent_module._llm = None
+    agent_module._intent_llm = None
 
 
 # ── Greeting flow ─────────────────────────────────────────────────────────────
@@ -105,8 +136,10 @@ def clear_singletons():
 
 def test_greeting_flow(monkeypatch):
     # Intent classification returns greeting, then ReAct responds with greeting
+    monkeypatch.setattr(
+        agent_module, "_get_intent_llm", lambda: _make_intent_llm("greeting")
+    )
     shared_llm = _make_llm(
-        '{"intent": "greeting"}',  # Layer 1: classify_intent
         "Olá! Sou o assistente dos brasileiros em Grenoble.",  # Layer 2: ReAct response
     )
     monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
@@ -118,12 +151,33 @@ def test_greeting_flow(monkeypatch):
     assert result["confidence"] == 1.0
 
 
+def test_intent_classification_falls_back_when_structured_output_fails(monkeypatch):
+    """If the model doesn't return the forced IntentClassification tool call
+    (or returns args that don't validate), classify_intent must fall back to
+    out_of_scope instead of raising."""
+    no_tool_call_response = _ai_response("", tool_calls=[])
+    no_tool_call_response.usage_metadata = {"input_tokens": 10, "output_tokens": 2}
+    intent_llm = MagicMock()
+    intent_llm.invoke.return_value = no_tool_call_response
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: intent_llm)
+    shared_llm = _make_llm(
+        "Desculpe, só consigo ajudar com temas de expatriados em Grenoble.",
+    )
+    monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
+
+    result = _run("Olá, tudo bem?")
+
+    assert result["intent"] == "out_of_scope"
+
+
 # ── Out-of-scope flow ─────────────────────────────────────────────────────────
 
 
 def test_out_of_scope_flow(monkeypatch):
+    monkeypatch.setattr(
+        agent_module, "_get_intent_llm", lambda: _make_intent_llm("out_of_scope")
+    )
     shared_llm = _make_llm(
-        '{"intent": "out_of_scope"}',  # Layer 1
         "Desculpe, só consigo ajudar com temas de expatriados em Grenoble.",  # Layer 2
     )
     monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
@@ -139,8 +193,10 @@ def test_out_of_scope_flow(monkeypatch):
 
 
 def test_feedback_flow(monkeypatch):
+    monkeypatch.setattr(
+        agent_module, "_get_intent_llm", lambda: _make_intent_llm("feedback")
+    )
     shared_llm = _make_llm(
-        '{"intent": "feedback"}',  # Layer 1
         "Obrigado pelo seu feedback!",  # Layer 2
     )
     monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
@@ -204,8 +260,8 @@ def test_category_persists_to_next_turn(monkeypatch):
     )
     final_response = _ai_response("Resposta sobre visto.")
 
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
     shared_llm = _make_llm(
-        '{"intent": "qa"}',  # Layer 1
         tool_call_response,  # Layer 2: LLM decides to search
         final_response,  # Layer 2: LLM synthesizes answer
     )
@@ -245,8 +301,8 @@ def test_category_persists_to_next_turn(monkeypatch):
 
 
 def test_qa_clarify_flow(monkeypatch):
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
     shared_llm = _make_llm(
-        '{"intent": "qa"}',  # Layer 1
         "Sua pergunta é muito ampla. Pode dar mais detalhes?",  # Layer 2
     )
     monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
@@ -273,8 +329,8 @@ def test_qa_rag_happy_path(monkeypatch):
     )
     final_response = _ai_response("Acesse o site da ANEF para renovar.")
 
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
     shared_llm = _make_llm(
-        '{"intent": "qa"}',  # Layer 1
         tool_call_response,  # Layer 2: tool call
         final_response,  # Layer 2: final answer
     )
@@ -309,6 +365,80 @@ def test_qa_rag_happy_path(monkeypatch):
     assert result["intent"] == "qa"
     assert result["answer"] == "Acesse o site da ANEF para renovar."
     assert result["confidence"] > 0.0
+    # No numbered-menu pick happened this turn, but retrieval matched
+    # "Visa & Residency" chunks — that should fall through as the logged
+    # category instead of staying blank (Control Center "top categories").
+    assert result["category"] == "Visa & Residency"
+
+
+def test_react_loop_nudges_and_retries_on_empty_response(monkeypatch):
+    """Gemini occasionally exhausts its output budget on internal reasoning and
+    returns neither content nor a tool call. The ReAct loop must nudge with a
+    follow-up message and retry instead of surfacing a blank answer."""
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
+    empty_response = _ai_response("", tool_calls=[])
+    final_response = _ai_response("Aqui está a resposta.")
+    shared_llm = _make_llm(empty_response, final_response)
+    monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
+
+    result = _run("Pergunta qualquer sobre Grenoble?")
+
+    assert result["answer"] == "Aqui está a resposta."
+
+
+# ── Category fallback for analytics (free-text, no menu pick) ───────────────
+
+
+def test_free_text_query_derives_category_from_sources(monkeypatch):
+    """`state['category']` is only set by the numbered-menu shortcut; free-text
+    questions must still surface *some* category for usage aggregation, derived
+    from whichever category the retrieved chunks belong to."""
+    tool_call_response = _ai_response(
+        "",
+        tool_calls=[
+            {
+                "name": "search_knowledge_base",
+                "args": {"query": "Como abrir conta bancária?"},
+                "id": "call_bank",
+            }
+        ],
+    )
+    final_response = _ai_response("Veja como abrir conta em um banco francês.")
+
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
+    shared_llm = _make_llm(
+        tool_call_response,
+        final_response,
+    )
+    monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
+
+    mock_tool = MagicMock()
+    mock_tool.name = "search_knowledge_base"
+    mock_tool.invoke.return_value = "[1] Abra uma conta no banco."
+    monkeypatch.setattr(tools_module, "get_search_tool", lambda: mock_tool)
+    monkeypatch.setattr(
+        tools_module,
+        "hybrid_search",
+        lambda **_: {
+            "chunks": [
+                {
+                    "text": "Abra uma conta no banco.",
+                    "question": "Como abrir conta?",
+                    "answer": "Abra uma conta no banco.",
+                    "source": "Banking & Finance",
+                    "thread_id": 789,
+                    "date": "2024-02-01",
+                    "category": "Banking & Finance",
+                    "score": 0.88,
+                    "dense_score": 0.88,
+                }
+            ]
+        },
+    )
+
+    result = _run("Como abrir conta bancária?", chat_id="chat-no-category")
+
+    assert result["category"] == "Banking & Finance"
 
 
 # ── QA → RAG → search tool error ─────────────────────────────────────────────
@@ -327,8 +457,8 @@ def test_qa_rag_search_error_returns_answer(monkeypatch):
     )
     final_response = _ai_response("Não encontrei informação confiável sobre esse tema.")
 
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
     shared_llm = _make_llm(
-        '{"intent": "qa"}',  # Layer 1
         tool_call_response,  # Layer 2: tool call
         final_response,  # Layer 2: fallback answer
     )
@@ -361,8 +491,9 @@ def test_qa_rag_search_error_returns_answer(monkeypatch):
 
 def test_openai_auth_failure_returns_pt_fallback(monkeypatch):
     """Killing the OpenAI key blows up on the intent-classification LLM call."""
-    shared_llm = _make_raising_llm(_auth_error())
-    monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
+    monkeypatch.setattr(
+        agent_module, "_get_intent_llm", lambda: _make_raising_intent_llm(_auth_error())
+    )
 
     result = _run("Como renovar o titre de séjour?")
 
@@ -377,7 +508,10 @@ def test_openai_auth_failure_returns_pt_fallback(monkeypatch):
 
 def test_openai_connection_error_during_react_loop(monkeypatch):
     """Intent classification succeeds; the ReAct-layer LLM call fails."""
-    shared_llm = _make_raising_llm(_connection_error(), '{"intent": "greeting"}')
+    monkeypatch.setattr(
+        agent_module, "_get_intent_llm", lambda: _make_intent_llm("greeting")
+    )
+    shared_llm = _make_raising_llm(_connection_error())
     monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
 
     result = _run("Oi!")
@@ -388,7 +522,10 @@ def test_openai_connection_error_during_react_loop(monkeypatch):
 
 
 def test_openai_rate_limit_returns_pt_message(monkeypatch):
-    shared_llm = _make_raising_llm(_rate_limit_error(), '{"intent": "greeting"}')
+    monkeypatch.setattr(
+        agent_module, "_get_intent_llm", lambda: _make_intent_llm("greeting")
+    )
+    shared_llm = _make_raising_llm(_rate_limit_error())
     monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
 
     result = _run("Oi!")
@@ -413,10 +550,11 @@ def test_qdrant_unreachable_short_circuits_with_pt_message(monkeypatch):
             }
         ],
     )
-    # Only 2 LLM responses queued: intent classification + the tool-call decision.
-    # If the orchestrator wrongly asked the LLM to synthesize a 3rd time, this
-    # mock would raise StopIteration.
-    shared_llm = _make_llm('{"intent": "qa"}', tool_call_response)
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
+    # Only 1 Layer-2 response queued: the tool-call decision. If the
+    # orchestrator wrongly asked the LLM to synthesize a 2nd time, this mock
+    # would raise StopIteration.
+    shared_llm = _make_llm(tool_call_response)
     monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
 
     # search_knowledge_base is a real LangChain tool wrapper around hybrid_search;
@@ -448,10 +586,10 @@ def test_qdrant_unreachable_short_circuits_with_pt_message(monkeypatch):
 
 
 def test_memory_populated_after_run(monkeypatch):
-    shared_llm = _make_llm(
-        '{"intent": "greeting"}',
-        "Olá!",
+    monkeypatch.setattr(
+        agent_module, "_get_intent_llm", lambda: _make_intent_llm("greeting")
     )
+    shared_llm = _make_llm("Olá!")
     monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
 
     _run("Oi!", chat_id="chat-mem")
@@ -465,12 +603,13 @@ def test_memory_populated_after_run(monkeypatch):
 
 def test_memory_capped_at_max_history(monkeypatch):
     for i in range(5):
-        shared_llm = _make_llm(
-            '{"intent": "greeting"}',
-            f"Resposta {i}",
+        monkeypatch.setattr(
+            agent_module, "_get_intent_llm", lambda: _make_intent_llm("greeting")
         )
+        shared_llm = _make_llm(f"Resposta {i}")
         monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
         agent_module._llm = None
+        agent_module._intent_llm = None
         _run(f"Mensagem {i}", chat_id="chat-cap")
 
     history = agent_module._get_history("chat-cap")
@@ -485,10 +624,10 @@ def test_history_passed_into_initial_state(monkeypatch):
         ],
         "category": "",
     }
-    shared_llm = _make_llm(
-        '{"intent": "greeting"}',
-        "Olá de novo!",
+    monkeypatch.setattr(
+        agent_module, "_get_intent_llm", lambda: _make_intent_llm("greeting")
     )
+    shared_llm = _make_llm("Olá de novo!")
     monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
 
     result = _run("Oi de novo!", chat_id="chat-hist")

@@ -16,7 +16,16 @@ class CategoryEntry(BaseModel):
 
 class LLMConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
-    model_name: str = "gpt-4o-mini"
+    # Chat/completions run through OpenRouter (OpenAI-API-compatible). model_name
+    # is an OpenRouter model id in `provider/model` form so the model is swappable
+    # via config alone (e.g. "openai/gpt-4o-mini", "anthropic/claude-3.5-haiku").
+    model_name: str = "google/gemini-2.5-flash-lite"
+    base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_api_key: str = Field(..., alias="OPENROUTER_API_KEY")
+    # Judge model for eval (answer_relevance/faithfulness) — one tier above the
+    # chat model for better judgment quality, still cheap.
+    judge_model_name: str = "google/gemini-2.5-flash"
+    # Embeddings stay on OpenAI — OpenRouter has no embeddings endpoint.
     embedding_model_name: str = "text-embedding-3-small"
     openai_api_key: str = Field(..., alias="OPENAI_API_KEY")
 
@@ -180,6 +189,10 @@ def load_settings() -> Settings:
     # (Matches the mapping from previous version but includes APP_ENV)
 
     # Secrets
+    if "OPENROUTER_API_KEY" in os.environ:
+        config_data.setdefault("llm", {})["openrouter_api_key"] = os.environ[
+            "OPENROUTER_API_KEY"
+        ]
     if "OPENAI_API_KEY" in os.environ:
         config_data.setdefault("llm", {})["openai_api_key"] = os.environ[
             "OPENAI_API_KEY"

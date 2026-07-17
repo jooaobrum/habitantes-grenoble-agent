@@ -60,7 +60,7 @@ async def synthesize_qa(
     client: AsyncOpenAI,
     prompt_template: str,
     row: Dict[str, Any],
-    model: str = "gpt-4o-mini",
+    model: str = "google/gemini-2.5-flash-lite",
     temperature: float = 0.2,
     max_retries: int = 4,
     retry_base_sleep_s: float = 1.5,
@@ -140,11 +140,12 @@ async def run_synthesis_batch(
     rows: List[Dict[str, Any]],
     prompt_path: Path,
     output_dir: Path,
-    model: str = "gpt-4o-mini",
+    model: str = "google/gemini-2.5-flash-lite",
     temperature: float = 0.2,
     max_retries: int = 4,
     retry_base_sleep_s: float = 1.5,
     overwrite: bool = False,
+    base_url: str = "https://openrouter.ai/api/v1",
 ) -> Path:
     """
     Main loop for synthesis. Saves as line-delimited JSON (jsonl).
@@ -165,7 +166,11 @@ async def run_synthesis_batch(
         return out_path
 
     prompt_template = load_prompt(prompt_path)
-    client = AsyncOpenAI()  # environment variables used for API key
+    # Synthesis is a chat call → route through OpenRouter. Key read from env
+    # (OPENROUTER_API_KEY) so no secret is passed through config objects.
+    import os
+
+    client = AsyncOpenAI(api_key=os.environ["OPENROUTER_API_KEY"], base_url=base_url)
 
     synthesized_count = 0
     errors_count = 0

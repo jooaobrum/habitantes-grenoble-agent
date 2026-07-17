@@ -2,9 +2,11 @@ import os
 
 import pytest
 
-# Unit/integration tests mock every OpenAI + Qdrant call, but Settings still
-# requires OPENAI_API_KEY to validate. Provide a dummy so the suite is
-# self-contained (no .env needed) and passes in CI where no key is present.
+# Unit/integration tests mock every LLM + Qdrant call, but Settings still
+# requires OPENROUTER_API_KEY (chat) + OPENAI_API_KEY (embeddings) to validate.
+# Provide dummies so the suite is self-contained (no .env needed) and passes in
+# CI where no keys are present.
+os.environ.setdefault("OPENROUTER_API_KEY", "sk-or-test-dummy")
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-dummy")
 # ADMIN_TOKEN is required by Settings (Control Center); provide a dummy so the
 # suite is self-contained and passes in CI where no real token is present.

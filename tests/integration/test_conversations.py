@@ -3,8 +3,9 @@
 Each test simulates a realistic user session (1–3 turns).
 All external calls (LLM + Qdrant) are mocked; no real services needed.
 
-Tests mock agent_module._get_llm (since the ReAct agent uses
-the same LLM factory for both intent classification and response generation).
+Tests mock agent_module._get_llm for Layer 2 (ReAct loop) and
+agent_module._get_intent_llm for Layer 1 (structured-output intent
+classification) — these are separate LLM factories.
 """
 
 from unittest.mock import MagicMock
@@ -36,7 +37,11 @@ def _ai_response(content: str, tool_calls=None) -> MagicMock:
 
 
 def _make_llm(*responses) -> MagicMock:
-    """LLM mock whose .invoke() returns successive responses."""
+    """LLM mock whose .invoke() returns successive responses (Layer 2: ReAct loop).
+
+    Layer 1 (intent classification) goes through `_get_intent_llm()` instead —
+    see `_make_intent_llm`.
+    """
     llm = MagicMock()
     mocks = []
     for r in responses:
@@ -47,6 +52,25 @@ def _make_llm(*responses) -> MagicMock:
     llm.invoke.side_effect = mocks
     llm.bind_tools = MagicMock(return_value=llm)
     return llm
+
+
+def _make_intent_llm(intent: str) -> MagicMock:
+    """Mock for `_get_intent_llm()`: one `.invoke()` call returning a forced
+    IntentClassification tool call."""
+    response = _ai_response(
+        "",
+        tool_calls=[
+            {
+                "name": "IntentClassification",
+                "args": {"intent": intent},
+                "id": "call_intent",
+            }
+        ],
+    )
+    response.usage_metadata = {"input_tokens": 10, "output_tokens": 2}
+    intent_llm = MagicMock()
+    intent_llm.invoke.return_value = response
+    return intent_llm
 
 
 def _run(message: str, chat_id: str) -> dict:
@@ -90,9 +114,11 @@ _CHUNK_CAF = {
 def reset_memory():
     agent_module._memory.clear()
     agent_module._llm = None
+    agent_module._intent_llm = None
     yield
     agent_module._memory.clear()
     agent_module._llm = None
+    agent_module._intent_llm = None
 
 
 @pytest.fixture(autouse=True)
@@ -122,8 +148,8 @@ def test_direct_question_no_category_filter(monkeypatch):
             }
         ],
     )
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
     shared_llm = _make_llm(
-        '{"intent": "qa"}',  # Layer 1
         tool_call,  # Layer 2: search
         "Acesse a ANEF para renovar.",  # Layer 2: final answer
     )
@@ -180,8 +206,8 @@ def test_number_selection_then_question(monkeypatch):
             }
         ],
     )
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
     shared_llm = _make_llm(
-        '{"intent": "qa"}',
         tool_call,
         "Acesse a ANEF.",
     )
@@ -207,8 +233,10 @@ def test_number_selection_then_question(monkeypatch):
 def test_greeting_then_number_then_question(monkeypatch):
     """Full 3-turn happy path."""
     # ── Turn 1: greeting ──────────────────────────────────────────────────────
+    monkeypatch.setattr(
+        agent_module, "_get_intent_llm", lambda: _make_intent_llm("greeting")
+    )
     shared_llm = _make_llm(
-        '{"intent": "greeting"}',
         "Olá! 1. Visto & Residência\n2. Bancos & Finanças",
     )
     monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
@@ -236,8 +264,8 @@ def test_greeting_then_number_then_question(monkeypatch):
             }
         ],
     )
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
     shared_llm = _make_llm(
-        '{"intent": "qa"}',
         tool_call,
         "Crie uma conta no caf.fr.",
     )
@@ -296,8 +324,8 @@ def test_category_switch_before_asking(monkeypatch):
             }
         ],
     )
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
     shared_llm = _make_llm(
-        '{"intent": "qa"}',
         tool_call,
         "Não encontrei informação confiável.",
     )
@@ -327,10 +355,10 @@ def test_greeting_resets_selected_category(monkeypatch):
     assert agent_module._get_selected_category("c-reset") == "Visa & Residency"
 
     # Turn 2: new greeting → category must be cleared
-    shared_llm = _make_llm(
-        '{"intent": "greeting"}',
-        "Olá novamente!",
+    monkeypatch.setattr(
+        agent_module, "_get_intent_llm", lambda: _make_intent_llm("greeting")
     )
+    shared_llm = _make_llm("Olá novamente!")
     monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
 
     _run("Olá novamente!", chat_id="c-reset")
@@ -353,8 +381,8 @@ def test_greeting_resets_selected_category(monkeypatch):
             }
         ],
     )
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
     shared_llm = _make_llm(
-        '{"intent": "qa"}',
         tool_call,
         "Não encontrei informação.",
     )

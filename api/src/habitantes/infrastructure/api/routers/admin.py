@@ -6,6 +6,7 @@ Wires the pure decision logic (`domain/control.py`) and the I/O wrappers
 contracts defined in `domain/schemas.py`.
 """
 
+import calendar
 import datetime
 import hmac
 import logging
@@ -18,6 +19,7 @@ from habitantes.domain.schemas import (
     AdminStatusResponse,
     AlertEntry,
     CategoryCount,
+    CostSeriesPoint,
     HeartbeatRequest,
     Kpis,
     ServiceStatus,
@@ -74,6 +76,18 @@ def _start_of_month() -> datetime.datetime:
     return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
+def _monthly_budget_usd(daily_cost_limit_usd: float) -> float:
+    """Derive the monthly budget from the daily limit × days in the current month.
+
+    `monthly_budget_usd` used to be a separate static config value (120.0)
+    that never moved when the operator edited the daily limit — confusing on
+    the dashboard. Deriving it keeps the two always in sync.
+    """
+    now = datetime.datetime.now(datetime.timezone.utc)
+    days_in_month = calendar.monthrange(now.year, now.month)[1]
+    return round(daily_cost_limit_usd * days_in_month, 2)
+
+
 _FALLBACK_THRESHOLDS = {
     "daily_cost_limit_usd": 0.0,
     "health_grace_checks": 0,
@@ -114,6 +128,7 @@ def get_status(db_path: Path = Depends(get_control_db_path)) -> AdminStatusRespo
     interactions = get_interaction_logger()
     today = interactions.aggregate_usage(_start_of_today())
     month = interactions.aggregate_usage(_start_of_month())
+    daily_series = interactions.aggregate_daily_series(days=14)
 
     services = [
         ServiceStatus(
@@ -147,6 +162,17 @@ def get_status(db_path: Path = Depends(get_control_db_path)) -> AdminStatusRespo
         )
     ]
 
+    cost_series = [
+        CostSeriesPoint(
+            date=point["date"],
+            requests=point["requests"],
+            cost_usd=round(point["cost_usd"], 4),
+        )
+        for point in daily_series
+    ]
+
+    budget_monthly_usd = _monthly_budget_usd(thresholds["daily_cost_limit_usd"])
+
     return AdminStatusResponse(
         switch=SwitchStatus(enabled=switch["enabled"], changed_at=switch["changed_at"]),
         services=services,
@@ -156,10 +182,11 @@ def get_status(db_path: Path = Depends(get_control_db_path)) -> AdminStatusRespo
             cost_today_usd=round(today.cost_usd, 4),
             cost_month_usd=round(month.cost_usd, 4),
             budget_daily_usd=thresholds["daily_cost_limit_usd"],
-            budget_monthly_usd=thresholds["monthly_budget_usd"],
+            budget_monthly_usd=budget_monthly_usd,
             uptime_24h_pct=uptime_24h_pct,
         ),
         categories=categories,
+        cost_series=cost_series,
         thresholds=ThresholdsState(
             daily_cost_limit_usd=thresholds["daily_cost_limit_usd"],
             health_grace_checks=thresholds["health_grace_checks"],

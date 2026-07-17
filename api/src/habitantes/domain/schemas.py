@@ -38,6 +38,17 @@ class FeedbackResponse(BaseModel):
     status: str  # "ok"
 
 
+class IntentClassification(BaseModel):
+    """Structured-output contract for Layer 1 intent classification.
+
+    Bound to the LLM via `.with_structured_output()` so the provider's native
+    function-calling / JSON-schema mode enforces this shape — no brittle
+    `json.loads` on free-form model text.
+    """
+
+    intent: Literal["greeting", "qa", "feedback", "out_of_scope"]
+
+
 class HealthResponse(BaseModel):
     status: str  # "healthy"
     qdrant: str  # "connected" | "unreachable"
@@ -74,6 +85,12 @@ class CategoryCount(BaseModel):
     count: int
 
 
+class CostSeriesPoint(BaseModel):
+    date: str  # YYYY-MM-DD
+    requests: int
+    cost_usd: float
+
+
 class ThresholdsState(BaseModel):
     daily_cost_limit_usd: float
     health_grace_checks: int
@@ -95,6 +112,7 @@ class AdminStatusResponse(BaseModel):
     services: list[ServiceStatus]
     kpis: Kpis
     categories: list[CategoryCount]
+    cost_series: list[CostSeriesPoint]
     thresholds: ThresholdsState
     alerts: list[AlertEntry]
 

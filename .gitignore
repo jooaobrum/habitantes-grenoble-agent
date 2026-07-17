@@ -217,5 +217,6 @@ infra/qdrant_storage/
 api/logs/
 logs/
 
-.claude/checkpoints/
-.claude/SUGGESTIONS.md
+# Local agent config / working notes and specs (not tracked)
+.claude/
+.specs/

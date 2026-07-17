@@ -78,6 +78,7 @@ def context_precision(retrieved_ids: list[str], relevant_ids: list[str]) -> floa
 
 
 _client: Optional[OpenAI] = None
+_judge_model: Optional[str] = None
 _embed_model: Optional[SentenceTransformer] = None
 
 
@@ -89,9 +90,23 @@ def _get_client() -> OpenAI:
         from habitantes.config import load_settings
 
         settings = load_settings()
-        # Use direct API key from settings
-        _client = OpenAI(api_key=settings.llm.openai_api_key)
+        # Judge is a chat call — route through OpenRouter (embedding path below
+        # still uses a local SentenceTransformer, unaffected).
+        _client = OpenAI(
+            api_key=settings.llm.openrouter_api_key,
+            base_url=settings.llm.base_url,
+        )
     return _client
+
+
+def _get_judge_model() -> str:
+    """Lazy-load the judge model id from project settings."""
+    global _judge_model
+    if _judge_model is None:
+        from habitantes.config import load_settings
+
+        _judge_model = load_settings().llm.judge_model_name
+    return _judge_model
 
 
 def _get_embed_model() -> SentenceTransformer:
@@ -132,7 +147,7 @@ def answer_relevance(question: str, answer: str) -> float:
     """.strip()
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=_get_judge_model(),
         messages=[{"role": "user", "content": prompt}],
         temperature=0.0,
     )
@@ -167,7 +182,7 @@ def faithfulness(answer: str, context: list[str]) -> float:
     """.strip()
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=_get_judge_model(),
         messages=[{"role": "user", "content": prompt}],
         temperature=0.0,
     )

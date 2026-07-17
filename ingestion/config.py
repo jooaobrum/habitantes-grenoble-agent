@@ -20,7 +20,9 @@ class QAConfig(BaseModel):
 
 class SynthesisConfig(BaseModel):
     prompt_path: str = "prompts/synthesis_prompt.txt"
-    model: str = "gpt-4o-mini"
+    # OpenRouter model id (provider/model) — chat call, key from OPENROUTER_API_KEY.
+    model: str = "google/gemini-2.5-flash-lite"
+    base_url: str = "https://openrouter.ai/api/v1"
     temperature: float = 0.2
     max_retries: int = 4
     retry_base_sleep_s: float = 1.5
