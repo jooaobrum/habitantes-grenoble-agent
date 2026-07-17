@@ -293,7 +293,12 @@ def _make_search_tool():
         university, food, safety, and more.
 
         Args:
-            query: The search query in Portuguese or French.
+            query: A full natural-language question in Portuguese or French,
+                   close to how the user actually phrased it. The knowledge base
+                   is indexed on complete questions, so a short keyword-only
+                   query (e.g. "entrevista ENSAG") retrieves noticeably worse
+                   than the full question (e.g. "tem entrevista com a escola
+                   depois do dossiê da ENSAG?").
             category: Optional category filter (e.g. "Visa & Residency",
                       "Banking & Finance"). Leave empty to search all categories.
         """

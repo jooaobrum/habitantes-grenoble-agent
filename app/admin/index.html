@@ -109,6 +109,15 @@
       .category-bar .fill { height: 100%; background: var(--accent); }
       .category-count { width: 30px; text-align: right; color: var(--muted); }
 
+      .chart-wrap { position: relative; }
+      #cost-chart { width: 100%; height: 200px; display: block; }
+      .chart-tooltip {
+        position: absolute; display: none; pointer-events: none;
+        background: #0f1219; border: 1px solid var(--panel-border); border-radius: 6px;
+        padding: 6px 10px; font-size: 0.78rem; color: var(--text); white-space: nowrap;
+        transform: translate(-50%, -100%);
+      }
+
       form.thresholds { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; align-items: end; }
       label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
       input[type="text"], input[type="number"], input[type="email"] {
@@ -169,6 +178,14 @@
       <section>
         <h2>Top categorias (hoje)</h2>
         <div id="categories"><div class="empty">Sem dados ainda.</div></div>
+      </section>
+
+      <section>
+        <h2>Custo por dia (14 dias)</h2>
+        <div class="chart-wrap">
+          <canvas id="cost-chart"></canvas>
+          <div class="chart-tooltip" id="chart-tooltip"></div>
+        </div>
       </section>
 
       <section>
@@ -259,11 +276,11 @@
       }
 
       function fmtUsd(n) {
-        return "$" + Number(n || 0).toFixed(2);
+        return "$" + Number(n || 0).toFixed(4);
       }
 
       function fmtPct(n) {
-        return Number(n || 0).toFixed(1) + "%";
+        return Number(n || 0).toFixed(2) + "%";
       }
 
       function fmtWhen(iso) {
@@ -346,6 +363,93 @@
           .join("");
       }
 
+      let lastCostSeries = [];
+
+      function fmtDayLabel(dateStr) {
+        const [, month, day] = dateStr.split("-");
+        return `${day}/${month}`;
+      }
+
+      function renderCostChart(series) {
+        lastCostSeries = series || [];
+        const canvas = document.getElementById("cost-chart");
+        const tooltip = document.getElementById("chart-tooltip");
+        const ctx = canvas.getContext("2d");
+        const cssWidth = canvas.clientWidth || canvas.parentElement.clientWidth;
+        const cssHeight = 200;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = cssWidth * dpr;
+        canvas.height = cssHeight * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+        if (!lastCostSeries.length) {
+          tooltip.style.display = "none";
+          return;
+        }
+
+        const padding = { top: 10, right: 10, bottom: 24, left: 10 };
+        const plotW = cssWidth - padding.left - padding.right;
+        const plotH = cssHeight - padding.top - padding.bottom;
+        const maxCost = Math.max(...lastCostSeries.map((p) => p.cost_usd), 0.0001);
+        const n = lastCostSeries.length;
+        const gap = 6;
+        const barW = Math.max((plotW - gap * (n - 1)) / n, 1);
+
+        const accent = getComputedStyle(document.documentElement)
+          .getPropertyValue("--accent")
+          .trim() || "#4f8cff";
+        const muted = getComputedStyle(document.documentElement)
+          .getPropertyValue("--muted")
+          .trim() || "#8b93a3";
+
+        canvas._bars = [];
+        lastCostSeries.forEach((point, i) => {
+          const x = padding.left + i * (barW + gap);
+          const barH = Math.max((point.cost_usd / maxCost) * plotH, point.cost_usd > 0 ? 2 : 0);
+          const y = padding.top + plotH - barH;
+          ctx.fillStyle = accent;
+          ctx.fillRect(x, y, barW, barH);
+          canvas._bars.push({ x, y: padding.top, w: barW, h: plotH, point });
+
+          if (i === 0 || i === n - 1 || i === Math.floor(n / 2)) {
+            ctx.fillStyle = muted;
+            ctx.font = "10px -apple-system, sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(fmtDayLabel(point.date), x + barW / 2, cssHeight - 6);
+          }
+        });
+      }
+
+      function handleChartHover(ev) {
+        const canvas = document.getElementById("cost-chart");
+        const tooltip = document.getElementById("chart-tooltip");
+        const bars = canvas._bars || [];
+        const rect = canvas.getBoundingClientRect();
+        const mx = ev.clientX - rect.left;
+        const my = ev.clientY - rect.top;
+        const hit = bars.find((b) => mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h);
+        if (!hit) {
+          tooltip.style.display = "none";
+          return;
+        }
+        tooltip.style.display = "block";
+        tooltip.style.left = hit.x + hit.w / 2 + "px";
+        tooltip.style.top = hit.y + "px";
+        tooltip.textContent = `${fmtDayLabel(hit.point.date)} — ${fmtUsd(hit.point.cost_usd)} · ${hit.point.requests} pedidos`;
+      }
+
+      document.getElementById("cost-chart").addEventListener("mousemove", handleChartHover);
+      document.getElementById("cost-chart").addEventListener("mouseleave", () => {
+        document.getElementById("chart-tooltip").style.display = "none";
+      });
+
+      let resizeTimer = null;
+      window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => renderCostChart(lastCostSeries), 150);
+      });
+
       function renderAlerts(alerts) {
         const body = document.getElementById("alerts-body");
         const empty = document.getElementById("alerts-empty");
@@ -401,6 +505,7 @@
           renderHealth(data.services);
           renderBudget(data.kpis);
           renderCategories(data.categories);
+          renderCostChart(data.cost_series);
           renderThresholdsForm(data.thresholds);
           renderAlerts(data.alerts);
         } catch (err) {

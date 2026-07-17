@@ -87,3 +87,29 @@ def test_since_in_future_returns_all_zero(logger_with_fixture):
     assert summary.categories == {}
     assert summary.p50_ms == 0.0
     assert summary.p95_ms == 0.0
+
+
+def test_aggregate_daily_series_buckets_by_day(logger_with_fixture):
+    series = logger_with_fixture.aggregate_daily_series(days=14)
+
+    assert len(series) == 14
+    # Oldest first, today last.
+    today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+    assert series[-1]["date"] == today
+    todays_bucket = series[-1]
+    assert todays_bucket["requests"] == 3
+    assert todays_bucket["cost_usd"] == pytest.approx(0.005)
+    # Every other day in the window has zero requests/cost.
+    for point in series[:-1]:
+        assert point["requests"] == 0
+        assert point["cost_usd"] == 0.0
+
+
+def test_aggregate_daily_series_empty_log_returns_zero_buckets(tmp_path):
+    logger = InteractionLogger()
+    logger.log_file = str(tmp_path / "missing.jsonl")
+
+    series = logger.aggregate_daily_series(days=14)
+
+    assert len(series) == 14
+    assert all(p["requests"] == 0 and p["cost_usd"] == 0.0 for p in series)

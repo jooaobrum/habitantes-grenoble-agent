@@ -92,6 +92,7 @@ async def run_pipeline():
         max_retries=settings.synthesis.max_retries,
         retry_base_sleep_s=settings.synthesis.retry_base_sleep_s,
         overwrite=settings.synthesis.overwrite,
+        base_url=settings.synthesis.base_url,
     )
 
     # 4. Loading (Qdrant)

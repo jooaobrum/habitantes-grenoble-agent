@@ -1,6 +1,13 @@
 # ── Global Defaults ──────────────────────────────────────────────────────────
 llm:
-  model_name: "gpt-4o-mini"
+  # Chat/completions via OpenRouter. model_name is a `provider/model` OpenRouter
+  # id — swap models here (or via MODEL_NAME env) with no code change.
+  model_name: "google/gemini-2.5-flash-lite"
+  base_url: "https://openrouter.ai/api/v1"
+  # Judge model for eval (answer_relevance/faithfulness) — one tier above the
+  # chat model for better judgment quality, still cheap.
+  judge_model_name: "google/gemini-2.5-flash"
+  # Embeddings stay on OpenAI (OpenRouter has no embeddings endpoint).
   embedding_model_name: "text-embedding-3-small"
 
 vector_store:
@@ -67,8 +74,11 @@ admin:
   # ADMIN_TOKEN env var only — never a plaintext default in yaml
 
 pricing:
-  input_per_1m_usd: 0.15   # gpt-4o-mini list price at time of writing
-  output_per_1m_usd: 0.60
+  # Per-model USD rates — MUST be updated if llm.model_name changes, since cost
+  # tracking multiplies token counts by these. Values below are
+  # google/gemini-2.5-flash-lite (OpenRouter list price).
+  input_per_1m_usd: 0.10
+  output_per_1m_usd: 0.40
 
 alerts:
   interval_seconds: 60
@@ -158,7 +168,9 @@ ingestion:
     tier_medium: 20
   synthesis:
     prompt_path: "ingestion/prompts/synthesis_prompt.txt"
-    model: "gpt-4o-mini"
+    # Chat call via OpenRouter (provider/model id), key from OPENROUTER_API_KEY.
+    model: "google/gemini-2.5-flash-lite"
+    base_url: "https://openrouter.ai/api/v1"
     temperature: 0.2
     max_retries: 4
     retry_base_sleep_s: 1.5

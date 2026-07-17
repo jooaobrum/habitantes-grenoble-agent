@@ -17,7 +17,6 @@ Architecture:
 Memory: in-process dict keyed by chat_id, capped at last _MAX_HISTORY messages.
 """
 
-import json
 import logging
 import time
 from typing import Any
@@ -25,6 +24,7 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from openai import APIConnectionError, APITimeoutError, OpenAIError, RateLimitError
+from pydantic import ValidationError
 
 from habitantes.config import load_settings
 from habitantes.domain.cache import get_cache
@@ -39,6 +39,7 @@ from habitantes.domain.prompts.synthesis import (
     _NO_RESULTS_FALLBACK,
     REACT_SYSTEM_PROMPT,
 )
+from habitantes.domain.schemas import IntentClassification
 from habitantes.domain.state import AgentState
 from habitantes.domain.tools import (
     get_get_category_chunks_tool,
@@ -99,12 +100,35 @@ def _get_llm():
         settings = load_settings()
         _llm = ChatOpenAI(
             model=settings.llm.model_name,
-            api_key=settings.llm.openai_api_key,
+            api_key=settings.llm.openrouter_api_key,
+            base_url=settings.llm.base_url,
             temperature=settings.agent.temperature,
             max_tokens=settings.api.max_tokens_per_response,
             request_timeout=settings.api.openai_timeout_seconds,
         )
     return _llm
+
+
+_intent_llm = None
+
+
+def _get_intent_llm():
+    """Lazy-load the intent classifier: `_get_llm()` forced to call the
+    IntentClassification tool, so the provider's native function-calling
+    enforces valid output — no brittle `json.loads` on free-form model text.
+
+    Uses a single plain `bind_tools()` + `.invoke()` call (the same pattern the
+    ReAct loop already uses) rather than `with_structured_output(include_raw=True)`,
+    whose internal parallel raw/parsed branches intermittently raised a
+    `TypeError` from pydantic's request serialization under the pinned
+    openai/pydantic versions.
+    """
+    global _intent_llm
+    if _intent_llm is None:
+        _intent_llm = _get_llm().bind_tools(
+            [IntentClassification], tool_choice="IntentClassification"
+        )
+    return _intent_llm
 
 
 # ── Greeting text (lazy) ─────────────────────────────────────────────────────
@@ -246,23 +270,31 @@ def _classify_intent(state: AgentState) -> dict:
             },
         }
 
-    llm = _get_llm()
+    intent_llm = _get_intent_llm()
     messages = build_intent_messages(state["message"], history=state.get("history"))
-    response = llm.invoke(messages)
+    response = intent_llm.invoke(messages)
     tokens_in, tokens_out = _extract_usage(response)
 
-    try:
-        data = json.loads(response.content)
-        intent = data.get("intent", "out_of_scope")
-    except (json.JSONDecodeError, AttributeError):
+    parsed = None
+    parsing_error: Exception | str | None = None
+    if response.tool_calls:
+        try:
+            parsed = IntentClassification.model_validate(response.tool_calls[0]["args"])
+        except ValidationError as exc:
+            parsing_error = exc
+    else:
+        parsing_error = "no tool call in response"
+
+    if parsed is None:
         logger.warning(
-            "Failed to parse intent JSON",
+            "Failed to parse intent output",
             extra={
                 "trace_id": state.get("trace_id"),
                 "raw": getattr(response, "content", ""),
+                "parsing_error": str(parsing_error),
             },
         )
-        intent = "out_of_scope"
+    intent = parsed.intent if parsed else "out_of_scope"
 
     return {
         "intent": intent,
@@ -278,6 +310,9 @@ def _classify_intent(state: AgentState) -> dict:
 # ── Layer 2: ReAct Agent ─────────────────────────────────────────────────────
 
 # Replaced by _get_agent_settings().max_react_iterations
+
+_EMPTY_RESPONSE_MAX_RETRIES = 2
+_EMPTY_RESPONSE_NUDGE = "Responda agora, de forma direta e objetiva."
 
 
 def _build_react_messages(state: AgentState) -> list:
@@ -386,6 +421,29 @@ def _run_react_loop(state: AgentState) -> dict:
         ti, to = _extract_usage(response)
         tokens_in += ti
         tokens_out += to
+
+        # Gemini occasionally exhausts its whole output budget on internal
+        # reasoning and stops with neither content nor a tool call (finish_reason
+        # "stop", not "length"). Re-sending the identical messages reproduces
+        # this deterministically, so nudge with an explicit follow-up message
+        # instead of blindly retrying — that reliably breaks the loop.
+        empty_retries = 0
+        while (
+            not response.content
+            and not getattr(response, "tool_calls", None)
+            and empty_retries < _EMPTY_RESPONSE_MAX_RETRIES
+        ):
+            empty_retries += 1
+            msgs.append(response)
+            msgs.append(HumanMessage(content=_EMPTY_RESPONSE_NUDGE))
+            response = llm_with_tools.invoke(msgs)
+            ti, to = _extract_usage(response)
+            tokens_in += ti
+            tokens_out += to
+            # Drop the nudge scaffolding — only the final response for this
+            # turn should remain in the transcript.
+            del msgs[-2:]
+
         msgs.append(response)
 
         # If no tool calls, we have the final answer
@@ -536,6 +594,24 @@ def _format_relevant_chunks(chunks: list[dict]) -> str:
     return "\n\n".join(parts)
 
 
+def _derive_category_from_sources(sources: list[dict]) -> str:
+    """Fall back to the most common source category for analytics/logging.
+
+    `state["category"]` is only ever set by an explicit numbered-menu pick
+    (`_classify_intent`'s short-circuit); free-text questions — most traffic —
+    leave it blank, so usage aggregation (Control Center "top categories") had
+    nothing to count even though retrieval already knows each chunk's topic.
+    """
+    counts: dict[str, int] = {}
+    for source in sources:
+        category = source.get("category")
+        if category:
+            counts[category] = counts.get(category, 0) + 1
+    if not counts:
+        return ""
+    return max(counts.items(), key=lambda kv: kv[1])[0]
+
+
 def _compute_confidence(
     intent: str, chunks: list, top_dense: float, gated: bool = False
 ) -> float:
@@ -620,6 +696,10 @@ def run(
                 initial_state["category"],
                 initial_state["intent"],
             )
+            if not initial_state["category"]:
+                initial_state["category"] = _derive_category_from_sources(
+                    initial_state["sources"]
+                )
             return initial_state
 
     # Layer 2: ReAct agent
@@ -661,4 +741,8 @@ def run(
         initial_state["category"],
         initial_state["intent"],
     )
+    if not initial_state["category"]:
+        initial_state["category"] = _derive_category_from_sources(
+            initial_state["sources"]
+        )
     return initial_state

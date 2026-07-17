@@ -59,12 +59,35 @@ class TestAdminRouter(unittest.TestCase):
         self.assertIn("switch", body)
         self.assertIn("services", body)
         self.assertIn("kpis", body)
+        self.assertIn("categories", body)
+        self.assertIn("cost_series", body)
         self.assertIn("thresholds", body)
         self.assertIn("alerts", body)
         self.assertTrue(body["switch"]["enabled"])
         self.assertEqual(body["services"][0]["name"], "qdrant")
         self.assertEqual(body["thresholds"]["daily_cost_limit_usd"], 5.0)
         self.assertEqual(len(body["alerts"]), 1)
+        self.assertEqual(len(body["cost_series"]), 14)
+
+    def test_monthly_budget_is_derived_from_daily_limit(self):
+        import calendar
+        import datetime
+
+        self.client.post(
+            "/admin/thresholds",
+            json={
+                "daily_cost_limit_usd": 1.0,
+                "health_grace_checks": 4,
+                "email_to": "",
+                "auto_disable_enabled": False,
+            },
+            headers=AUTH,
+        )
+        resp = self.client.get("/admin/status", headers=AUTH)
+        body = resp.json()
+        now = datetime.datetime.now(datetime.timezone.utc)
+        days_in_month = calendar.monthrange(now.year, now.month)[1]
+        self.assertEqual(body["kpis"]["budget_monthly_usd"], float(days_in_month))
 
     # ── Switch ───────────────────────────────────────────────────────────────
 

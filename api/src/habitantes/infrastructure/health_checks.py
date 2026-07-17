@@ -24,7 +24,13 @@ def _get_openai_client():
 
         from habitantes.config import load_settings
 
-        _openai_client = OpenAI(api_key=load_settings().llm.openai_api_key)
+        settings = load_settings()
+        # Chat runs through OpenRouter, so the primary-LLM health check pings
+        # OpenRouter (not OpenAI). OpenRouter is OpenAI-API-compatible.
+        _openai_client = OpenAI(
+            api_key=settings.llm.openrouter_api_key,
+            base_url=settings.llm.base_url,
+        )
     return _openai_client
 
 
@@ -46,14 +52,14 @@ def check_qdrant() -> dict[str, Any]:
 
 
 def check_openai() -> dict[str, Any]:
-    """Ping OpenAI with a metadata-only `models.retrieve` — no completion, zero tokens."""
-    from habitantes.config import load_settings
-
-    model_name = load_settings().llm.model_name
+    """Ping the chat LLM provider (OpenRouter) with a metadata-only `models.list`
+    — no completion, zero tokens. `models.retrieve(id)` is unreliable on
+    OpenRouter, so we list instead. Key/health name kept as "openai" to avoid
+    churn in watchdog and the admin dashboard."""
     start = time.perf_counter()
     try:
         client = _get_openai_client()
-        client.models.retrieve(model_name)
+        client.models.list()
     except Exception as exc:
         return {"status": "unreachable", "latency_ms": None, "detail": str(exc)[:200]}
     return {"status": "ok", "latency_ms": _elapsed_ms(start), "detail": None}

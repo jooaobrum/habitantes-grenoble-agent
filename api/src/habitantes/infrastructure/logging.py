@@ -152,6 +152,62 @@ class InteractionLogger:
         summary.p95_ms = _percentile(latencies, 0.95)
         return summary
 
+    def aggregate_daily_series(self, days: int = 14) -> list[dict[str, Any]]:
+        """Per-day {date, requests, cost_usd} for the last `days` days (oldest first).
+
+        Always returns one entry per day in the window, even with zero requests,
+        so the dashboard chart has a stable x-axis.
+        """
+        today = datetime.datetime.now(datetime.timezone.utc).date()
+        window_start = today - datetime.timedelta(days=days - 1)
+        buckets: dict[str, dict[str, float]] = {
+            (window_start + datetime.timedelta(days=i)).isoformat(): {
+                "requests": 0,
+                "cost_usd": 0.0,
+            }
+            for i in range(days)
+        }
+
+        log_path = Path(self.log_file)
+        if not log_path.exists():
+            return [
+                {"date": date, **bucket} for date, bucket in sorted(buckets.items())
+            ]
+
+        with log_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                ts_raw = record.get("timestamp")
+                if not ts_raw:
+                    continue
+                try:
+                    ts = datetime.datetime.fromisoformat(ts_raw)
+                except ValueError:
+                    continue
+                date_key = ts.date().isoformat()
+                bucket = buckets.get(date_key)
+                if bucket is None:
+                    continue
+
+                bucket["requests"] += 1
+                bucket["cost_usd"] += float(record.get("cost_usd", 0.0) or 0.0)
+
+        return [
+            {
+                "date": date,
+                "requests": int(bucket["requests"]),
+                "cost_usd": bucket["cost_usd"],
+            }
+            for date, bucket in sorted(buckets.items())
+        ]
+
 
 class FeedbackLogger:
     """Helper to append user thumbs-up/down feedback to a structured JSONL file."""

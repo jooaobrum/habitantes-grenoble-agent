@@ -63,6 +63,7 @@ class TestConfig(unittest.TestCase):
     @patch(
         "os.environ",
         {
+            "OPENROUTER_API_KEY": "sk-or-test",
             "OPENAI_API_KEY": "sk-test",
             "TELEGRAM_BOT_TOKEN": "123:abc",
             "ADMIN_TOKEN": "test-admin-token",
@@ -89,6 +90,7 @@ class TestConfig(unittest.TestCase):
     @patch(
         "os.environ",
         {
+            "OPENROUTER_API_KEY": "sk-or-test",
             "OPENAI_API_KEY": "sk-test",
             "TELEGRAM_BOT_TOKEN": "123:abc",
             "ADMIN_TOKEN": "test-admin-token",
@@ -108,6 +110,7 @@ class TestConfig(unittest.TestCase):
     @patch(
         "os.environ",
         {
+            "OPENROUTER_API_KEY": "sk-or-test",
             "OPENAI_API_KEY": "sk-test",
             "TELEGRAM_BOT_TOKEN": "123:abc",
             "ADMIN_TOKEN": "test-admin-token",
@@ -127,6 +130,7 @@ class TestConfig(unittest.TestCase):
     @patch(
         "os.environ",
         {
+            "OPENROUTER_API_KEY": "sk-or-test",
             "OPENAI_API_KEY": "sk-test",
             "TELEGRAM_BOT_TOKEN": "123:abc",
             "ADMIN_TOKEN": "test-admin-token",
@@ -144,6 +148,7 @@ class TestConfig(unittest.TestCase):
     @patch(
         "os.environ",
         {
+            "OPENROUTER_API_KEY": "sk-or-test",
             "OPENAI_API_KEY": "sk-test",
             "TELEGRAM_BOT_TOKEN": "123:abc",
             "ADMIN_TOKEN": "secret-token",
@@ -180,6 +185,7 @@ class TestConfig(unittest.TestCase):
     @patch(
         "os.environ",
         {
+            "OPENROUTER_API_KEY": "sk-or-test",
             "OPENAI_API_KEY": "sk-test",
             "TELEGRAM_BOT_TOKEN": "123:abc",
             "APP_ENV": "dev",
