@@ -38,6 +38,8 @@ logger = logging.getLogger(__name__)
 settings = load_settings()
 API_URL = settings.telegram.api_url
 BOT_TOKEN = settings.telegram.bot_token
+ADMIN_TOKEN = settings.admin.token
+HEARTBEAT_INTERVAL_SECONDS = 30
 
 # Per-chat locks to avoid race conditions
 _chat_locks = defaultdict(asyncio.Lock)
@@ -53,6 +55,32 @@ async def _cleanup_processed_messages():
         await asyncio.sleep(3600)  # Every hour
         _processed_messages.clear()
         _user_last_messages.clear()
+
+
+async def _send_heartbeat():
+    """Post a heartbeat to the API on the bot's own poll loop.
+
+    Best-effort: a failed heartbeat never crashes the bot. Missed heartbeats
+    surface on their own — `check_telegram_heartbeat` in `health_checks.py`
+    flips the bot to `critical` once the staleness window elapses.
+    """
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    f"{API_URL}/admin/heartbeat",
+                    json={"service": "telegram_bot"},
+                    headers={"X-Admin-Token": ADMIN_TOKEN},
+                )
+                if response.status_code != 200:
+                    logger.warning(
+                        "Heartbeat rejected (%s): %s",
+                        response.status_code,
+                        response.text,
+                    )
+        except Exception:
+            logger.exception("Failed to post heartbeat")
+        await asyncio.sleep(HEARTBEAT_INTERVAL_SECONDS)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -210,6 +238,7 @@ async def handle_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def post_init(application):
     """Start background tasks."""
     asyncio.create_task(_cleanup_processed_messages())
+    asyncio.create_task(_send_heartbeat())
 
 
 def main():

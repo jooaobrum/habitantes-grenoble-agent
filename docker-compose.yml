@@ -25,6 +25,12 @@ services:
     environment:
       - CONFIG_DIR=/app/config
       - APP_ENV=${APP_ENV:-dev}
+      # .env's QDRANT_URL is a local-dev-only override (host running outside
+      # Docker); force the in-network hostname here so it always wins over
+      # env_file, regardless of what a developer's .env sets.
+      - QDRANT_URL=http://qdrant:6333
+    ports:
+      - "127.0.0.1:8000:8000"
     expose:
       - "8000"
     depends_on:
@@ -33,6 +39,7 @@ services:
     volumes:
       - ./config:/app/config
       - ./logs:/app/logs
+      - ./artifacts:/app/artifacts
     command: uv run uvicorn habitantes.infrastructure.api.main:app --host 0.0.0.0 --port 8000 --workers 1
 
   # ── Telegram Bot ──────────────────────────────────────────────────────────
@@ -44,6 +51,10 @@ services:
     environment:
       - CONFIG_DIR=/app/config
       - APP_ENV=${APP_ENV:-dev}
+      # .env's API_URL is a local-dev-only override (host running outside
+      # Docker); force the in-network hostname here so it always wins over
+      # env_file, regardless of what a developer's .env sets.
+      - API_URL=http://api:8000
     depends_on:
       api:
         condition: service_started

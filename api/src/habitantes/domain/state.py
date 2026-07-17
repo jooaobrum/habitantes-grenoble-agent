@@ -25,6 +25,11 @@ class AgentState(TypedDict):
     # ── Memory ──
     history: list[dict]  # last 5 messages [{role, content}]
 
+    # ── Cost tracking ──
+    tokens_in: int  # summed prompt tokens across this turn's LLM calls
+    tokens_out: int  # summed completion tokens across this turn's LLM calls
+    cost_usd: float  # estimated cost from settings.pricing
+
     # ── Observability ──
     timings: dict[str, float]  # {intent_ms, category_ms, search_ms, generation_ms}
     cached: bool

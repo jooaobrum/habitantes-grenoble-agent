@@ -119,6 +119,36 @@ def _get_greeting_text() -> str:
     return _greeting_text
 
 
+# ── Cost tracking ────────────────────────────────────────────────────────────
+
+
+def _extract_usage(response: Any) -> tuple[int, int]:
+    """Read (input_tokens, output_tokens) off an LLM response.
+
+    Cost tracking is best-effort: a response without usage_metadata (SDK quirk)
+    or with non-numeric values yields (0, 0) rather than raising — a missing
+    token count must never be why a turn fails.
+    """
+    usage = getattr(response, "usage_metadata", None)
+    if not isinstance(usage, dict):
+        return 0, 0
+    try:
+        return int(usage.get("input_tokens", 0) or 0), int(
+            usage.get("output_tokens", 0) or 0
+        )
+    except (TypeError, ValueError):
+        return 0, 0
+
+
+def _compute_cost(tokens_in: int, tokens_out: int) -> float:
+    """Estimate USD cost from token counts and settings.pricing."""
+    pricing = load_settings().pricing
+    return (
+        tokens_in * pricing.input_per_1m_usd / 1_000_000
+        + tokens_out * pricing.output_per_1m_usd / 1_000_000
+    )
+
+
 # ── Error taxonomy (spec.md §6) ──────────────────────────────────────────────
 
 _QDRANT_DOWN_MSG = (
@@ -181,6 +211,9 @@ def _finalize_with_error(
 ) -> AgentState:
     """Apply an OpenAI failure to state, persist memory, and return the turn result."""
     state.update(_error_result(state, _map_openai_error(exc)))
+    state["cost_usd"] = _compute_cost(
+        state.get("tokens_in", 0), state.get("tokens_out", 0)
+    )
     # Use .get() so the error path never crashes if the failure happens before
     # intent/category are populated (e.g. auth error on the first OpenAI call).
     _update_memory(
@@ -205,6 +238,8 @@ def _classify_intent(state: AgentState) -> dict:
         return {
             "intent": "qa",
             "category": cat.en_name,
+            "tokens_in": 0,
+            "tokens_out": 0,
             "timings": {
                 **(state.get("timings") or {}),
                 "intent_ms": (time.monotonic() - t0) * 1000,
@@ -214,6 +249,7 @@ def _classify_intent(state: AgentState) -> dict:
     llm = _get_llm()
     messages = build_intent_messages(state["message"], history=state.get("history"))
     response = llm.invoke(messages)
+    tokens_in, tokens_out = _extract_usage(response)
 
     try:
         data = json.loads(response.content)
@@ -230,6 +266,8 @@ def _classify_intent(state: AgentState) -> dict:
 
     return {
         "intent": intent,
+        "tokens_in": tokens_in,
+        "tokens_out": tokens_out,
         "timings": {
             **(state.get("timings") or {}),
             "intent_ms": (time.monotonic() - t0) * 1000,
@@ -339,10 +377,15 @@ def _run_react_loop(state: AgentState) -> dict:
     gated = False
     gated_top_dense = 0.0
     search_error: dict | None = None
+    tokens_in = 0
+    tokens_out = 0
 
     # ReAct loop
     for _ in range(_get_agent_settings().max_react_iterations):
         response = llm_with_tools.invoke(msgs)
+        ti, to = _extract_usage(response)
+        tokens_in += ti
+        tokens_out += to
         msgs.append(response)
 
         # If no tool calls, we have the final answer
@@ -475,6 +518,8 @@ def _run_react_loop(state: AgentState) -> dict:
         "sources": sources,
         "confidence": confidence,
         "context_chunks": context_chunks,
+        "tokens_in": tokens_in,
+        "tokens_out": tokens_out,
         "timings": timings,
         "error": search_error,
     }
@@ -541,6 +586,9 @@ def run(
         "sources": [],
         "confidence": 0.0,
         "history": _get_history(chat_id),
+        "tokens_in": 0,
+        "tokens_out": 0,
+        "cost_usd": 0.0,
         "timings": {},
         "cached": False,
         "error": None,
@@ -560,6 +608,11 @@ def run(
         if cached_result:
             initial_state.update(cached_result)
             initial_state["cached"] = True
+            # Only the classification LLM call ran this turn (cache short-circuits
+            # the ReAct loop), so tokens come solely from _classify_intent.
+            initial_state["cost_usd"] = _compute_cost(
+                initial_state["tokens_in"], initial_state["tokens_out"]
+            )
             _update_memory(
                 chat_id,
                 message,
@@ -574,7 +627,14 @@ def run(
         result = _run_react_loop(initial_state)
     except OpenAIError as exc:
         return _finalize_with_error(initial_state, chat_id, message, exc)
+    # Sum classification + ReAct usage before .update() overwrites the phase-1
+    # counts with the ReAct-loop-only counts.
+    total_in = classification.get("tokens_in", 0) + result.get("tokens_in", 0)
+    total_out = classification.get("tokens_out", 0) + result.get("tokens_out", 0)
     initial_state.update(result)
+    initial_state["tokens_in"] = total_in
+    initial_state["tokens_out"] = total_out
+    initial_state["cost_usd"] = _compute_cost(total_in, total_out)
 
     # Store in cache if successful
     if (

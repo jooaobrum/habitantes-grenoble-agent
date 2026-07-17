@@ -3,12 +3,14 @@ import logging
 import time
 import uuid
 from collections import defaultdict
+from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from habitantes.config import load_settings
-from habitantes.infrastructure.api.routers import chat, feedback, health
+from habitantes.infrastructure.api.routers import admin, chat, feedback, health
 
 # Simple in-memory rate limiting state
 # Reset on restart as per design.md
@@ -54,7 +56,12 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup_event():
+    from habitantes.infrastructure import control_store
+    from habitantes.infrastructure.alerts.watchdog import watchdog_loop
+
+    control_store.init_db()
     asyncio.create_task(_cleanup_rate_limits())
+    asyncio.create_task(watchdog_loop())
 
 
 @app.middleware("http")
@@ -104,6 +111,17 @@ async def api_middleware(request: Request, call_next):
 app.include_router(chat, prefix="/chat", tags=["Agent"])
 app.include_router(feedback, prefix="/feedback", tags=["Feedback"])
 app.include_router(health, prefix="/health", tags=["Health"])
+app.include_router(admin, prefix="/admin", tags=["Admin"])
+
+# Mount the static admin dashboard if present (repo-root app/admin/). Guarded so
+# the API container, which may not ship app/, still starts cleanly.
+_admin_ui_dir = Path(__file__).parents[5] / "app" / "admin"
+if _admin_ui_dir.is_dir():
+    app.mount(
+        "/admin/ui",
+        StaticFiles(directory=str(_admin_ui_dir), html=True),
+        name="admin-ui",
+    )
 
 
 @app.get("/")

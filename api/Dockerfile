@@ -18,6 +18,10 @@ RUN uv sync --frozen --no-dev
 COPY api/src ./src
 COPY config ./config
 
+# Static admin dashboard (mounted at /admin/ui by main.py); lands at /app/admin,
+# matching the repo-root-relative path main.py resolves in local/dev runs too.
+COPY app/admin ./admin
+
 # Add src to python path
 ENV PYTHONPATH=/app/src
 
