@@ -116,6 +116,20 @@ ranking:
   date_decay_lambda: 0.0005
   min_token_length: 4
 
+# ── Web search (Tavily) — lower-priority, Grenoble-scoped secondary source ────
+# Preferred source is always the Qdrant KB; web is used for factual/current/
+# generalist Grenoble info or to confirm possibly-outdated facts. TAVILY_API_KEY
+# is env-only (see .env.example); a missing key disables the tool (no crash).
+web_search:
+  enabled: true
+  max_results: 3
+  search_depth: "basic" # "basic" | "advanced"
+  topic: "general" # tavily topic
+  location_suffix: "Grenoble France" # appended to enforce geo scope
+  timeout_seconds: 8
+  answer_confidence: 0.5 # confidence assigned to a web-only (no-KB) answer
+  api_url: "https://api.tavily.com/search"
+
 # ── Agent orchestration ──────────────────────────────────────────────────────
 agent:
   max_react_iterations: 5
