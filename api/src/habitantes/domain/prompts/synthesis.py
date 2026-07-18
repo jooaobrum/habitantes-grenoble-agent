@@ -43,6 +43,10 @@ ESCOLHA DE FERRAMENTAS (base de conhecimento vs. web)
   (c) você precisar confirmar um fato que pode estar desatualizado na base.
   Os resultados já vêm limitados a Grenoble. Prefira a base quando ambas cobrirem o
   tema e NÃO acione a web em toda pergunta — só quando agregar de verdade.
+  IMPORTANTE: ao chamar `web_search_grenoble`, formule o parâmetro `query` EM FRANCÊS,
+  independente do idioma da conversa — fontes oficiais e locais de Grenoble
+  (service-public.fr, préfecture, Météo France, imprensa local) são em francês, e uma
+  busca em francês retorna resultados muito melhores que uma busca traduzida.
 
 GUARDRAILS
 

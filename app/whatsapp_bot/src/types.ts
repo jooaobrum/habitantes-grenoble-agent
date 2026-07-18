@@ -38,6 +38,7 @@ export interface Settings {
 export interface ChatSource {
   category?: string | null;
   date?: string | null;
+  text_snippet?: string | null;
   [k: string]: unknown;
 }
 
