@@ -25,6 +25,10 @@ services:
     environment:
       - CONFIG_DIR=/app/config
       - APP_ENV=${APP_ENV:-dev}
+      # Pin the control-store SQLite db onto the mounted ./artifacts volume.
+      # Without this it resolves to /artifacts (container root, ephemeral) and
+      # every rebuild wipes the switch/thresholds/alerts. See control_store.py.
+      - CONTROL_DB_PATH=/app/artifacts/control/control.db
       # .env's QDRANT_URL is a local-dev-only override (host running outside
       # Docker); force the in-network hostname here so it always wins over
       # env_file, regardless of what a developer's .env sets.
