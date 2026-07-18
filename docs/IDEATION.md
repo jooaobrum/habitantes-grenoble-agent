@@ -6,7 +6,7 @@ The system:
 - Uses ingestion pipeline from WhatsApp data → QA extraction → classification → filtering
 - Uses hybrid retrieval (dense + sparse embeddings)
 - Stores in Qdrant
-- Uses OpenAI selectively for synthesis
+- Uses OpenRouter selectively for synthesis
 - Requires low-cost, 24/7 availability
 - Must handle concurrency safely (idempotency, per-chat locks, no heavy FIFO)
 - Should be architected cleanly (orchestration, state, tools separation)
@@ -122,7 +122,7 @@ Storage:
 Models & Tools:
 - SentenceTransformers (Portuguese dense embedding)
 - BM25 sparse embedding (adapted to portuguese)
-- OpenAI for answer synthesis (with max_tokens capping)
+- OpenRouter (Gemini) for answer synthesis (with max_tokens capping)
 - Response caching (TTL + LRU) for cost and latency reduction
 - MemoryState from langgraph for short-term memory
 - Qdrant for long-term memory after summarization (async)
@@ -137,7 +137,7 @@ Models & Tools:
 
 ## 6. Constraints
 
-- Data access / compliance: Can use OpenAI API (no strict local-only requirement)
+- Data access / compliance: Can use OpenRouter API (no strict local-only requirement)
 - Runtime: Ultra Low-cost VPS (Hetzner / OVH style)
 - Team size: 1 engineer
 - Framework familiarity: Python, FastAPI, transformers, Qdrant

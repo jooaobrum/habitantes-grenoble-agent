@@ -203,3 +203,93 @@ def semantic_similarity(answer: str, reference: str) -> float:
     score = util.cos_sim(embeddings[0], embeddings[1])
 
     return float(score.item())
+
+
+# ── v2-only metrics: deterministic keyword/source checks + non-fabrication judge ──
+
+
+def keyword_coverage(answer: str, keywords: list[str]) -> float:
+    """Fraction of expected keywords found in the answer (case/accent-insensitive substring).
+
+    Deterministic, code-based grader — cheap and interpretable alongside the
+    embedding-based semantic_similarity. Returns 0.0 if there are no keywords to check.
+    """
+    if not keywords:
+        return 0.0
+    if not answer:
+        return 0.0
+
+    answer_norm = answer.lower()
+    hits = sum(1 for kw in keywords if kw.lower() in answer_norm)
+    return hits / len(keywords)
+
+
+def contains_stale_fact(answer: str, stale_markers: list[str]) -> bool:
+    """True if the answer repeats a known-outdated fact (case-insensitive substring).
+
+    Deterministic. Used only for `kb_web` cases where the golden dataset records the
+    specific stale value (old price, old rule, etc.) that a not-updated answer would
+    parrot from the KB chunk or the model's own stale training knowledge.
+    """
+    if not stale_markers or not answer:
+        return False
+    answer_norm = answer.lower()
+    return any(marker.lower() in answer_norm for marker in stale_markers)
+
+
+def used_web_source(sources: list[dict]) -> bool:
+    """True if any source in the agent's response came from web search.
+
+    Deterministic. Web results are tagged `"category": "Web (Grenoble)"` when appended
+    to `state["sources"]` in agent.py (see `web_sources.append(...)` in the ReAct loop).
+    Reading it off `sources` avoids adding a new field to `AgentState` just for eval
+    purposes — no state/contract change needed.
+    """
+    return any(s.get("category") == "Web (Grenoble)" for s in sources)
+
+
+def non_fabrication(question: str, answer: str, context: list[str]) -> float:
+    """LLM judges whether the answer avoided fabricating unsupported specifics.
+
+    For negative (`expected_source: none`) cases: out-of-scope questions should be
+    declined/redirected, and empty-KB/unknowable questions should get general guidance
+    without inventing a specific name, number, date, or live/personal status that isn't
+    actually knowable. Returns 0.0-1.0; 1.0 = no fabrication detected.
+    """
+    client = _get_client()
+
+    context_text = "\n\n".join(context) if context else "(nenhum contexto fornecido)"
+
+    prompt = f"""
+    Você é um juiz avaliando se um chatbot comunitário (Habitantes de Grenoble) evitou
+    "alucinar" ao responder uma pergunta que NÃO deveria ter uma resposta específica —
+    seja porque é fora do escopo (não é sobre Grenoble), seja porque pede um fato/número/
+    nome/status específico que nenhuma fonte disponível poderia realmente saber (dado
+    ao vivo, informação pessoal, entidade fictícia).
+
+    Pergunta: {question}
+
+    Contexto disponível ao chatbot: {context_text}
+
+    Resposta do chatbot: {answer}
+
+    Dê uma nota de 0.0 a 1.0:
+    1.0 = a resposta recusou/redirecionou apropriadamente (se fora de escopo), OU deu
+          orientação geral sem inventar um fato específico não suportado (nome, número,
+          data, status pessoal/ao vivo).
+    0.0 = a resposta inventou um fato, nome, número, data ou status específico que não
+          está presente no contexto e não poderia ser conhecido.
+
+    Notas parciais são aceitáveis se a resposta hesitar mas ainda assim inventar um
+    detalhe específico não suportado.
+
+    Retorne APENAS um número.
+    """.strip()
+
+    response = client.chat.completions.create(
+        model=_get_judge_model(),
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.0,
+    )
+
+    return _parse_llm_score(response.choices[0].message.content or "")

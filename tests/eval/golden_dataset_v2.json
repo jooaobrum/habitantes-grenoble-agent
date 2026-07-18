@@ -1,0 +1,1382 @@
+[
+  {
+    "id": "bank-basic-01",
+    "category": "Banking & Finance",
+    "question": "Qual é o endereço pra mandar minha declaração de imposto de renda por correio aqui em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1923
+    ],
+    "expected_answer_keywords": [
+      "Centre des finances publiques",
+      "38 Av. Rhin et Danube",
+      "38100 Grenoble",
+      "correio"
+    ],
+    "ground_truth_answer": "Centre des finances publiques, 38 Av. Rhin et Danube, 38100 Grenoble.",
+    "grounded_in": "synthesis_results#thread-1923 (confirmed, conf=1.0)",
+    "notes": "Simple factual address lookup.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "bank-basic-02",
+    "category": "Banking & Finance",
+    "question": "Quais bancos franceses vocês recomendam pra eu abrir conta?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1512
+    ],
+    "expected_answer_keywords": [
+      "BNP Paribas",
+      "Boursorama",
+      "La Poste",
+      "RIB",
+      "passaporte europeu",
+      "visto de longa duração",
+      "Revolut"
+    ],
+    "ground_truth_answer": "BNP Paribas e Boursorama são recomendados. Boursorama exige passaporte europeu ou visto de longa duração (não o titre de 1 ano); alternativa é abrir conta virtual na La Poste primeiro, pegar o RIB, e depois usar isso pra abrir no Boursorama. Revolut também é uma opção confiável e parecida com o Boursorama.",
+    "grounded_in": "synthesis_results#thread-1512 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "bank-edge-01",
+    "category": "Banking & Finance",
+    "question": "É obrigatório informar o CPF (tax ID) pra abrir conta no N26 na França? Minha amiga está tentando e não está funcionando.",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1470
+    ],
+    "expected_answer_keywords": [
+      "N26",
+      "tax ID",
+      "CPF",
+      "não é obrigatório",
+      "endereço europeu",
+      "RIB francês"
+    ],
+    "ground_truth_answer": "Não é obrigatório informar o CPF/tax ID para abrir conta no N26 na França. É necessário um endereço europeu válido. O app pede telefone, mas dá pra usar e-mail e solicitar número novo pelo próprio app.",
+    "grounded_in": "synthesis_results#thread-1470 (confirmed, conf=0.9)",
+    "notes": "Multi-part troubleshooting question, tests nuanced retrieval.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "daily-basic-01",
+    "category": "Daily Life & Services",
+    "question": "Onde eu compro adaptador de tomada de 3 pinos padrão francês no centro de Grenoble?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2075
+    ],
+    "expected_answer_keywords": [
+      "FNAC",
+      "Victor Hugo",
+      "adaptador",
+      "12 euros"
+    ],
+    "ground_truth_answer": "Na FNAC, perto da Victor Hugo, no centro de Grenoble. Preço em torno de 12 euros.",
+    "grounded_in": "synthesis_results#thread-2075 (confirmed, conf=1.0)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "daily-basic-02",
+    "category": "Daily Life & Services",
+    "question": "Onde eu descarto remédios vencidos aqui em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      537
+    ],
+    "expected_answer_keywords": [
+      "farmácias",
+      "medicamentos vencidos",
+      "descarte"
+    ],
+    "ground_truth_answer": "Nas farmácias de Grenoble. Retire as caixas e papéis, entregando só o mínimo de embalagem junto com o remédio.",
+    "grounded_in": "synthesis_results#thread-537 (confirmed, conf=1.0)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "daily-edge-01",
+    "category": "Daily Life & Services",
+    "question": "Como funciona a questão do combustível quando eu alugo carro pelo Getaround? Devolvo com o tanque cheio?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2504
+    ],
+    "expected_answer_keywords": [
+      "getaround",
+      "combustível",
+      "reembolso",
+      "fotos",
+      "mesmo nível"
+    ],
+    "ground_truth_answer": "No Getaround o carro pode ser entregue com qualquer nível de combustível; você devolve com o mesmo nível recebido. Devolver com mais gera reembolso, com menos gera cobrança. Recomenda-se fotografar o carro e o nível de combustível ao pegar e devolver.",
+    "grounded_in": "synthesis_results#thread-2504 (confirmed, conf=0.95)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "docs-basic-01",
+    "category": "Documents & Bureaucracy",
+    "question": "Minha prima perdeu o passaporte aqui na França. Ela consegue voltar pro Brasil só com o RG?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1121
+    ],
+    "expected_answer_keywords": [
+      "boletim de ocorrência",
+      "delegacia",
+      "consulado",
+      "autorização de retorno",
+      "RG não é suficiente"
+    ],
+    "ground_truth_answer": "Ela precisa registrar boletim de ocorrência na delegacia local e depois contatar o consulado brasileiro pra pedir autorização de retorno ao Brasil. O RG sozinho não basta pra voo internacional.",
+    "grounded_in": "synthesis_results#thread-1121 (confirmed, conf=1.0)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "docs-basic-02",
+    "category": "Documents & Bureaucracy",
+    "question": "Pra legalizar documento brasileiro aqui, qual é a ordem certa: apostila primeiro ou tradução juramentada primeiro?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2516
+    ],
+    "expected_answer_keywords": [
+      "apostila",
+      "tradução juramentada",
+      "ordem",
+      "primeiro a apostila"
+    ],
+    "ground_truth_answer": "Primeiro a apostila, depois a tradução juramentada.",
+    "grounded_in": "synthesis_results#thread-2516 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "docs-basic-03",
+    "category": "Documents & Bureaucracy",
+    "question": "Preciso renovar meu passaporte brasileiro. Morando em Grenoble, em qual consulado eu resolvo isso: Paris, Marselha ou Genebra?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2318,
+      2621,
+      2904
+    ],
+    "expected_answer_keywords": [
+      "passaporte não é renovado",
+      "novo passaporte",
+      "consulado de Marselha",
+      "Auvergne-Rhône-Alpes",
+      "Paris não atende",
+      "Genebra não atende",
+      "e-consular"
+    ],
+    "ground_truth_answer": "O passaporte brasileiro não é 'renovado' — é sempre necessário solicitar um novo. Para quem mora em Grenoble (região Auvergne-Rhône-Alpes), o atendimento é feito pelo Consulado-Geral do Brasil em Marselha — nem Paris nem Genebra atendem moradores de Grenoble para esse serviço. O processo começa pela internet (e-consular), com uma ida presencial rápida pra coleta de digitais; o passaporte costuma ficar pronto no mesmo dia.",
+    "grounded_in": "synthesis_results#thread-2318 (confirmed, conf=0.9), #thread-2621 (confirmed, conf=0.9), #thread-2904 (confirmed, conf=0.9) + WebSearch 2026-07-18: gov.br/mre/consulado-marselha (confirms AuRA/Isère jurisdiction is still Marseille as of today)",
+    "notes": "Added per explicit user request during review. Triple-anchored on three independently confirmed, high-confidence KB threads, and the Marseille jurisdiction was independently re-verified live via web — no discrepancy found between KB and current reality.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "docs-edge-01",
+    "category": "Documents & Bureaucracy",
+    "question": "Um tradutor juramentado reconhecido no Brasil serve pra traduzir minha CNH na troca pelo permis de conduire francês, ou precisa ser tradutor daqui?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1738
+    ],
+    "expected_answer_keywords": [
+      "tradutor habilitado",
+      "apostilada",
+      "legalizada",
+      "permis de conduire",
+      "CNH"
+    ],
+    "ground_truth_answer": "A tradução precisa ser feita por tradutor habilitado na França. Se for feita fora da França, precisa ser apostilada/legalizada. Em geral, traduções juramentadas feitas no Brasil são aceitas se apostiladas.",
+    "grounded_in": "synthesis_results#thread-1738 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "food-basic-01",
+    "category": "Food & Restaurants",
+    "question": "Onde eu compro polvilho doce e polvilho azedo em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2624
+    ],
+    "expected_answer_keywords": [
+      "Tienda Latina",
+      "NOSSO",
+      "polvilho"
+    ],
+    "ground_truth_answer": "Na Tienda Latina e no supermercado NOSSO em Grenoble. Vale confirmar disponibilidade antes de ir, pois o estoque pode variar.",
+    "grounded_in": "synthesis_results#thread-2624 (confirmed, conf=1.0)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "food-basic-02",
+    "category": "Food & Restaurants",
+    "question": "Onde eu acho azeite de dendê em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1281
+    ],
+    "expected_answer_keywords": [
+      "Le Carré Asiatique",
+      "Saint Martin d'Hères",
+      "azeite de dendê",
+      "NOSSO"
+    ],
+    "ground_truth_answer": "No Le Carré Asiatique, em Saint Martin d'Hères. O supermercado NOSSO também costuma ter, geralmente.",
+    "grounded_in": "synthesis_results#thread-1281 (confirmed, conf=1.0)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "hair-basic-01",
+    "category": "Hair & Beauty",
+    "question": "Alguém indica cabeleireiro em Grenoble que saiba cortar cabelo cacheado?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2342
+    ],
+    "expected_answer_keywords": [
+      "Interlude",
+      "rue Thiers",
+      "Frank",
+      "cacheado",
+      "Victor Hugo"
+    ],
+    "ground_truth_answer": "Salão Interlude, na rue Thiers (peça pra cortar com o Frank), entre outros salões que também podem ser encontrados ao redor da Victor Hugo — vale pesquisar na internet pra comparar opções.",
+    "grounded_in": "synthesis_results#thread-2342 (confirmed, conf=0.95)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "hair-basic-02",
+    "category": "Hair & Beauty",
+    "question": "Onde eu acho secador de cabelo com difusor em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      409
+    ],
+    "expected_answer_keywords": [
+      "perfumaria",
+      "Lidl",
+      "secador",
+      "difusor",
+      "Normal"
+    ],
+    "ground_truth_answer": "Em lojas de perfumaria, e também em supermercados como Lidl (preços mais acessíveis). A loja Normal também costuma ter.",
+    "grounded_in": "synthesis_results#thread-409 (confirmed, conf=1.0)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "health-basic-01",
+    "category": "Health & Insurance",
+    "question": "Tem farmácia aberta aos domingos em Grenoble? Como acho uma de plantão?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2447
+    ],
+    "expected_answer_keywords": [
+      "pharmacie de garde",
+      "pharmanity.com",
+      "domingo",
+      "plantão",
+      "Foch"
+    ],
+    "ground_truth_answer": "Consulte as farmácias de plantão pelo site pharmanity.com/blog/pharmacie-de-garde-grenoble, que lista as farmácias abertas em regime de plantão. A farmácia da Foch costuma estar aberta, mas o ideal é sempre conferir no site antes de ir.",
+    "grounded_in": "synthesis_results#thread-2447 (confirmed, conf=1.0)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "health-basic-02",
+    "category": "Health & Insurance",
+    "question": "Como acho um médecin traitant em Grenoble que esteja aceitando pacientes novos?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2334
+    ],
+    "expected_answer_keywords": [
+      "médecin traitant",
+      "Doctolib",
+      "novos pacientes",
+      "vagas",
+      "indicação"
+    ],
+    "ground_truth_answer": "Fique de olho no Doctolib, às vezes aparecem vagas abertas de generalistas. Também vale tentar contato direto com médicos; não precisa dizer que é a primeira consulta. Indicação de outros pacientes também costuma funcionar.",
+    "grounded_in": "synthesis_results#thread-2334 (confirmed, conf=0.95)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "health-edge-01",
+    "category": "Health & Insurance",
+    "question": "Preciso passar pelo médico generalista antes de consultar um endocrinologista pelo sistema público, ou posso ir direto?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1802
+    ],
+    "expected_answer_keywords": [
+      "encaminhamento",
+      "médecin généraliste",
+      "endocrinologista",
+      "reembolso",
+      "sécurité sociale"
+    ],
+    "ground_truth_answer": "Sim, para consultar um endocrinologista pelo sistema público é necessário ter carta de encaminhamento do médico generalista. Sem isso, a consulta é cobrada integralmente sem reembolso pela sécurité sociale.",
+    "grounded_in": "synthesis_results#thread-1802 (confirmed, conf=0.95)",
+    "notes": "Tests the parcours de soins coordonnés rule, a common point of confusion.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "housing-basic-01",
+    "category": "Housing & CAF",
+    "question": "Meu Visale venceu, dá pra renovar ou preciso pedir tudo de novo?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1418
+    ],
+    "expected_answer_keywords": [
+      "Visale",
+      "não pode ser renovado",
+      "nova solicitação",
+      "garantia"
+    ],
+    "ground_truth_answer": "O Visale não pode ser renovado. É necessário fazer uma nova solicitação, seguindo o mesmo procedimento da primeira vez.",
+    "grounded_in": "synthesis_results#thread-1418 (confirmed, conf=1.0)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "housing-basic-02",
+    "category": "Housing & CAF",
+    "question": "A CAF aceita a certidão de nascimento com tradução juramentada que eu já fiz no Brasil, ou preciso refazer aqui na França?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      480
+    ],
+    "expected_answer_keywords": [
+      "CAF",
+      "certidão de nascimento",
+      "tradução juramentada",
+      "Brasil",
+      "aceitou"
+    ],
+    "ground_truth_answer": "A CAF aceitou a certidão de nascimento com tradução juramentada feita no Brasil, sem precisar refazer na França.",
+    "grounded_in": "synthesis_results#thread-480 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "housing-edge-01",
+    "category": "Housing & CAF",
+    "question": "Como faço pra conseguir o abonnement pastel (desconto no transporte) pelo site da CAF?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1151
+    ],
+    "expected_answer_keywords": [
+      "abonnement pastel",
+      "Alsace Lorraine",
+      "Avis d'imposition",
+      "2,50 euros",
+      "CAF"
+    ],
+    "ground_truth_answer": "Dá pra solicitar pelo site da CAF. Para conseguir o abonnement pastel por 2,50€/mês, vá ao ponto de venda Alsace Lorraine com seu Avis d'imposition, comprovando que é estudante ou baixa renda, e leve o comprovante de recebimento da CAF do mês anterior.",
+    "grounded_in": "synthesis_results#thread-1151 (confirmed, conf=0.9)",
+    "notes": "Multi-step niche procedure, good capability test.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "integ-basic-01",
+    "category": "Integration & Language",
+    "question": "Vale mais a pena fazer o curso intensivo do CUEF na UGA ou outro curso de francês em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2848
+    ],
+    "expected_answer_keywords": [
+      "CUEF",
+      "UGA",
+      "DUEF",
+      "diploma reconhecido",
+      "4 meses"
+    ],
+    "ground_truth_answer": "O CUEF na UGA é considerado o melhor. Oferece cursos intensivos como o DUEF (4 meses), mais barato que o curso intensivo tradicional e com diploma reconhecido em toda a França. (Opinião recorrente no grupo — pode ser especialmente vantajoso pra quem é estudante.)",
+    "grounded_in": "synthesis_results#thread-2848 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "integ-basic-02",
+    "category": "Integration & Language",
+    "question": "Tem algum site confiável pra corrigir texto em francês que não seja um tradutor?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      178
+    ],
+    "expected_answer_keywords": [
+      "Bonpatron",
+      "Reverso",
+      "correção",
+      "gramática"
+    ],
+    "ground_truth_answer": "Bonpatron pra correção de texto em francês. Reverso também é boa opção pra parágrafos. Hoje em dia, ferramentas de IA como o ChatGPT também são comumente usadas pra isso.",
+    "grounded_in": "synthesis_results#thread-178 (confirmed, conf=1.0)",
+    "notes": "Reviewer flagged this may be dated given how common AI writing tools have become — kept as basic/regression but the ground truth now mentions AI tools as an alternative.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "market-basic-01",
+    "category": "Marketplace & Buy/Sell",
+    "question": "Que site vocês recomendam pra comprar eletrônico usado na França?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2294
+    ],
+    "expected_answer_keywords": [
+      "Back Market",
+      "eletrônicos usados",
+      "Leboncoin"
+    ],
+    "ground_truth_answer": "Back Market (backmarket.fr). Leboncoin também é bastante usado pra eletrônicos usados.",
+    "grounded_in": "synthesis_results#thread-2294 (confirmed, conf=1.0)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "market-basic-02",
+    "category": "Marketplace & Buy/Sell",
+    "question": "Onde eu compro móveis e eletrodomésticos pra mobiliar meu apê em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2457
+    ],
+    "expected_answer_keywords": [
+      "Ikea",
+      "Leboncoin",
+      "Leclerc",
+      "Carrefour",
+      "Boulanger"
+    ],
+    "ground_truth_answer": "Móveis: Ikea, Leboncoin ou marketplaces de usados. Eletrodomésticos: grandes supermercados como Leclerc e Carrefour, ou lojas especializadas como Boulanger.",
+    "grounded_in": "synthesis_results#thread-2457 (confirmed, conf=0.95)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "safety-basic-01",
+    "category": "Neighbourhood & Safety",
+    "question": "Quais lugares em Grenoble são considerados mais perigosos pra mulher andar sozinha à noite?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1251
+    ],
+    "expected_answer_keywords": [
+      "Parc Paul Mistral",
+      "gare",
+      "à noite",
+      "cautela",
+      "Saint-Bruno"
+    ],
+    "ground_truth_answer": "Locais como o Parc Paul Mistral à noite e áreas próximas à gare podem apresentar mais risco. Recomenda-se evitar esses locais sozinha à noite. A região de Saint-Bruno também é frequentemente citada como merecendo mais cautela.",
+    "grounded_in": "synthesis_results#thread-1251 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "safety-basic-02",
+    "category": "Neighbourhood & Safety",
+    "question": "É tranquilo andar à noite em Grenoble ou tem muito problema de segurança?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      282
+    ],
+    "expected_answer_keywords": [
+      "relativamente tranquila",
+      "evitar à noite",
+      "seguro circular"
+    ],
+    "ground_truth_answer": "Grenoble é relativamente tranquila comparada ao Brasil. Existem locais melhores de evitar à noite, mas em geral é seguro circular sem preocupação excessiva.",
+    "grounded_in": "synthesis_results#thread-282 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "nightlife-basic-01",
+    "category": "Nightlife & Events",
+    "question": "A feira de Natal de Grenoble funciona até quando, mesmo perto do Natal?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2811
+    ],
+    "expected_answer_keywords": [
+      "feira de Natal",
+      "10h às 21h",
+      "24 de dezembro",
+      "diariamente"
+    ],
+    "ground_truth_answer": "Funciona diariamente das 10h às 21h até o dia 24 de dezembro.",
+    "grounded_in": "synthesis_results#thread-2811 (confirmed, conf=0.9)",
+    "notes": "Note: specific dates are event-year-bound (marché de Noël happens every year but exact 2026 dates should be re-verified if reused long-term).",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "nightlife-basic-02",
+    "category": "Nightlife & Events",
+    "question": "As casinhas de madeira que estão montando na Victor Hugo são do Marché de Noël? Já abriu?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1056
+    ],
+    "expected_answer_keywords": [
+      "Marché de Noël",
+      "Victor Hugo",
+      "24 de novembro"
+    ],
+    "ground_truth_answer": "Sim, são do Marché de Noël, que abre no dia 24 de novembro.",
+    "grounded_in": "synthesis_results#thread-1056 (confirmed, conf=1.0)",
+    "notes": "Same date caveat as above. Reviewer flagged: this is a one-off/date-bound fact, not useful for evaluating 'current' correctness long-term. Reclassified basic/regression -> edge/capability: a good agent should recognize the date is year-specific and either verify it (web) or caveat it, not just repeat the old date as if timeless.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "pets-basic-01",
+    "category": "Pets & Animals",
+    "question": "Como faço o passaporte europeu do meu cachorro na França, já tenho o certificado veterinário internacional do Brasil?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1392
+    ],
+    "expected_answer_keywords": [
+      "veterinário",
+      "CVI",
+      "passaporte europeu",
+      "registro"
+    ],
+    "ground_truth_answer": "Leve o animal a um veterinário local com o certificado veterinário internacional (CVI) emitido no Brasil. O veterinário registra o cachorro no sistema francês e emite o passaporte europeu.",
+    "grounded_in": "synthesis_results#thread-1392 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "pets-basic-02",
+    "category": "Pets & Animals",
+    "question": "Tem alguma loja tipo Cobasi ou Petz em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1454
+    ],
+    "expected_answer_keywords": [
+      "Comboire",
+      "loja de pets",
+      "Animalis"
+    ],
+    "ground_truth_answer": "Tem uma loja parecida no bairro Comboire. Também existe a Animalis, no centro de Grenoble, uma rede maior de produtos pra pets.",
+    "grounded_in": "synthesis_results#thread-1454 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "phone-basic-01",
+    "category": "Phone & Telecom",
+    "question": "Como funciona o cancelamento da internet da Free e a devolução do roteador?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2367
+    ],
+    "expected_answer_keywords": [
+      "Free",
+      "cancelamento",
+      "roteador",
+      "point relais"
+    ],
+    "ground_truth_answer": "Cancele pelo site (de preferência no navegador modo computador). A Free manda por e-mail as instruções pra devolução do roteador, geralmente via point relais, sem precisar ir a uma loja.",
+    "grounded_in": "synthesis_results#thread-2367 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "phone-basic-02",
+    "category": "Phone & Telecom",
+    "question": "Qual é a melhor solução de chip pra eu passar um mês na Europa?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1403
+    ],
+    "expected_answer_keywords": [
+      "Symma Mobile",
+      "40 GB",
+      "Saint Bruno",
+      "pré-pago",
+      "Free",
+      "SFR"
+    ],
+    "ground_truth_answer": "Symma Mobile: cerca de 10€ por 1 mês, 40GB pra França + 10GB pra resto da Europa. Vendido em lojas de informática, como no centro comercial Saint Bruno. Prepagos da Free e da SFR também são opções válidas — vale comparar preços atualizados online, já que essas ofertas mudam com frequência.",
+    "grounded_in": "synthesis_results#thread-1403 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "phone-edge-01",
+    "category": "Phone & Telecom",
+    "question": "O plano B&You da Bouygues cobra a mais por usar dados móveis na Suíça?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2271
+    ],
+    "expected_answer_keywords": [
+      "B&You",
+      "Suíça",
+      "dados móveis",
+      "cobra"
+    ],
+    "ground_truth_answer": "Sim, o B&You (linha low-cost da Bouygues) cobra pelo uso de dados na Suíça. É preciso checar no site oficial quais países estão incluídos na cobertura do plano.",
+    "grounded_in": "synthesis_results#thread-2271 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "ski-basic-01",
+    "category": "Ski & Trekking",
+    "question": "Qual é a diferença entre o forfait de esqui jeune e o adulte?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1070
+    ],
+    "expected_answer_keywords": [
+      "passe jeune",
+      "até 26 anos",
+      "passe adulte",
+      "idade"
+    ],
+    "ground_truth_answer": "O passe jeune é pra quem tem até 26 anos; o adulte é pra maiores de 26. A escolha depende da idade, e o jeune costuma ter preço reduzido.",
+    "grounded_in": "synthesis_results#thread-1070 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "ski-basic-02",
+    "category": "Ski & Trekking",
+    "question": "Quanto tempo leva pra subir a Bastilha a pé e onde começa a trilha?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1506
+    ],
+    "expected_answer_keywords": [
+      "Jardim Dauphinois",
+      "30 a 45 minutos",
+      "trilha",
+      "Bastilha",
+      "Fonte do Leão",
+      "Vieux Manoir"
+    ],
+    "ground_truth_answer": "A trilha pode começar pelo Jardim Dauphinois (ou pela Fonte do Leão, ao lado do Vieux Manoir). A subida a pé leva de 30 a 45 minutos, dependendo do ritmo.",
+    "grounded_in": "synthesis_results#thread-1506 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "sports-basic-01",
+    "category": "Sports & Activities",
+    "question": "Tem piscina em Grenoble com aula de natação ou nado livre pra adulto?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1538
+    ],
+    "expected_answer_keywords": [
+      "Les Dauphins",
+      "Bulle d'O",
+      "natação adulta",
+      "nado livre"
+    ],
+    "ground_truth_answer": "Les Dauphins e Bulle d'O oferecem opções de natação adulta, incluindo aulas e nado livre.",
+    "grounded_in": "synthesis_results#thread-1538 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "sports-basic-02",
+    "category": "Sports & Activities",
+    "question": "Como eu consigo o certificado médico pra praticar esporte em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      905
+    ],
+    "expected_answer_keywords": [
+      "Centre de Santé UGA",
+      "médecin traitant",
+      "estudante"
+    ],
+    "ground_truth_answer": "Se for estudante, pode fazer a avaliação no Centre de Santé da UGA. Caso contrário, peça ao seu médecin traitant.",
+    "grounded_in": "synthesis_results#thread-905 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "travel-basic-01",
+    "category": "Travel & Transport",
+    "question": "Preciso pagar a vinheta suíça pra ir de carro até o aeroporto de Genebra?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2117
+    ],
+    "expected_answer_keywords": [
+      "vignette",
+      "Suíça",
+      "aeroporto de Genebra",
+      "autoroute",
+      "não é necessário"
+    ],
+    "ground_truth_answer": "Não é necessário pagar a vignette suíça pra ir de carro ao aeroporto de Genebra, desde que evite a autoroute (rodovia com placas verdes) na Suíça.",
+    "grounded_in": "synthesis_results#thread-2117 (confirmed, conf=1.0)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "travel-basic-02",
+    "category": "Travel & Transport",
+    "question": "Qual é o melhor aeroporto pra chegar em Grenoble vindo de Guarulhos (São Paulo)?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2608
+    ],
+    "expected_answer_keywords": [
+      "Lyon Saint-Exupéry",
+      "FlixBus",
+      "aeroporto",
+      "Genebra"
+    ],
+    "ground_truth_answer": "Lyon Saint-Exupéry é o mais próximo e a melhor opção pra maioria dos horários. Tem FlixBus saindo quase toda hora do aeroporto pra Grenoble. Se a chegada for de madrugada em Genebra, o transporte até Grenoble pode não ser viável economicamente.",
+    "grounded_in": "synthesis_results#thread-2608 (confirmed, conf=0.95)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "travel-edge-01",
+    "category": "Travel & Transport",
+    "question": "É mais complicado chegar ao centro de Paris saindo do aeroporto de Orly do que do Charles de Gaulle?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1879
+    ],
+    "expected_answer_keywords": [
+      "Orly",
+      "Charles de Gaulle",
+      "RER B",
+      "metrô",
+      "menos direto"
+    ],
+    "ground_truth_answer": "Ambos são acessíveis via transporte público (RER B), mas em Orly hoje é necessário completar com metrô, o que torna o trajeto um pouco menos direto que o CDG.",
+    "grounded_in": "synthesis_results#thread-1879 (confirmed, conf=0.9)",
+    "notes": "Reviewer recalls the Orly RER/Orlyval combined ticket is ~14€ ('se não me engano', unverified) — worth an independent web check before treating as a hard fact/keyword. Not added to ground_truth/keywords since unverified.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "univ-basic-01",
+    "category": "University & Studies",
+    "question": "A taxa CVEC dá pra pagar em dinheiro presencialmente ou é só online?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2652
+    ],
+    "expected_answer_keywords": [
+      "CVEC",
+      "online",
+      "CROUS",
+      "não é padrão"
+    ],
+    "ground_truth_answer": "A CVEC normalmente deve ser paga online pelo site oficial. Se tiver dificuldade, o CROUS pode orientar sobre alternativas, mas pagamento presencial em dinheiro não é o procedimento padrão.",
+    "grounded_in": "synthesis_results#thread-2652 (confirmed, conf=0.95)",
+    "notes": "No amount given in KB — see univ-kbweb-01 for the current 2025-2026 amount (105€).",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "univ-basic-02",
+    "category": "University & Studies",
+    "question": "Quais são os feriados de abril e maio na UGA? Dia 8 e 9 de maio são os dois feriados?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1711
+    ],
+    "expected_answer_keywords": [
+      "UGA",
+      "feriados nacionais",
+      "8 de maio",
+      "9 de maio"
+    ],
+    "ground_truth_answer": "8 e 9 de maio são feriados nacionais, e a UGA também observa esses feriados.",
+    "grounded_in": "synthesis_results#thread-1711 (confirmed, conf=0.9)",
+    "notes": "Note: national holiday dates are fixed annually by the French calendar — true for the year in question, verify if reused as-is in a future year.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "univ-edge-01",
+    "category": "University & Studies",
+    "question": "Quanto custa pra se preparar e fazer a prova teórica da carteira de motorista na França?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1667
+    ],
+    "expected_answer_keywords": [
+      "Ornikar",
+      "prova teórica",
+      "35 de 40",
+      "carteira de motorista"
+    ],
+    "ground_truth_answer": "Dá pra se preparar barato usando plataformas online como a Ornikar (cerca de 2,99€/mês). A prova teórica exige acertar 35 de 40 questões, com 20 segundos por questão.",
+    "grounded_in": "synthesis_results#thread-1667 (confirmed, conf=0.9)",
+    "notes": "Price corrected by reviewer: Ornikar is ~2,99€/mês (not 0,99€/mês as in the original KB thread).",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "visa-basic-01",
+    "category": "Visa & Residency",
+    "question": "Alguém sabe qual é o e-mail da OFII em Grenoble? Preciso mandar um documento pra eles.",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1948
+    ],
+    "expected_answer_keywords": [
+      "OFII",
+      "e-mail",
+      "bai-grenoble@ofii.fr",
+      "Grenoble"
+    ],
+    "ground_truth_answer": "O e-mail da OFII em Grenoble é bai-grenoble@ofii.fr.",
+    "grounded_in": "synthesis_results#thread-1948 (confirmed, conf=1.0)",
+    "notes": "Simple factual lookup, high-confidence confirmed KB entry. Reviewer left this verdict blank during review; kept by default given it's a simple, high-confidence (conf=1.0) factual lookup with minimal risk — flagged back to the user for awareness.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "visa-basic-02",
+    "category": "Visa & Residency",
+    "question": "Como e onde eu compro o timbre fiscal pro meu titre de séjour?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1265
+    ],
+    "expected_answer_keywords": [
+      "timbre fiscal",
+      "titre de séjour",
+      "service-public.fr",
+      "online",
+      "Wise",
+      "250 euros",
+      "renovação"
+    ],
+    "ground_truth_answer": "O timbre fiscal para o titre de séjour pode ser comprado online pelo site oficial do governo francês (service-public.fr); alguns recomendam pagar via Wise por ser mais barato. Pra RENOVAÇÃO, o valor está em 250€ desde 1º de maio de 2026 (era 225€ antes; taxa reduzida foi de 75€ pra 100€). Pra PRIMEIRA emissão o valor é mais alto (ver caso visa-kbweb-01) — sempre bom confirmar o valor atual no site oficial, pois muda por decreto.",
+    "grounded_in": "synthesis_results#thread-1265 (confirmed, conf=1.0)",
+    "notes": "Note: does NOT include the amount — see visa-kbweb-01 for the current price, which changed materially in 2026. Amount added by reviewer during the review pass (with a quoted official-sounding source on the renewal fee). Flagged as time-sensitive: an official fee, subject to change by decree.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "visa-edge-01",
+    "category": "Visa & Residency",
+    "question": "Meu récépissé venceu e não tem nenhuma vaga de RDV pra retirar o titre de séjour em Isère. Tem algum jeito de conseguir uma data urgente?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1252
+    ],
+    "expected_answer_keywords": [
+      "récépissé expirado",
+      "sem vaga",
+      "pref-rdv-sejour@isere.gouv.fr",
+      "urgência",
+      "titre de séjour"
+    ],
+    "ground_truth_answer": "Se o récépissé estiver expirado e não houver vaga, envie um e-mail para pref-rdv-sejour@isere.gouv.fr explicando a situação (sem vagas, ou mais de um mês desde a aprovação sem SMS). A resposta inicial costuma dizer que não dá pra agendar por e-mail, mas depois de alguns dias costumam enviar uma data.",
+    "grounded_in": "synthesis_results#thread-1252 (confirmed, conf=0.95)",
+    "notes": "Carried over from v1 (was already well-grounded); kept almost verbatim.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "visa-edge-02",
+    "category": "Visa & Residency",
+    "question": "Meu visto VLSTS Salarié foi emitido depois de 2020 e não vem escrito a referência regulamentar. Que referência eu coloco no formulário de validação?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1789
+    ],
+    "expected_answer_keywords": [
+      "CESEDA R-431",
+      "VLSTS Salarié",
+      "validação",
+      "prefeitura",
+      "CESEDA R-311"
+    ],
+    "ground_truth_answer": "Para validar o visto VLSTS Salarié emitido após 2020, informe a referência regulamentar CESEDA R-431. A opção CESEDA R-311 vale só para vistos antigos.",
+    "grounded_in": "synthesis_results#thread-1789 (confirmed, conf=0.95)",
+    "notes": "Niche/technical — good capability test, low general knowledge overlap.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "work-basic-01",
+    "category": "Work & Internship",
+    "question": "Tem algum jeito online de calcular quanto fica o salário líquido de um bruto de 1786 euros na França?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1933
+    ],
+    "expected_answer_keywords": [
+      "salaire-brut-en-net.fr",
+      "salário líquido",
+      "calculadora"
+    ],
+    "ground_truth_answer": "Use uma calculadora online como salaire-brut-en-net.fr, que considera os descontos obrigatórios pra estimar o líquido.",
+    "grounded_in": "synthesis_results#thread-1933 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "work-basic-02",
+    "category": "Work & Internship",
+    "question": "Meu patrão não pagou meu salário depois que meu CDD terminou. O que eu faço?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2773
+    ],
+    "expected_answer_keywords": [
+      "Prud'hommes",
+      "tribunal",
+      "CDD",
+      "provas",
+      "contrato"
+    ],
+    "ground_truth_answer": "Recorra ao tribunal Prud'hommes, responsável por conflitos trabalhistas na França. Reúna todas as provas do contrato e das tentativas de contato com o empregador.",
+    "grounded_in": "synthesis_results#thread-2773 (confirmed, conf=0.9)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "bank-kbweb-01",
+    "category": "Banking & Finance",
+    "question": "Qual é o valor atual do bônus de boas-vindas do Boursorama pra quem abre conta?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb_web",
+    "expected_thread_ids": [
+      1017
+    ],
+    "expected_answer_keywords": [
+      "160 euros",
+      "BRSOPE160",
+      "bônus",
+      "boas-vindas"
+    ],
+    "ground_truth_answer": "Até 160€ (código BRSOPE160), com boosts pontuais que já chegaram a 220€ em determinados períodos — valor mudou desde a época em que a KB registrou 150€. Sempre confirmar no site oficial pois o valor varia por período.",
+    "grounded_in": "KB thread-1017 (answer_confirmed=FALSE, conf=0.9 — explicit '150 euros' + code JAOL1582) + WebSearch 2026-07-18: comparabanques.fr, primebanque.fr (up to 160€, code BRSOPE160)",
+    "notes": "FLAG: KB anchor is answer_confirmed=FALSE (community-sourced, not human-reviewed) — please double-check before approving. The KB gives a specific stale number (150€) AND a stale promo code (JAOL1582) — good test that the agent doesn't just repeat outdated numbers/codes verbatim. Reviewer confirmed this as a good example of a fact that changes over time and should be looked up live rather than trusted from the KB alone.",
+    "stale_fact_markers": [
+      "150 euros",
+      "150€",
+      "JAOL1582"
+    ]
+  },
+  {
+    "id": "travel-kbweb-01",
+    "category": "Travel & Transport",
+    "question": "O Ouigo vai direto de Paris pra Grenoble ou eu preciso trocar de trem no meio do caminho?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb_web",
+    "expected_thread_ids": [
+      206,
+      229
+    ],
+    "expected_answer_keywords": [
+      "OUIGO",
+      "direto",
+      "Lyon",
+      "TGV",
+      "baldeação"
+    ],
+    "ground_truth_answer": "Hoje existe serviço direto Paris↔Grenoble regularmente (não só no inverno): de ~26 trens diários, cerca de 7-8 são diretos, incluindo os OUIGO. Os demais ainda fazem conexão em Lyon-Part-Dieu. Isso é mais amplo do que a informação registrada na KB, que descrevia o Ouigo direto como restrito ao inverno.",
+    "grounded_in": "KB thread-206 (answer_confirmed=FALSE, conf=0.9 — 'Ouigo direto só no inverno, fora disso baldeação') + thread-229 (confirmed, conf=0.9, sobre documento a levar) + WebSearch 2026-07-18: trainline.com, sncf-connect.com (direct OUIGO/TGV service year-round in 2026)",
+    "notes": "HIGH VALUE case, but flag: the KB anchor (thread-206) is answer_confirmed=FALSE (community-sourced, not human-reviewed) — please double-check this one specifically before approving. Still a strong illustration of why info_might_be_outdated / web fallback matters.",
+    "stale_fact_markers": [
+      "apenas durante o inverno",
+      "só no inverno",
+      "só durante o inverno"
+    ]
+  },
+  {
+    "id": "univ-kbweb-01",
+    "category": "University & Studies",
+    "question": "Qual é o valor exato da taxa CVEC pra esse ano letivo?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb_web",
+    "expected_thread_ids": [
+      2652
+    ],
+    "expected_answer_keywords": [
+      "CVEC",
+      "105 euros",
+      "cvec.etudiant.gouv.fr",
+      "isentos",
+      "bolsistas"
+    ],
+    "ground_truth_answer": "105€ para o ano letivo 2025-2026 (pago em cvec.etudiant.gouv.fr). Bolsistas, alunos Erasmus e alguns outros perfis são isentos.",
+    "grounded_in": "KB thread-2652 (confirmed, no amount given) + WebSearch 2026-07-18: mes-allocs.fr, droit-finances.commentcamarche.com (105€ for 2025-2026)",
+    "notes": "KB chunk is retrievable but incomplete (no amount) — tests whether agent supplements with web_search_grenoble rather than leaving the number out.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "visa-kbweb-01",
+    "category": "Visa & Residency",
+    "question": "Quanto custa hoje o timbre fiscal pra primeira emissão do titre de séjour?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb_web",
+    "expected_thread_ids": [
+      1265
+    ],
+    "expected_answer_keywords": [
+      "350 euros",
+      "aumentou",
+      "1º de maio de 2026",
+      "timbre fiscal"
+    ],
+    "ground_truth_answer": "350€ para a primeira emissão (era 225€) — aumento em vigor desde 1º de maio de 2026 (Lei de Finanças 2026, art. 128). Taxa normal foi de 200€ para 300€; taxa reduzida de 50€ para 100€.",
+    "grounded_in": "KB thread-1265 (confirmed, mentions timbre fiscal but no amount) + WebSearch 2026-07-18: service-public.gouv.fr, prefecturedepolice.interieur.gouv.fr, karlwaheed.fr (350€ since 2026-05-01)",
+    "notes": "HIGH VALUE: major, recent regulatory fee change (nearly doubled) — a case where an un-updated KB (or model's training-data knowledge) would badly mislead a user on cost.",
+    "stale_fact_markers": [
+      "225 euros",
+      "225€",
+      "200 euros",
+      "200€"
+    ]
+  },
+  {
+    "id": "work-edge-01",
+    "category": "Work & Internship",
+    "question": "Pro visto 'passport talent', o diploma em si é obrigatório ou a attestation de réussite (certificado de conclusão) já serve?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "kb_web",
+    "expected_thread_ids": [
+      257
+    ],
+    "expected_answer_keywords": [
+      "passport talent",
+      "diploma",
+      "attestation de réussite",
+      "aceita",
+      "préfecture"
+    ],
+    "ground_truth_answer": "Pro passport talent, tanto o diploma quanto a attestation de réussite (certificado de conclusão) são aceitos como comprovação — a lista oficial de documentos da préfecture inclui 'diplôme ou attestation de réussite'. (A resposta original da comunidade dizia que só o diploma valia; isso contradiz a lista oficial e foi corrigido nesta revisão.)",
+    "grounded_in": "synthesis_results#thread-257 (confirmed, conf=0.9) + WebSearch 2026-07-18: prefecturedepolice.interieur.gouv.fr official PJ checklist ('diplôme ou attestation de réussite') — corrects the community KB thread's claim.",
+    "notes": "Reviewer flagged during the review pass that the KB thread's claim (attestation not accepted) is wrong; independently confirmed via the official préfecture document checklist. Reclassified kb->kb_web since the retrievable KB chunk actively contradicts the verified current rule — a strong test that the agent doesn't just parrot an inaccurate community claim.",
+    "stale_fact_markers": [
+      "não é aceita",
+      "não aceitam a attestation",
+      "não aceita a attestation"
+    ]
+  },
+  {
+    "id": "web-basic-01",
+    "category": "Daily Life & Services",
+    "question": "Quantos habitantes tem Grenoble hoje em dia?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "web",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "155",
+      "156 mil",
+      "habitantes",
+      "Grenoble",
+      "INSEE"
+    ],
+    "ground_truth_answer": "~155.000-156.000 habitantes na cidade de Grenoble (2025, dados INSEE); a população da cidade vem em leve declínio nos últimos anos em favor das comunas vizinhas.",
+    "grounded_in": "WebSearch 2026-07-18: bien-dans-ma-ville.fr, INSEE, placegrenet.fr (~155,254-156,140 hab. 2025)",
+    "notes": "Not in KB. Tests whether the agent reaches for web_search_grenoble for factual/current info per its tool description.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "web-basic-03",
+    "category": "Travel & Transport",
+    "question": "Quantas linhas de tram tem em Grenoble hoje?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "web",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "5 linhas",
+      "A, B, C, D",
+      "tram",
+      "SMMAG"
+    ],
+    "ground_truth_answer": "5 linhas de tram (A, B, C, D e E), rede gerida pelo SMMAG (que substituiu o SMTC em 2020).",
+    "grounded_in": "WebSearch 2026-07-18: fr.wikipedia.org/Tramway_de_Grenoble, smmag.fr",
+    "notes": "Not in KB (the KB only has qualitative transit tips, no line count).",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "web-basic-02",
+    "category": "Work & Internship",
+    "question": "Qual é o valor do SMIC por hora agora?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "web",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "SMIC",
+      "12,31",
+      "hora",
+      "bruto"
+    ],
+    "ground_truth_answer": "12,31€/hora bruto desde 1º de junho de 2026 (~1.867,02€/mês bruto para 35h semanais).",
+    "grounded_in": "WebSearch 2026-07-18: info.gouv.fr, urssaf.fr (SMIC horaire brut 12,31€ from 2026-06-01)",
+    "notes": "Current-fact test; SMIC is revised ~1-2x/year so this needs periodic re-verification to stay a regression case.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "neg-empty-01",
+    "category": "Health & Insurance",
+    "question": "Alguém sabe se o Dr. Fabiano Almeida da Rue das Estrelas em Grenoble ainda está aceitando pacientes novos?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "none",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [],
+    "ground_truth_answer": "N/A — fabricated doctor/street name, no real match in KB or web. The agent must NOT invent an answer; it should say it doesn't have this specific information rather than fabricating a doctor or address.",
+    "grounded_in": "constructed negative (fictitious entity, tests anti-hallucination fallback)",
+    "notes": "Fictitious name/street chosen to guarantee empty retrieval; verify no accidental real-world match before finalizing.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "neg-empty-05",
+    "category": "Housing & CAF",
+    "question": "Quantos dias exatos falta pra minha CAF processar meu pedido de auxílio-moradia?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "none",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [],
+    "ground_truth_answer": "N/A — user-specific case status, not knowable from KB (general community history) or web. Agent should explain typical process/timelines from KB patterns without inventing a specific personal ETA.",
+    "grounded_in": "constructed negative (personal case status, tests that general KB patterns aren't presented as a personal guarantee)",
+    "notes": "Subtler than neg-empty-03/04: tests that the agent gives general info without pretending it's the user's specific case status.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "neg-empty-02",
+    "category": "Visa & Residency",
+    "question": "Qual é o tempo de espera exato agora, hoje, pra conseguir um RDV na prefeitura de Grenoble pra renovação de titre de séjour?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "none",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [],
+    "ground_truth_answer": "N/A — real-time queue/wait data that neither the KB (static community history) nor web_search (not a live queue API) can know precisely. Agent should give general guidance (based on KB patterns) but must not invent a specific current wait time as if it were live data.",
+    "grounded_in": "constructed negative (unknowable live data, tests anti-hallucination fallback)",
+    "notes": "Distinguish from visa-edge-01: that case has a real KB-grounded workaround; this one asks for a live number nobody has.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "neg-empty-03",
+    "category": null,
+    "question": "Qual é meu número de dossiê na ANEF?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "none",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [],
+    "ground_truth_answer": "N/A — personal/account-specific data the bot has no access to. Must not fabricate a dossier number.",
+    "grounded_in": "constructed negative (personal data the bot cannot know)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "neg-empty-04",
+    "category": null,
+    "question": "Quantas pessoas estão no grupo do WhatsApp Habitantes de Grenoble hoje?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "none",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [],
+    "ground_truth_answer": "N/A — live internal community data not available to KB or web tools. Must not invent a member count.",
+    "grounded_in": "constructed negative (live data outside any tool's reach)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "neg-oos-01",
+    "category": null,
+    "question": "Qual é a capital da Alemanha?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "none",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [],
+    "ground_truth_answer": "N/A — out of scope. The agent should identify this as unrelated to Grenoble and decline/redirect, not answer general world trivia.",
+    "grounded_in": "constructed negative (intent=out_of_scope)",
+    "notes": "Tests the out_of_scope intent branch in intent.py.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "neg-oos-02",
+    "category": null,
+    "question": "Como faço pra tirar visto de estudante pra estudar em Lisboa, Portugal?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "none",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [],
+    "ground_truth_answer": "N/A — out of scope. Different country/city, not Grenoble, even though topically similar (visa/study).",
+    "grounded_in": "constructed negative (intent=out_of_scope)",
+    "notes": "Tests that topical similarity (visa/study) doesn't fool the classifier when the location isn't Grenoble.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "neg-oos-03",
+    "category": null,
+    "question": "Você pode escrever um poema curto sobre o outono pra mim?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "none",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [],
+    "ground_truth_answer": "N/A — out of scope. Generic creative request unrelated to Grenoble.",
+    "grounded_in": "constructed negative (intent=out_of_scope)",
+    "notes": "",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "neg-oos-04",
+    "category": null,
+    "question": "Qual é o melhor bairro pra morar em Paris perto da Torre Eiffel?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "none",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [],
+    "ground_truth_answer": "N/A — out of scope. Another French city (Paris), not Grenoble.",
+    "grounded_in": "constructed negative (intent=out_of_scope)",
+    "notes": "Same-country-different-city trap — checks the classifier isn't just keying on 'França'.",
+    "stale_fact_markers": []
+  },
+  {
+    "id": "neg-oos-05",
+    "category": null,
+    "question": "Como faço um bolo de chocolate sem farinha?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "none",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [],
+    "ground_truth_answer": "N/A — out of scope. General cooking question, not a Grenoble community/local topic.",
+    "grounded_in": "constructed negative (intent=out_of_scope)",
+    "notes": "",
+    "stale_fact_markers": []
+  }
+]

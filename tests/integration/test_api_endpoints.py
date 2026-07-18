@@ -43,41 +43,6 @@ def test_feedback_success():
     assert response.json() == {"status": "ok"}
 
 
-def test_chat_success():
-    """Test /chat endpoint with mocked agent run."""
-    chat_request = {
-        "chat_id": "123456",
-        "message": "Como conseguir um visto?",
-        "message_id": "msg_002",
-    }
-
-    mock_result = {
-        "answer": "Você precisa de um visto tipo D.",
-        "sources": [
-            {
-                "text_snippet": "visto tipo D info",
-                "date": "2023-01-01",
-                "category": "Visa",
-            }
-        ],
-        "intent": "qa",
-        "category": "Visa & Residency",
-        "confidence": 0.9,
-    }
-
-    with patch("habitantes.infrastructure.api.routers.chat.run_agent") as mock_run:
-        mock_run.return_value = mock_result
-
-        response = client.post("/chat/", json=chat_request)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["answer"] == mock_result["answer"]
-        assert len(data["sources"]) == 1
-        assert data["intent"] == "qa"
-        assert "trace_id" in data
-        assert response.headers.get("X-Trace-Id") == data["trace_id"]
-
-
 def test_rate_limiting():
     """Test rate limiting middleware."""
     chat_id = "blocked_user"

@@ -135,22 +135,11 @@ def _make_web_search_tool():
         """Search the web for information about Grenoble, France (lower priority).
 
         This is a SECONDARY source — always prefer search_knowledge_base first.
-        Use this tool when the knowledge base is insufficient, or when the question
-        needs factual/current/generalist information about Grenoble (e.g. number of
-        inhabitants, current events, current official procedures).
-
-        ALSO use it to double-check a knowledge-base result that LOOKS complete but
-        falls into a perishable-data category, because these change over time and a
-        community thread may simply be out of date or wrong:
-          - money amounts: prices, fees, bonuses, promo codes, fines, salaries
-          - transport schedules, routes, or frequency (trains, buses, flights, trams)
-          - required documents or official procedure rules (visas, residency permits,
-            CAF, taxes) — checklists like this change, and community answers about
-            them can be incomplete or simply incorrect.
-        Do not skip the check just because the knowledge-base chunk already contains a
-        specific number or a confident-sounding claim in one of these categories.
-
-        Results are always scoped to Grenoble automatically.
+        Use this tool only when the knowledge base is insufficient, or when the
+        question needs factual/current/generalist information about Grenoble
+        (e.g. number of inhabitants, current events, current official procedures),
+        or to confirm a possibly-outdated fact. Results are always scoped to
+        Grenoble automatically.
 
         Args:
             query: The search query, PHRASED IN FRENCH regardless of the
