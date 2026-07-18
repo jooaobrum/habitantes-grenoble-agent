@@ -25,6 +25,71 @@ telegram:
   rate_limit_per_minute: 5
   max_message_length: 2000
 
+# ── WhatsApp (Baileys) channel — DM-only 2nd channel ─────────────────────────
+# Thin adapter (Node service, app/whatsapp_bot/). Mirrors telegram:; the adapter
+# owns these settings (the Python API does not read this block).
+whatsapp:
+  api_url: "http://api:8000" # forced by docker-compose env (in-network host)
+  rate_limit_per_minute: 5
+  max_message_length: 2000
+  reconnect_base_delay_ms: 2000
+  reconnect_max_delay_ms: 60000
+  reply_min_delay_ms: 600 # human-like pacing (randomized up to max)
+  reply_max_delay_ms: 1800
+  auth_dir: "artifacts/whatsapp/auth"
+  heartbeat_interval_seconds: 30
+  # chat_id = hash(JID). Salt is env-only (WHATSAPP_ID_SALT) so hashes are not
+  # reversible via a rainbow table of phone numbers. Never a plaintext default here.
+  id_hash_length: 16 # hex chars kept from the SHA-256 digest
+  # Gratitude replies that count as a 👍 on the last answer. Matched on a
+  # normalized (lowercased, accent-stripped, punctuation-trimmed) message.
+  # Extend freely here — no code change needed.
+  feedback_positive_keywords:
+    # Portuguese
+    - "obrigado"
+    - "obrigada"
+    - "obg"
+    - "obgd"
+    - "brigado"
+    - "brigada"
+    - "valeu"
+    - "vlw"
+    - "agradecido"
+    - "agradecida"
+    - "gratidao"
+    - "muito obrigado"
+    - "muito obrigada"
+    - "ajudou"
+    - "ajudou muito"
+    - "top"
+    - "perfeito"
+    - "show"
+    - "otimo"
+    - "maravilha"
+    # English
+    - "thanks"
+    - "thank you"
+    - "thx"
+    - "ty"
+    - "tks"
+    - "cheers"
+    - "appreciate it"
+    - "great"
+    - "perfect"
+    # French
+    - "merci"
+    - "merci beaucoup"
+    - "mercii"
+    - "parfait"
+    # Spanish
+    - "gracias"
+    - "muchas gracias"
+    # Emoji-only replies
+    - "🙏"
+    - "👍"
+    - "❤️"
+    - "🥰"
+
 # ── Search & Ranking (single source of truth for tuning) ─────────────────────
 search:
   dense_prefetch_k: 80
@@ -157,7 +222,7 @@ environments:
 ingestion:
   data_dir: "data"
   artifacts_dir: "artifacts"
-  input_file: "chat-19012021-20022026.txt"
+  input_file: "chat-21022026-18072026.txt"
   parser:
     timestamp_format: "%d/%m/%y, %H:%M:%S"
   qa:
