@@ -10,6 +10,7 @@ throwaway database; production callers rely on the default under `artifacts/`.
 
 import datetime
 import logging
+import os
 import sqlite3
 import time
 from pathlib import Path
@@ -20,8 +21,18 @@ from habitantes.config import load_settings
 logger = logging.getLogger(__name__)
 
 # Repo root: .../infrastructure/control_store.py -> parents[4] == repo root.
+# NOTE: this only holds for the source-tree layout (api/src/...). In the Docker
+# image the code is copied to /app/src (no `api/` level), so parents[4] resolves
+# to `/`, putting the db at /artifacts/... — OUTSIDE the mounted ./artifacts
+# volume, so it silently reset on every container rebuild. CONTROL_DB_PATH lets
+# the container pin the db onto the volume (see docker-compose.yml), mirroring
+# the CONFIG_DIR override in config.py.
 _REPO_ROOT = Path(__file__).parents[4]
-DEFAULT_DB_PATH = _REPO_ROOT / "artifacts" / "control" / "control.db"
+DEFAULT_DB_PATH = Path(
+    os.environ.get(
+        "CONTROL_DB_PATH", str(_REPO_ROOT / "artifacts" / "control" / "control.db")
+    )
+)
 
 _SWITCH_ID = 1
 _THRESHOLDS_ID = 1
