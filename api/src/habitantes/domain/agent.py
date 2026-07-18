@@ -90,6 +90,16 @@ def _update_memory(
     }
 
 
+def reset_memory(chat_id: str) -> None:
+    """Clear a chat's short-term memory (history + selected category).
+
+    Idempotent — resetting a chat_id with no memory yet is a no-op. Used by the
+    /reset command on both channels; does not touch anything else (rate limits,
+    dedup sets, etc. are channel-adapter state, not agent memory).
+    """
+    _memory.pop(chat_id, None)
+
+
 # ── LLM factory (lazy) ───────────────────────────────────────────────────────
 
 _llm = None

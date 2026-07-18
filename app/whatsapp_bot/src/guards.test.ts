@@ -9,6 +9,7 @@ import {
   exceedsLength,
   normalizeText,
   isGratitudeOnly,
+  isResetCommand,
 } from "./guards.js";
 
 const PHONE = "553199999999";
@@ -228,5 +229,20 @@ describe("isGratitudeOnly", () => {
   it("returns false for empty or unmatched text", () => {
     expect(isGratitudeOnly("", keywords)).toBe(false);
     expect(isGratitudeOnly("bom dia", keywords)).toBe(false);
+  });
+});
+
+describe("isResetCommand", () => {
+  it("matches the slash command and the bare word, case/accent-insensitive", () => {
+    for (const msg of ["/reset", "reset", "Reset", "RESET", "/RESET", " /reset "]) {
+      expect(isResetCommand(msg)).toBe(true);
+    }
+  });
+
+  it("does not match a real question or a longer message containing the word", () => {
+    expect(isResetCommand("como faço reset da senha?")).toBe(false);
+    expect(isResetCommand("reset por favor")).toBe(false);
+    expect(isResetCommand("")).toBe(false);
+    expect(isResetCommand("resetar")).toBe(false);
   });
 });

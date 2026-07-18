@@ -205,3 +205,14 @@ export function isGratitudeOnly(text: string, keywords: string[]): boolean {
   // Every significant token must itself be a gratitude keyword.
   return tokens.every((token) => keywordSet.has(token));
 }
+
+/**
+ * True when the message is (only) the reset command — `/reset` or bare `reset`,
+ * case/accent-insensitive. `normalizeText` already strips the leading `/` (ascii
+ * punctuation), so both forms collapse to the same check. Deliberately strict
+ * (whole-message match only, no keyword list) — this is a fixed command, not a
+ * fuzzy natural-language signal like gratitude.
+ */
+export function isResetCommand(text: string): boolean {
+  return normalizeText(text) === "reset";
+}

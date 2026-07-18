@@ -21,6 +21,7 @@ import {
   hashJid,
   isDirectMessage,
   isGratitudeOnly,
+  isResetCommand,
 } from "./guards.js";
 import type { ChatSource, Settings } from "./types.js";
 
@@ -40,6 +41,10 @@ const COPY = {
     "O assistente está temporariamente indisponível. " +
     "Tente novamente mais tarde.",
   gratitude: "De nada! 😊",
+  // Kept identical to the Telegram channel's RESET_CONFIRMATION (app/telegram_bot.py).
+  reset: "🔄 Prontinho! Comecei uma conversa nova — pode perguntar o que quiser. 😊",
+  // Kept identical to the Telegram channel's handle_feedback confirmation text.
+  feedbackAck: "Obrigado pelo seu feedback! 🙏",
 } as const;
 
 /** Emoji reactions that map to a rating on a bot answer. */
@@ -124,7 +129,7 @@ export function bindHandlers(sock: WASocket, deps: HandlerDeps): void {
   // Phase 6: reaction feedback (👍/❤️/🙏 → up, 👎 → down) on our own answers.
   sock.ev.on("messages.reaction", (reactions) => {
     for (const r of reactions) {
-      void handleReaction(deps, r).catch((err) => {
+      void handleReaction(sock, deps, r).catch((err) => {
         logger.warn(
           { err: (err as Error)?.message },
           "unhandled error while processing a reaction",
@@ -189,6 +194,15 @@ async function handleMessage(
       return;
     }
     // No prior turn to attribute it to → fall through and treat as a question.
+  }
+
+  // 4b. Reset command ("/reset" or bare "reset") → clear agent memory, confirm,
+  //     and stop — never reaches the agent, no rate-limit/length checks needed.
+  if (isResetCommand(text)) {
+    const ok = await api.postReset({ chatId });
+    logger.info({ chatId, ok }, "memory reset requested");
+    await safeSend(sock, jid, COPY.reset, logger);
+    return;
   }
 
   // 5. Length cap → ask to shorten; no API call.
@@ -256,17 +270,19 @@ async function handleMessage(
 
 /** Map a reaction on one of our answers to a feedback rating. */
 async function handleReaction(
+  sock: WASocket,
   deps: HandlerDeps,
   reaction: unknown,
 ): Promise<void> {
   const { api, answerToChat, logger } = deps;
   const r = reaction as {
-    key?: { id?: string };
+    key?: { id?: string; remoteJid?: string };
     reaction?: { text?: string };
   };
   const reactedId = r.key?.id;
+  const jid = r.key?.remoteJid;
   const emoji = r.reaction?.text ?? "";
-  if (!reactedId) return;
+  if (!reactedId || !jid) return;
 
   const chatId = answerToChat.get(reactedId);
   if (!chatId) return; // not one of our answers
@@ -278,6 +294,7 @@ async function handleReaction(
 
   const ok = await api.postFeedback({ chatId, messageId: reactedId, rating });
   logger.info({ chatId, rating, recorded: ok }, "reaction feedback recorded");
+  if (ok) await safeSend(sock, jid, COPY.feedbackAck, logger);
 }
 
 /** Send a text reply, swallowing (but logging) any send failure. Never throws. */

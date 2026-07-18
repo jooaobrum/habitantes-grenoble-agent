@@ -7,6 +7,8 @@ from habitantes.domain.schemas import (
     FeedbackRequest,
     FeedbackResponse,
     HealthResponse,
+    ResetRequest,
+    ResetResponse,
     Source,
     SwitchRequest,
     ThresholdsRequest,
@@ -107,6 +109,18 @@ class TestFeedbackRequest:
 class TestFeedbackResponse:
     def test_valid(self):
         resp = FeedbackResponse(status="ok")
+        assert resp.status == "ok"
+
+
+class TestResetRequest:
+    def test_valid(self):
+        req = ResetRequest(chat_id="c1")
+        assert req.chat_id == "c1"
+
+
+class TestResetResponse:
+    def test_valid(self):
+        resp = ResetResponse(status="ok")
         assert resp.status == "ok"
 
 

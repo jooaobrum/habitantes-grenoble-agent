@@ -38,6 +38,14 @@ class FeedbackResponse(BaseModel):
     status: str  # "ok"
 
 
+class ResetRequest(BaseModel):
+    chat_id: str
+
+
+class ResetResponse(BaseModel):
+    status: str  # "ok"
+
+
 class IntentClassification(BaseModel):
     """Structured-output contract for Layer 1 intent classification.
 
