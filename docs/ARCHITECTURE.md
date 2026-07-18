@@ -21,16 +21,17 @@ flowchart TD
 
             subgraph Tools["4. Tools"]
                 Search["Hybrid Search Tool<br>Dense: SentenceTransformer<br>Sparse: BM25<br>Fusion: RRF (top-k=5)"]
+                WebSearch["Tavily Web Search<br>Scope: Grenoble<br>Fallback for factual/current info"]
             end
 
-            Gen["5. Response Generator<br>- OpenAI synthesis<br>- Source attribution<br>- Confidence indicator"]
+            Gen["5. Response Generator<br>- OpenRouter synthesis<br>- Source attribution<br>- Confidence indicator"]
             Memory[/"Short-term Memory (MemoryState)<br>- Last 5 messages per chat"/]
         end
 
         DB[("Qdrant (Vector Store)<br>Collection: qa_base<br>- Dense/Sparse vectors<br>- Metadata")]
     end
 
-    OAI["OpenAI API<br>- gpt-4o-mini"]
+    OAI["OpenRouter API<br>- Gemini"]
 
     User <-->|Chat| TG
     TG <--> API
@@ -38,7 +39,9 @@ flowchart TD
     Intent -->|QA| Category
     Category --> Router
     Router -->|RAG| Search
+    Router -.->|Fallback / Recent Info| WebSearch
     Search --> Gen
+    WebSearch --> Gen
     Gen --> Router
 
     Search <--> DB
@@ -61,7 +64,9 @@ flowchart TD
     Cache -->|Miss| Router{Router Decision}
 
     Router -->|RAG Needed| Search[Hybrid Search + Category Filter]
-    Search -->|Top 5 Results| Synth[OpenAI Synthesis with Context]
+    Router -.->|Fallback / Recent Info| WebSearch[Tavily Web Search]
+    Search -->|Top 5 Results| Synth[OpenRouter Synthesis with Context]
+    WebSearch -.->|Web Results| Synth
     Synth --> Resp
 
     Resp --> API
@@ -110,7 +115,7 @@ flowchart LR
 ### 3. Agent Orchestrator (LangGraph)
 - **Graph structure**:
   ```
-  START → Intent Classifier → Category Classifier → Router → [Search Tool] → Generator → END
+  START → Intent Classifier → Category Classifier → Router → [Search Tool / Web Search] → Generator → END
   ```
 - **State**: Custom `AgentState` with messages, context, intent, category
 - **Memory**: `MemoryState` from langgraph (last 5 messages)
@@ -134,9 +139,9 @@ When a message is classified as **QA intent**, it gets further categorized to im
 
 ### Implementation
 
-**Method**: Lightweight classification using OpenAI or local classifier
+**Method**: Lightweight classification using OpenRouter or local classifier
 
-**OpenAI (MVP recommendation)**:
+**OpenRouter (MVP recommendation)**:
 ```python
 prompt = f"""Classify this question into ONE category:
 Categories: visa, housing, healthcare, banking, transport, education, caf, general
@@ -179,7 +184,7 @@ flowchart TD
         Watchdog["alerts/watchdog.py<br>asyncio task, every alerts.interval_seconds"]
         Control["domain/control.py<br>evaluate_thresholds() — pure"]
         Store[("control_store.py<br>SQLite: switch, thresholds,<br>alert_log, health_snapshot, heartbeat")]
-        Health["health_checks.py<br>check_qdrant / check_openai /<br>check_telegram_heartbeat"]
+        Health["health_checks.py<br>check_qdrant / check_openrouter /<br>check_telegram_heartbeat"]
         Email["alerts/email.py<br>send_alert()"]
     end
 
@@ -197,7 +202,7 @@ flowchart TD
 
 Because the bot serves a community with no per-user paywall, the **Cost Center** acts as a crucial safety net against budget overruns. It estimates cost in real-time without relying on delayed billing APIs.
 
-1. **Token Counting**: During each LLM call (`agent.py`), the usage metadata (`tokens_in` and `tokens_out`) is extracted directly from the OpenAI response and attached to the `AgentState`.
+1. **Token Counting**: During each LLM call (`agent.py`), the usage metadata (`tokens_in` and `tokens_out`) is extracted directly from the OpenRouter response and attached to the `AgentState`.
 2. **Cost Estimation**: The API converts these tokens into an estimated USD cost using pricing configurations (e.g., `$/1M tokens` rates defined in `base.yaml`) and records it in the append-only `logs/interactions.jsonl`.
 3. **Aggregation & Monitoring**: Every `alerts.interval_seconds`, the background `watchdog.py` loop reads the logs and aggregates the total estimated cost for the day and the month.
 4. **Breach Execution**: This aggregated cost is fed into the pure logic of `domain/control.py`. If `cost_today_usd` exceeds the configured `daily_cost_limit_usd` threshold, the watchdog immediately flips the master kill switch to `disabled` and fires an alert email to the operator, stopping all further API expenditure until manually re-enabled.
@@ -211,7 +216,7 @@ Because the bot serves a community with no per-user paywall, the **Cost Center**
   for the kill switch, editable thresholds, the append-only alert log, per-service health
   snapshots, and the Telegram bot's heartbeat. Also owns `is_enabled()`, an in-process 5s-TTL
   cache read by the chat path so the switch check costs no meaningful latency.
-- **`infrastructure/health_checks.py`** — live probes for Qdrant (`get_collections()`), OpenAI
+- **`infrastructure/health_checks.py`** — live probes for Qdrant (`get_collections()`), OpenRouter
   (a metadata-only `models.retrieve`, never a completion — zero token cost), and the Telegram
   bot (reads its heartbeat, `critical` if stale beyond `3 × alerts.interval_seconds`).
 - **`infrastructure/alerts/watchdog.py`** — an `asyncio.create_task` background loop (started

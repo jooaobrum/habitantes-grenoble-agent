@@ -104,10 +104,11 @@ flowchart TD
 ### Core Components
 - **Interface**: Telegram and WhatsApp Bots
 - **AI Models**:
-  - OpenAI GPT-4o-mini (answer synthesis)
+  - OpenRouter / Gemini (answer synthesis)
   - `intfloat/multilingual-e5-large` (Dense embeddings)
   - `Qdrant/bm25` via `fastembed` (Sparse embeddings)
 - **Knowledge Base**: Qdrant vector database (Hybrid Search + RRF)
+- **Web Search**: Tavily API (Grenoble-scoped fallback)
 - **Agent Architecture**: Two-Layer ReAct (LangChain tool calling)
 - **Backend**: FastAPI (Python)
 - **Deployment**: Low-cost VPS
@@ -116,6 +117,7 @@ flowchart TD
 - WhatsApp group export (Jan 2021 - Feb 2025)
 - ~5,000+ Q&A pairs extracted and curated
 - Categorized by topic (visa, housing, healthcare, etc.)
+- Web Search: Tavily API for current/factual information
 
 
 ## 📚 Documentation
@@ -155,16 +157,16 @@ flowchart TD
 | Component | Monthly Cost | Notes |
 |-----------|--------------|-------|
 | VPS (Hetzner CPX11) | $5-8 | 2 vCPU, 4GB RAM |
-| OpenAI API | $2-5 | ~1M tokens/month estimate |
+| OpenRouter API | $2-5 | ~1M tokens/month estimate |
 | Domain (optional) | $1 | For webhook URL |
 | **Total** | **~$8-14** | Scales with usage |
 
 **Cost optimization strategies**:
-- Use gpt-4o-mini (20x cheaper than GPT-4)
+- Use Gemini (highly cost-effective via OpenRouter)
 - Implement response caching for repeated questions
 - Rate limit Telegram bot to prevent spam expenditure
 - Limit response length (max_tokens: 1024)
-- Use local embeddings (no OpenAI embeddings API)
+- Use local embeddings (no paid embeddings API)
 
 ---
 
