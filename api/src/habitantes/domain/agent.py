@@ -45,6 +45,7 @@ from habitantes.domain.tools import (
     get_get_category_chunks_tool,
     get_list_subcategories_tool,
     get_search_tool,
+    get_web_search_tool,
 )
 
 logger = logging.getLogger(__name__)
@@ -385,33 +386,51 @@ def _run_react_loop(state: AgentState) -> dict:
     t0 = time.monotonic()
     intent = state.get("intent", "out_of_scope")
 
+    settings = load_settings()
     llm = _get_llm()
     search_tool = get_search_tool()
     list_subs_tool = get_list_subcategories_tool()
     get_cat_chunks_tool = get_get_category_chunks_tool()
 
+    tools = [search_tool, list_subs_tool, get_cat_chunks_tool]
     tool_map = {
         search_tool.name: search_tool,
         list_subs_tool.name: list_subs_tool,
         get_cat_chunks_tool.name: get_cat_chunks_tool,
     }
 
+    # Web search is a lower-priority, optional secondary source. Only offer it when
+    # enabled and a Tavily key is configured — otherwise the tool is never bound.
+    web_available = bool(
+        settings.web_search.enabled and settings.web_search.tavily_api_key
+    )
+    web_tool_name = ""
+    if web_available:
+        web_tool = get_web_search_tool()
+        web_tool_name = web_tool.name
+        tools.append(web_tool)
+        tool_map[web_tool.name] = web_tool
+
     # Only bind tools for qa intent (other intents don't need search)
     needs_tools = intent == "qa" and len(state.get("message", "").strip()) >= 10
     if needs_tools:
-        llm_with_tools = llm.bind_tools(
-            [search_tool, list_subs_tool, get_cat_chunks_tool]
-        )
+        llm_with_tools = llm.bind_tools(tools)
     else:
         llm_with_tools = llm
 
-    min_relevance = load_settings().search.min_relevance
+    min_relevance = settings.search.min_relevance
 
     msgs = _build_react_messages(state)
     context_chunks: list[dict] = []
     gated = False
     gated_top_dense = 0.0
     search_error: dict | None = None
+    # Web search is a lower-priority secondary source: track whether the LLM used
+    # it (for confidence/sources) and whether it was attempted (so the empty-KB
+    # backstop nudges web at most once).
+    web_used = False
+    web_attempted = False
+    web_sources: list[dict] = []
     tokens_in = 0
     tokens_out = 0
 
@@ -456,13 +475,44 @@ def _run_react_loop(state: AgentState) -> dict:
             tool_args = tool_call["args"]
 
             if tool_name in tool_map:
-                # Inject category from state if not provided
-                if "category" not in tool_args or not tool_args["category"]:
+                # Inject category from state into the KB search tool only (the web
+                # tool takes just `query` — an extra kwarg would fail validation).
+                if tool_name == search_tool.name and (
+                    "category" not in tool_args or not tool_args["category"]
+                ):
                     category = state.get("category", "")
                     if category:
                         tool_args["category"] = category
 
                 tool_result = tool_map[tool_name].invoke(tool_args)
+
+                # Web search (lower-priority secondary source). Returns a dict with
+                # "results" on success, or a plain PT string on empty/error (soft —
+                # a web failure never hard-fails the turn).
+                if tool_name == web_tool_name:
+                    web_attempted = True
+                    if isinstance(tool_result, dict) and "results" in tool_result:
+                        web_used = True
+                        for r in tool_result["results"]:
+                            web_sources.append(
+                                {
+                                    "text_snippet": (
+                                        f"{r.get('title', '')} — {r.get('url', '')}"
+                                    ).strip(" —"),
+                                    "date": r.get("published_date", ""),
+                                    "category": "Web (Grenoble)",
+                                }
+                            )
+                        tool_content = tool_result["formatted"]
+                    else:
+                        tool_content = str(tool_result)
+                    msgs.append(
+                        ToolMessage(
+                            content=tool_content,
+                            tool_call_id=tool_call["id"],
+                        )
+                    )
+                    continue
 
                 # If the tool surfaced a structured {"error": {...}}, short-circuit
                 # with the spec's PT failure message — no further LLM calls.
@@ -489,15 +539,26 @@ def _run_react_loop(state: AgentState) -> dict:
                         if float(c.get("dense_score", 0.0)) >= min_relevance
                     ]
                     if not relevant and not context_chunks:
-                        # Nothing clears the floor on any search this turn →
-                        # off-topic / no reliable match. Short-circuit with the
-                        # fallback, no synthesis LLM call.
-                        gated = True
-                        gated_top_dense = max(
-                            (float(c.get("dense_score", 0.0)) for c in raw_chunks),
-                            default=0.0,
-                        )
-                        break
+                        # Nothing clears the floor on any KB search this turn. If
+                        # web search is available and not yet tried, don't gate —
+                        # nudge the LLM to try it (backstop for a KB-only path)
+                        # before falling back. Otherwise short-circuit with the
+                        # no-results fallback, no synthesis LLM call.
+                        if web_available and not web_attempted:
+                            tool_content = (
+                                "Nenhum resultado relevante na base de conhecimento. "
+                                "Se o tema puder se beneficiar de informação factual, "
+                                "recente ou oficial sobre Grenoble, use a ferramenta "
+                                "web_search_grenoble; caso contrário, responda com "
+                                "'Não encontrei informações confiáveis sobre este tema'."
+                            )
+                        else:
+                            gated = True
+                            gated_top_dense = max(
+                                (float(c.get("dense_score", 0.0)) for c in raw_chunks),
+                                default=0.0,
+                            )
+                            break
                     elif not relevant:
                         # This particular search came up empty, but an earlier
                         # search this turn already found relevant context —
@@ -548,7 +609,7 @@ def _run_react_loop(state: AgentState) -> dict:
             if content:
                 answer = str(content)
 
-    # Build sources from context_chunks
+    # Build sources from context_chunks, then append any web sources used.
     sources = [
         {
             "text_snippet": (chunk.get("text") or chunk.get("answer", ""))[:200],
@@ -557,16 +618,21 @@ def _run_react_loop(state: AgentState) -> dict:
         }
         for chunk in context_chunks
     ]
+    if web_used:
+        sources.extend(web_sources)
 
     top_dense = max(
         (float(c.get("dense_score", 0.0)) for c in context_chunks),
         default=gated_top_dense,
     )
-    confidence = (
-        0.0
-        if search_error
-        else _compute_confidence(intent, context_chunks, top_dense, gated)
-    )
+    if search_error:
+        confidence = 0.0
+    elif not context_chunks and web_used:
+        # Web-only answer (no KB chunks): web results carry no dense score, so use
+        # the configured web-answer confidence.
+        confidence = settings.web_search.answer_confidence
+    else:
+        confidence = _compute_confidence(intent, context_chunks, top_dense, gated)
 
     elapsed_ms = (time.monotonic() - t0) * 1000
     timings = {**(state.get("timings") or {}), "react_ms": elapsed_ms}

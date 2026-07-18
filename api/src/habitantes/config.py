@@ -65,6 +65,25 @@ class SearchConfig(BaseModel):
     min_relevance: float = 0.85
 
 
+class WebSearchConfig(BaseModel):
+    """Tavily web search — a lower-priority, Grenoble-scoped secondary source.
+
+    tavily_api_key defaults to "" so a missing key *disables* the tool (the agent
+    never binds it) rather than failing startup like the required secrets.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+    tavily_api_key: str = Field(default="", alias="TAVILY_API_KEY")
+    enabled: bool = True
+    max_results: int = 3
+    search_depth: str = "basic"  # "basic" | "advanced"
+    topic: str = "general"  # tavily topic
+    location_suffix: str = "Grenoble France"  # appended to enforce geo scope
+    timeout_seconds: int = 8
+    answer_confidence: float = 0.5  # confidence assigned to a web-only answer
+    api_url: str = "https://api.tavily.com/search"
+
+
 class RankingConfig(BaseModel):
     anchor_bonus: float = 0.05
     rerank_top_k: int = 40
@@ -136,6 +155,7 @@ class Settings(BaseSettings):
     api: ApiConfig
     telegram: TelegramConfig
     search: SearchConfig = SearchConfig()
+    web_search: WebSearchConfig = WebSearchConfig()
     ranking: RankingConfig = RankingConfig()
     agent: AgentConfig = AgentConfig()
     cache: CacheConfig = CacheConfig()
@@ -200,6 +220,11 @@ def load_settings() -> Settings:
     if "TELEGRAM_BOT_TOKEN" in os.environ:
         config_data.setdefault("telegram", {})["bot_token"] = os.environ[
             "TELEGRAM_BOT_TOKEN"
+        ]
+    if "TAVILY_API_KEY" in os.environ:
+        # Optional secret — a missing key just disables web search (no crash).
+        config_data.setdefault("web_search", {})["tavily_api_key"] = os.environ[
+            "TAVILY_API_KEY"
         ]
     if "ADMIN_TOKEN" in os.environ:
         # yaml `admin:` block is intentionally empty (None), so build the dict.
