@@ -142,7 +142,12 @@ def _make_web_search_tool():
         Grenoble automatically.
 
         Args:
-            query: A natural-language query. Grenoble scope is added automatically.
+            query: The search query, PHRASED IN FRENCH regardless of the
+                   conversation's language (Portuguese, English, etc.). Official
+                   and local sources for Grenoble (service-public.fr, préfecture,
+                   Météo France, local news) are in French, so a French query
+                   returns far better results than a translated one. Grenoble
+                   scope is added automatically — no need to add it yourself.
         """
         result = web_search(query)
 

@@ -89,7 +89,12 @@ function extractText(message: unknown): string | undefined {
 function formatReply(answer: string, sources: ChatSource[]): string {
   if (!sources || sources.length === 0) return answer;
   const lines = sources.slice(0, 3).map((s) => {
-    const desc = `${s.category ?? "Geral"} (${s.date ?? "Recente"})`;
+    const category = s.category ?? "Geral";
+    // Web sources carry "{title} — {url}" in text_snippet — that's the actual
+    // citation; category/date is empty for most web results and isn't useful alone.
+    const desc = category.startsWith("Web")
+      ? s.text_snippet || category
+      : `${category} (${s.date ?? "Recente"})`;
     return `• ${desc}`;
   });
   return `${answer}\n\n📚 *Fontes:*\n${lines.join("\n")}`;

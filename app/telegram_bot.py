@@ -170,8 +170,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if sources:
                     source_links = []
                     for s in sources[:3]:
-                        # Using category/date as source description
-                        desc = f"{s.get('category') or 'Geral'} ({s.get('date') or 'Recente'})"
+                        category = s.get("category") or "Geral"
+                        if category.startswith("Web"):
+                            # Web sources carry "{title} — {url}" in text_snippet —
+                            # that's the actual citation; category/date is empty
+                            # for most web results and isn't useful alone.
+                            desc = s.get("text_snippet") or category
+                        else:
+                            desc = f"{category} ({s.get('date') or 'Recente'})"
                         source_links.append(f"• {desc}")
 
                     if source_links:
