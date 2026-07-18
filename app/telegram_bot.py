@@ -41,6 +41,11 @@ BOT_TOKEN = settings.telegram.bot_token
 ADMIN_TOKEN = settings.admin.token
 HEARTBEAT_INTERVAL_SECONDS = 30
 
+# Kept identical to the WhatsApp channel's COPY.reset (app/whatsapp_bot/src/handlers.ts).
+RESET_CONFIRMATION = (
+    "🔄 Prontinho! Comecei uma conversa nova — pode perguntar o que quiser. 😊"
+)
+
 # Per-chat locks to avoid race conditions
 _chat_locks = defaultdict(asyncio.Lock)
 # Simple message deduplication
@@ -92,6 +97,36 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Basta me enviar sua pergunta!"
     )
     await update.message.reply_text(welcome_text)
+
+
+async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /reset command: clear this chat's agent-side memory."""
+    chat_id = str(update.effective_chat.id)
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=float(settings.api.request_timeout_seconds)
+        ) as client:
+            response = await client.post(
+                f"{API_URL}/chat/reset",
+                json={"chat_id": chat_id},
+                headers={"X-Chat-Id": chat_id},
+            )
+        if response.status_code != 200:
+            logger.error(f"Reset API Error ({response.status_code}): {response.text}")
+            await update.message.reply_text(
+                "Desculpe, tive um problema ao reiniciar a conversa. "
+                "Por favor, tente novamente em instantes."
+            )
+            return
+    except Exception:
+        logger.exception("Unexpected error in reset")
+        await update.message.reply_text(
+            "Ocorreu um erro técnico. Estamos trabalhando para resolver!"
+        )
+        return
+
+    await update.message.reply_text(RESET_CONFIRMATION)
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -255,11 +290,13 @@ def main():
     application = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
 
     start_handler = CommandHandler("start", start)
+    reset_handler = CommandHandler("reset", reset)
     message_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message)
 
     feedback_handler = CallbackQueryHandler(handle_feedback, pattern=r"^fb:")
 
     application.add_handler(start_handler)
+    application.add_handler(reset_handler)
     application.add_handler(message_handler)
     application.add_handler(feedback_handler)
 

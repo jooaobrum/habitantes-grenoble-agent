@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
+from habitantes.domain import agent as agent_mod
 from habitantes.infrastructure.api.main import app
 
 client = TestClient(app)
@@ -41,6 +42,25 @@ def test_feedback_success():
     response = client.post("/feedback/", json=feedback_data)
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_reset_success():
+    """Test /chat/reset actually clears the chat's agent-side memory."""
+    chat_id = "reset-endpoint-test"
+    agent_mod._update_memory(
+        chat_id,
+        user_message="Oi",
+        assistant_answer="Olá!",
+        category="Banking & Finance",
+        intent="qa",
+    )
+    assert agent_mod._get_history(chat_id) != []
+
+    response = client.post("/chat/reset", json={"chat_id": chat_id})
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    assert agent_mod._get_history(chat_id) == []
+    assert agent_mod._get_selected_category(chat_id) == ""
 
 
 def test_rate_limiting():

@@ -3,7 +3,14 @@ import logging
 import uuid
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from habitantes.domain import ChatRequest, ChatResponse, Source, run_agent
+from habitantes.domain import (
+    ChatRequest,
+    ChatResponse,
+    Source,
+    reset_agent_memory,
+    run_agent,
+)
+from habitantes.domain.schemas import ResetRequest, ResetResponse
 from habitantes.infrastructure import control_store
 from habitantes.infrastructure.logging import get_interaction_logger
 
@@ -75,3 +82,18 @@ async def post_chat(chat_request: ChatRequest, request: Request):
         trace_id=trace_id,
         cached=result.get("cached", False),
     )
+
+
+@router.post("/reset", response_model=ResetResponse)
+async def post_reset(reset_request: ResetRequest, request: Request):
+    """Clear a chat's short-term memory (history + selected category).
+
+    Not gated by the kill switch — it's a local, no-cost housekeeping action
+    (no LLM/Qdrant call), unlike /chat/ which does real inference work.
+    """
+    trace_id = getattr(request.state, "trace_id", str(uuid.uuid4()))
+    reset_agent_memory(reset_request.chat_id)
+    logger.info(
+        "Memory reset: chat_id=%s, trace_id=%s", reset_request.chat_id, trace_id
+    )
+    return ResetResponse(status="ok")

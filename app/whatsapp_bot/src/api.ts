@@ -5,8 +5,9 @@
  * calls and back into typed results. It holds no orchestration logic and never
  * throws — every method resolves to a structured result the caller can branch on.
  *
- * Mirrors the three calls the Telegram bot makes (`app/telegram_bot.py`):
+ * Mirrors the calls the Telegram bot makes (`app/telegram_bot.py`):
  *   - POST {api_url}/chat/       body {chat_id, message, message_id}  header X-Chat-Id
+ *   - POST {api_url}/chat/reset  body {chat_id}                       header X-Chat-Id
  *   - POST {api_url}/feedback/   body {chat_id, message_id, rating}    header X-Chat-Id
  *   - POST {api_url}/admin/heartbeat  body {service}                  header X-Admin-Token
  */
@@ -150,6 +151,40 @@ export class ApiClient {
       return true;
     } catch (err) {
       this.warn("feedback request errored", {
+        error_code: this.parseNetworkError(err).error_code,
+      });
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * POST /chat/reset — clear a chat's agent-side memory. Best-effort.
+   * Returns true on HTTP 200, false otherwise. Never throws.
+   */
+  async postReset(input: { chatId: string }): Promise<boolean> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+
+    try {
+      const response = await fetch(this.url("/chat/reset"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Chat-Id": input.chatId,
+        },
+        body: JSON.stringify({ chat_id: input.chatId }),
+        signal: controller.signal,
+      });
+
+      if (response.status !== 200) {
+        this.warn("reset request rejected", { status: response.status });
+        return false;
+      }
+      return true;
+    } catch (err) {
+      this.warn("reset request errored", {
         error_code: this.parseNetworkError(err).error_code,
       });
       return false;
