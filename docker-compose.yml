@@ -4,6 +4,7 @@ services:
   # ── Vector Store ──────────────────────────────────────────────────────────
   qdrant:
     image: qdrant/qdrant:v1.12.0
+    restart: unless-stopped
     ports:
       - "127.0.0.1:6333:6333"
     expose:
@@ -21,6 +22,7 @@ services:
     build:
       context: .
       dockerfile: api/Dockerfile
+    restart: unless-stopped
     env_file: .env
     environment:
       - CONFIG_DIR=/app/config
@@ -51,6 +53,7 @@ services:
     build:
       context: .
       dockerfile: app/Dockerfile
+    restart: unless-stopped
     env_file: .env
     environment:
       - CONFIG_DIR=/app/config
@@ -71,6 +74,7 @@ services:
     build:
       context: .
       dockerfile: app/whatsapp_bot/Dockerfile
+    restart: unless-stopped
     env_file: .env
     environment:
       - APP_ENV=${APP_ENV:-dev}
