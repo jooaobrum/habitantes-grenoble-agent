@@ -1,6 +1,6 @@
 # 🔎 Conversation Summary
 
-You are building a knowledge-based chatbot for Brazilian expats in Grenoble, initially deployed to Telegram (WhatsApp later), serving ~300 users with 10–30 concurrent chats.
+You are building a knowledge-based chatbot for Brazilian expats in Grenoble, deployed to Telegram and WhatsApp, serving ~300 users with 10–30 concurrent chats.
 
 The system:
 - Uses ingestion pipeline from WhatsApp data → QA extraction → classification → filtering
@@ -126,7 +126,7 @@ Models & Tools:
 - Response caching (TTL + LRU) for cost and latency reduction
 - MemoryState from langgraph for short-term memory
 - Qdrant for long-term memory after summarization (async)
-- Telegram Bot API in MVP, possibility to migrate to WhatsApp later
+- Telegram and WhatsApp Bot APIs for MVP
 
 
 ## 5. Success Criteria

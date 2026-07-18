@@ -8,7 +8,7 @@ An AI-powered assistant that helps Brazilian expats in Grenoble navigate daily l
 
 ```mermaid
 flowchart LR
-    TG[Telegram Bot] --> API[FastAPI]
+    TG[Telegram & WhatsApp Bots] --> API[FastAPI]
     API --> Agent[LangGraph ReAct Agent]
     Agent --> DB[(Qdrant<br>hybrid search)]
     Ingest[Ingestion pipeline<br>offline only] --> DB
@@ -17,7 +17,7 @@ flowchart LR
 - **Orchestration**: LangGraph ReAct loop with explicit intent routing
 - **Backend**: FastAPI
 - **Vector Store**: Qdrant with hybrid search (dense + sparse RRF fusion)
-- **Client**: Telegram Bot (long-polling)
+- **Client**: Telegram Bot (long-polling) & WhatsApp
 - **Config**: `config/base.yaml` + `.env` secrets + `APP_ENV` environment selector
 
 ---

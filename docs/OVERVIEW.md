@@ -102,7 +102,7 @@ flowchart TD
 ## 🛠️ Tech Stack (high-level)
 
 ### Core Components
-- **Interface**: Telegram Bot (WhatsApp planned later)
+- **Interface**: Telegram and WhatsApp Bots
 - **AI Models**:
   - OpenAI GPT-4o-mini (answer synthesis)
   - `intfloat/multilingual-e5-large` (Dense embeddings)
@@ -129,7 +129,7 @@ flowchart TD
 ## 🎯 MVP Scope
 
 ### ✅ In Scope
-- Telegram bot interface
+- Telegram and WhatsApp bot interfaces
 - Question answering (single-turn)
 - Portuguese language support
 - 20 topic categories
@@ -139,7 +139,6 @@ flowchart TD
 
 ### ❌ Out of Scope (for now)
 - Multi-turn conversations with memory persistence
-- WhatsApp interface
 - User personalization
 - Real-time knowledge updates
 - Admin dashboard
@@ -174,13 +173,12 @@ flowchart TD
 
 ### Phase 1: MVP (Current)
 - Core Q&A functionality
-- Telegram interface
+- Telegram and WhatsApp interfaces
 - 5 super users
 - 20 categories
 
 ### Phase 2: Refinement (Q3 2025)
 - Multi-turn memory
-- WhatsApp integration
 - Improved search quality
 - Knowledge base updates
 

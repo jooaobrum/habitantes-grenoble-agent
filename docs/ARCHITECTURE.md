@@ -2,7 +2,7 @@
 
 ## Overview
 
-Knowledge-based chatbot serving Brazilian expats in Grenoble via Telegram. Handles ~100 users with 5-10 concurrent chats on a low-cost VPS (~$8-12/month).
+Knowledge-based chatbot serving Brazilian expats in Grenoble via Telegram and WhatsApp. Handles ~100 users with 5-10 concurrent chats on a low-cost VPS (~$8-12/month).
 
 ## System Diagram
 
@@ -11,7 +11,7 @@ flowchart TD
     User([User])
 
     subgraph VPS["LOW-COST VPS (Hetzner/OVH)"]
-        TG["Telegram Bot (long polling)<br>- Message deduplication<br>- Per-chat locks"]
+        TG["Telegram & WhatsApp Bots<br>- Message deduplication<br>- Per-chat locks"]
         API["FastAPI Service<br>POST /chat<br>POST /feedback"]
 
         subgraph Agent["AGENT ORCHESTRATOR (ReAct Loop)"]
@@ -51,7 +51,7 @@ flowchart TD
 ### 1. Chat Flow
 ```mermaid
 flowchart TD
-    User([User]) -->|Chat| TG[Telegram]
+    User([User]) -->|Chat| TG[Telegram & WhatsApp]
     TG --> API[FastAPI /chat]
     API --> Intent[Intent Classification]
 
@@ -93,7 +93,7 @@ flowchart LR
 
 ## Component Details
 
-### 1. Telegram Bot Layer
+### 1. Bot Client Layer (Telegram & WhatsApp)
 - **Library**: `python-telegram-bot`
 - **Mode**: Long polling (simpler than webhooks for MVP)
 - **Concurrency**: Per-chat locks using `asyncio.Lock` dictionary

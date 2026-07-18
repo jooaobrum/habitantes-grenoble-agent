@@ -208,11 +208,17 @@ __marimo__/
 
 # Project Specific
 # includes artifacts/control/control.db (Control Center store)
+# NOTE: the WhatsApp Baileys auth session (artifacts/whatsapp/auth/) is a login
+# secret — it is already covered by this artifacts/ ignore. Never commit it.
 artifacts/
 data/
 infra/qdrant_storage/
 .env
 .DS_Store
+
+# WhatsApp bot (Node) — build output / installed deps
+app/whatsapp_bot/node_modules/
+app/whatsapp_bot/dist/
 
 api/logs/
 logs/

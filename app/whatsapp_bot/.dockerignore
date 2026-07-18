@@ -1,0 +1,7 @@
+# Never ship host build output or platform-specific installs into the image.
+# node_modules is reinstalled cleanly (npm ci) for alpine inside the build.
+node_modules
+dist
+
+# Runtime artifacts (Baileys auth session) live on a mounted volume, not the image.
+artifacts
