@@ -3,7 +3,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -242,4 +242,19 @@ def load_settings() -> Settings:
                 val = int(val)
             config_data.setdefault(section, {})[key] = val
 
-    return Settings(**config_data)
+    try:
+        return Settings(**config_data)
+    except ValidationError as exc:
+        # Surface missing required secrets clearly. Otherwise a missing key
+        # (e.g. OPENROUTER_API_KEY) crashes the app at import with a raw
+        # pydantic traceback, which shows up only as a 502 behind the proxy.
+        missing = [
+            str(err["loc"][-1]) for err in exc.errors() if err.get("type") == "missing"
+        ]
+        if missing:
+            raise RuntimeError(
+                "Missing required configuration: "
+                + ", ".join(sorted(missing))
+                + ". Set the corresponding environment variables (see .env.example)."
+            ) from exc
+        raise

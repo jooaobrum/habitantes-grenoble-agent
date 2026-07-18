@@ -213,7 +213,7 @@ source $HOME/.cargo/env   # or start a new shell
 git clone https://github.com/jooaobrum/habitantes-grenoble-agent.git
 cd habitantes-grenoble-agent
 cp .env.example .env
-nano .env          # fill OPENAI_API_KEY and TELEGRAM_BOT_TOKEN
+nano .env          # fill OPENROUTER_API_KEY, OPENAI_API_KEY and TELEGRAM_BOT_TOKEN
 chmod 600 .env
 ```
 
@@ -283,8 +283,9 @@ APP_ENV=prod docker compose up -d --build
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `OPENAI_API_KEY` | Yes | — | OpenAI API key |
+| `OPENROUTER_API_KEY` | Yes | — | OpenRouter API key — powers all chat/completions (agent, ingestion synthesis, eval judge) |
+| `OPENAI_API_KEY` | Yes | — | OpenAI API key — embeddings only (`text-embedding-3-small`); OpenRouter has no embeddings endpoint |
 | `TELEGRAM_BOT_TOKEN` | Yes | — | Telegram bot token from @BotFather |
 | `APP_ENV` | No | `dev` | Environment selector (`dev` or `prod`) |
 | `QDRANT_URL` | No | `http://qdrant:6333` | Override Qdrant URL |
-| `MODEL_NAME` | No | `gpt-4o-mini` | Override LLM model |
+| `MODEL_NAME` | No | `google/gemini-2.5-flash-lite` | Override LLM model (OpenRouter `provider/model` id) |
