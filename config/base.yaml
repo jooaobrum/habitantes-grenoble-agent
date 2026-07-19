@@ -237,6 +237,9 @@ ingestion:
   data_dir: "data"
   artifacts_dir: "artifacts"
   input_file: "chat-21022026-18072026.txt"
+  # Raw export + intermediate artifacts still carry names/numbers; deleted
+  # this many days after a successful load into Qdrant (see docs/PRIVACIDADE.md).
+  artifacts_retention_days: 90
   parser:
     timestamp_format: "%d/%m/%y, %H:%M:%S"
   qa:

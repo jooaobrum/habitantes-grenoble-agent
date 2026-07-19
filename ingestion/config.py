@@ -49,6 +49,7 @@ class IngestionSettings(BaseSettings):
     data_dir: str = "data"
     artifacts_dir: str = "artifacts"
     input_file: str = "chat-19012021-20022026.txt"
+    artifacts_retention_days: int = 90
     parser: ParserConfig = ParserConfig()
     qa: QAConfig = QAConfig()
     synthesis: SynthesisConfig = SynthesisConfig()
