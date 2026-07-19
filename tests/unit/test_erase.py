@@ -49,7 +49,10 @@ def test_redact_raw_export_blanks_message_and_continuation_lines(tmp_path: Path)
     n = redact_raw_export(chat, matches, dry_run=False)
     assert n == 1
     content = chat.read_text(encoding="utf-8")
-    assert "[01/02/23, 10:00:00] Fulano: [mensagem removida a pedido do usuário]" in content
+    assert (
+        "[01/02/23, 10:00:00] Fulano: [mensagem removida a pedido do usuário]"
+        in content
+    )
     assert "pergunta sobre CAF" not in content
     assert "linha de continuação" not in content
     # Other people's messages are untouched.
@@ -121,13 +124,17 @@ def test_purge_jsonl_records(tmp_path: Path):
         {"question_user": "Fulano", "answer_users": [], "question": "q1"},
         {"question_user": "Beltrano", "answer_users": [], "question": "q2"},
     ]
-    jsonl_path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+    jsonl_path.write_text(
+        "\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8"
+    )
     matches = build_matcher(["Fulano"])
 
     n = purge_jsonl_records(jsonl_path, matches, dry_run=False)
 
     assert n == 1
-    remaining = [json.loads(line) for line in jsonl_path.read_text(encoding="utf-8").splitlines()]
+    remaining = [
+        json.loads(line) for line in jsonl_path.read_text(encoding="utf-8").splitlines()
+    ]
     assert [r["question"] for r in remaining] == ["q2"]
 
 
@@ -149,12 +156,16 @@ def test_purge_logs_by_chat_id(tmp_path: Path):
         {"chat_id": "hash_a", "user_query": "oi"},
         {"chat_id": "hash_b", "user_query": "oi"},
     ]
-    log_path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+    log_path.write_text(
+        "\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8"
+    )
 
     n = purge_logs_by_chat_id(log_path, ["hash_a"], dry_run=False)
 
     assert n == 1
-    remaining = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+    remaining = [
+        json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()
+    ]
     assert [r["chat_id"] for r in remaining] == ["hash_b"]
 
 
@@ -178,7 +189,9 @@ def test_qdrant_point_ids_for_matches_uses_stable_point_id(tmp_path: Path):
             "answer_users": [],
         },
     ]
-    jsonl_path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+    jsonl_path.write_text(
+        "\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8"
+    )
     matches = build_matcher(["Fulano"])
 
     from ingestion.load.qdrant import stable_point_id
@@ -243,7 +256,9 @@ def test_erase_user_data_sweeps_raw_and_intermediate_artifacts(tmp_path: Path):
 
     assert report["raw_lines_redacted"] == 1
     assert report["csv_rows_removed"] == 1
-    assert report["json_records_removed"] == 2  # qa_pairs.json + synthesis_results.jsonl
+    assert (
+        report["json_records_removed"] == 2
+    )  # qa_pairs.json + synthesis_results.jsonl
     assert report["qdrant_points_removed"] == 1
 
     # Dry-run must leave every file untouched.

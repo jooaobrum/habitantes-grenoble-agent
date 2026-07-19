@@ -18,7 +18,9 @@ REDACTED_MESSAGE = "[mensagem removida a pedido do usuário]"
 # Same header shape as ingestion/extract/whatsapp.py's ParserConfig.line_pattern,
 # but captures the raw prefix/user/separator so a redacted line can be rebuilt
 # without disturbing the file's structure (timestamps, thread order).
-RAW_LINE_PATTERN = re.compile(r"^(\[\d{2}/\d{2}/\d{2}, \d{2}:\d{2}:\d{2}\]\s*~?\s*)(.*?)(:\s)(.*)$")
+RAW_LINE_PATTERN = re.compile(
+    r"^(\[\d{2}/\d{2}/\d{2}, \d{2}:\d{2}:\d{2}\]\s*~?\s*)(.*?)(:\s)(.*)$"
+)
 
 Matcher = Callable[[str], bool]
 
@@ -134,7 +136,9 @@ def purge_json_records(filepath: Path, matches: Matcher, dry_run: bool = True) -
     n_removed = len(data) - len(kept)
 
     if n_removed and not dry_run:
-        filepath.write_text(json.dumps(kept, ensure_ascii=False, indent=2), encoding="utf-8")
+        filepath.write_text(
+            json.dumps(kept, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     return n_removed
 
@@ -160,7 +164,9 @@ def purge_jsonl_records(filepath: Path, matches: Matcher, dry_run: bool = True) 
 
 
 # ── Live bot logs (interactions.jsonl / feedback.jsonl) ──────────────────────
-def purge_logs_by_chat_id(filepath: Path, chat_ids: Iterable[str], dry_run: bool = True) -> int:
+def purge_logs_by_chat_id(
+    filepath: Path, chat_ids: Iterable[str], dry_run: bool = True
+) -> int:
     """chat_id in these logs is already a salted hash (see
     app/whatsapp_bot/src/guards.ts), so this is a plain line filter — no
     identity reversal needed, the caller supplies the exact hash(es)."""
@@ -208,7 +214,9 @@ def qdrant_point_ids_for_matches(synthesis_path: Path, matches: Matcher) -> List
     return ids
 
 
-def delete_from_qdrant(collection_name: str, point_ids: List[str], dry_run: bool = True) -> int:
+def delete_from_qdrant(
+    collection_name: str, point_ids: List[str], dry_run: bool = True
+) -> int:
     if not point_ids:
         return 0
     if dry_run:
@@ -250,7 +258,9 @@ def erase_user_data(
     }
 
     for txt_file in sorted(data_dir.glob("*.txt")):
-        report["raw_lines_redacted"] += redact_raw_export(txt_file, matches, dry_run=dry_run)
+        report["raw_lines_redacted"] += redact_raw_export(
+            txt_file, matches, dry_run=dry_run
+        )
 
     for csv_file in sorted(artifacts_dir.rglob("classified.csv")):
         report["csv_rows_removed"] += purge_csv(csv_file, matches, dry_run=dry_run)
@@ -258,14 +268,18 @@ def erase_user_data(
         report["csv_rows_removed"] += purge_csv(csv_file, matches, dry_run=dry_run)
 
     for json_file in sorted(artifacts_dir.rglob("qa_pairs*.json")):
-        report["json_records_removed"] += purge_json_records(json_file, matches, dry_run=dry_run)
+        report["json_records_removed"] += purge_json_records(
+            json_file, matches, dry_run=dry_run
+        )
 
     for jsonl_file in sorted(artifacts_dir.rglob("synthesis_results.jsonl")):
         point_ids = qdrant_point_ids_for_matches(jsonl_file, matches)
         report["qdrant_points_removed"] += delete_from_qdrant(
             collection_name, point_ids, dry_run=dry_run
         )
-        report["json_records_removed"] += purge_jsonl_records(jsonl_file, matches, dry_run=dry_run)
+        report["json_records_removed"] += purge_jsonl_records(
+            jsonl_file, matches, dry_run=dry_run
+        )
 
     concat_dir = artifacts_dir / "concat"
     if concat_dir.exists():
@@ -280,7 +294,8 @@ def erase_user_data(
 # ── CLI ───────────────────────────────────────────────────────────────────────
 def main() -> None:
     logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s"
+        level=logging.INFO,
+        format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
     )
 
     from dotenv import load_dotenv
@@ -322,7 +337,9 @@ def main() -> None:
         dry_run=not args.apply,
     )
 
-    mode = "APLICADO" if args.apply else "SIMULAÇÃO (use --apply para gravar as remoções)"
+    mode = (
+        "APLICADO" if args.apply else "SIMULAÇÃO (use --apply para gravar as remoções)"
+    )
     logger.info("Modo: %s", mode)
     for key, value in report.items():
         logger.info("%s: %d", key, value)

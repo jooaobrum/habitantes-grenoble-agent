@@ -84,7 +84,11 @@ def load_ingestion_settings() -> IngestionSettings:
             if "load" not in ingestion_data:
                 ingestion_data["load"] = {}
             ingestion_data["load"][k] = v
-        elif isinstance(v, dict) and k in ingestion_data and isinstance(ingestion_data[k], dict):
+        elif (
+            isinstance(v, dict)
+            and k in ingestion_data
+            and isinstance(ingestion_data[k], dict)
+        ):
             ingestion_data[k].update(v)
         else:
             ingestion_data[k] = v

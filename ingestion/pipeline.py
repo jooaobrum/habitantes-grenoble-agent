@@ -29,7 +29,9 @@ _INTERMEDIATE_GLOBS = (
 )
 
 
-def cleanup_expired_artifacts(data_dir: Path, artifacts_dir: Path, retention_days: int) -> None:
+def cleanup_expired_artifacts(
+    data_dir: Path, artifacts_dir: Path, retention_days: int
+) -> None:
     """Delete raw WhatsApp exports and per-chat intermediate artifacts once
     they're older than retention_days. Mirrors the loguru rotation/retention
     already applied to logs/interactions.jsonl, but for ingestion files."""
