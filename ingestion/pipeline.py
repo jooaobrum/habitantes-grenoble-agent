@@ -2,21 +2,58 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 from ingestion.config import settings
 from ingestion.extract.whatsapp import run_parser
+from ingestion.load.qdrant import run_qdrant_loader
 from ingestion.preprocess.qa_pairs import run_qa_builder
 from ingestion.preprocess.synthesis import run_synthesis_batch
-from ingestion.load.qdrant import run_qdrant_loader
-
-from dotenv import load_dotenv
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# Intermediate artifact filenames that still carry names/numbers (see
+# docs/PRIVACIDADE.md) — the final Qdrant knowledge base is unaffected.
+_INTERMEDIATE_GLOBS = (
+    "classified.csv",
+    "qa_pairs*.json",
+    "qa_pairs*.csv",
+    "synthesis_results.jsonl",
+)
+
+
+def cleanup_expired_artifacts(data_dir: Path, artifacts_dir: Path, retention_days: int) -> None:
+    """Delete raw WhatsApp exports and per-chat intermediate artifacts once
+    they're older than retention_days. Mirrors the loguru rotation/retention
+    already applied to logs/interactions.jsonl, but for ingestion files."""
+    if retention_days <= 0:
+        return
+
+    cutoff = time.time() - retention_days * 86400
+
+    for txt_file in data_dir.glob("*.txt"):
+        if txt_file.stat().st_mtime < cutoff:
+            logger.info("Retention: deleting expired raw export %s", txt_file)
+            txt_file.unlink()
+
+    if not artifacts_dir.exists():
+        return
+
+    for chat_dir in artifacts_dir.iterdir():
+        if not chat_dir.is_dir() or chat_dir.name == "concat":
+            continue
+        for pattern in _INTERMEDIATE_GLOBS:
+            for f in chat_dir.glob(pattern):
+                if f.stat().st_mtime < cutoff:
+                    logger.info("Retention: deleting expired artifact %s", f)
+                    f.unlink()
 
 
 async def run_pipeline():
@@ -111,6 +148,15 @@ async def run_pipeline():
         qdrant_upsert_batch=settings.load.qdrant_upsert_batch,
         overwrite_collection=settings.load.overwrite_collection,
         save_concat_jsonl=concat_path,
+    )
+
+    # 5. Retention: drop raw/intermediate artifacts past their retention window
+    # (only after a successful load — they're the source of truth to rebuild).
+    logger.info("── Step 5: Retention cleanup ────────────")
+    cleanup_expired_artifacts(
+        data_dir=data_dir,
+        artifacts_dir=artifacts_dir,
+        retention_days=settings.artifacts_retention_days,
     )
 
     logger.info("── Pipeline Complete ────────────────────")
