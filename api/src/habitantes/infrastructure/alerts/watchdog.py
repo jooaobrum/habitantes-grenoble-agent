@@ -37,8 +37,10 @@ def run_watchdog_cycle(db_path=control_store.DEFAULT_DB_PATH) -> None:
     # 1. Probe every dependency and snapshot it — always, regardless of switch state.
     probes = {
         "qdrant": health_checks.check_qdrant(),
-        "openai": health_checks.check_openai(),
-        "telegram_bot": health_checks.check_telegram_heartbeat(control_store),
+        "openrouter": health_checks.check_openrouter(),
+        "openai": health_checks.check_openai_embeddings(),
+        "telegram_bot": health_checks.check_heartbeat("telegram_bot", control_store),
+        "whatsapp_bot": health_checks.check_heartbeat("whatsapp_bot", control_store),
     }
     prior = {row["service"]: row for row in control_store.read_health_snapshot(db_path)}
     streaks: dict[str, int] = {}

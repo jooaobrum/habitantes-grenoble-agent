@@ -66,8 +66,8 @@ async def _send_heartbeat():
     """Post a heartbeat to the API on the bot's own poll loop.
 
     Best-effort: a failed heartbeat never crashes the bot. Missed heartbeats
-    surface on their own — `check_telegram_heartbeat` in `health_checks.py`
-    flips the bot to `critical` once the staleness window elapses.
+    surface on their own — `check_heartbeat` in `health_checks.py` flips the
+    bot to `critical` once the staleness window elapses.
     """
     while True:
         try:

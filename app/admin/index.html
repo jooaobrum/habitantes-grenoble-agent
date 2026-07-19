@@ -103,11 +103,25 @@
       .budget-bar .fill.over { background: var(--critical); }
       .budget-label { font-size: 0.78rem; color: var(--muted); }
 
-      .category-row { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; margin-bottom: 6px; }
+      .category-row {
+        display: flex; align-items: center; gap: 10px; font-size: 0.85rem;
+        padding: 4px 6px; margin: 0 -6px 2px; border-radius: 6px;
+      }
+      .category-row:hover { background: rgba(79, 140, 255, 0.1); }
       .category-name { width: 110px; flex-shrink: 0; text-transform: capitalize; }
-      .category-bar { flex: 1; background: #1c2130; border-radius: 4px; height: 8px; overflow: hidden; }
-      .category-bar .fill { height: 100%; background: var(--accent); }
-      .category-count { width: 30px; text-align: right; color: var(--muted); }
+      .category-bar {
+        flex: 1; position: relative; background: #1c2130; border-radius: 4px;
+        height: 14px; overflow: hidden;
+      }
+      .category-bar::after {
+        content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+        background: rgba(139, 147, 163, 0.3);
+      }
+      .category-bar .fill {
+        position: relative; height: 100%; background: var(--accent);
+        border-radius: 0 4px 4px 0; min-width: 2px;
+      }
+      .category-count { width: 34px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 
       .chart-wrap { position: relative; }
       #cost-chart { width: 100%; height: 200px; display: block; }
@@ -177,7 +191,10 @@
 
       <section>
         <h2>Top categorias (hoje)</h2>
-        <div id="categories"><div class="empty">Sem dados ainda.</div></div>
+        <div class="chart-wrap" id="categories-wrap">
+          <div id="categories"><div class="empty">Sem dados ainda.</div></div>
+          <div class="chart-tooltip" id="category-tooltip"></div>
+        </div>
       </section>
 
       <section>
@@ -344,24 +361,59 @@
         monthlyFill.className = "fill" + (monthlyPct >= 100 ? " over" : "");
       }
 
+      let lastCategories = [];
+
       function renderCategories(categories) {
         const el = document.getElementById("categories");
         if (!categories.length) {
+          lastCategories = [];
           el.innerHTML = '<div class="empty">Sem dados ainda.</div>';
           return;
         }
         const max = Math.max(...categories.map((c) => c.count), 1);
-        el.innerHTML = categories
-          .slice(0, 8)
+        const total = categories.reduce((sum, c) => sum + c.count, 0);
+        lastCategories = categories.slice(0, 8).map((c) => ({
+          name: c.name,
+          count: c.count,
+          pct: total ? Math.round((c.count / total) * 100) : 0,
+        }));
+        el.innerHTML = lastCategories
           .map(
-            (c) => `<div class="category-row">
-              <span class="category-name">${c.name}</span>
+            (c, i) => `<div class="category-row" data-index="${i}">
+              <span class="category-name"></span>
               <span class="category-bar"><span class="fill" style="width:${(c.count / max) * 100}%"></span></span>
               <span class="category-count">${c.count}</span>
             </div>`
           )
           .join("");
+        // Names come from the interaction log's own classifier, so they're
+        // inserted as text (never via the innerHTML template above).
+        el.querySelectorAll(".category-name").forEach((span, i) => {
+          span.textContent = lastCategories[i].name;
+        });
       }
+
+      function handleCategoryHover(ev) {
+        const wrap = document.getElementById("categories-wrap");
+        const tooltip = document.getElementById("category-tooltip");
+        const row = ev.target.closest(".category-row");
+        const data = row ? lastCategories[Number(row.dataset.index)] : null;
+        if (!data) {
+          tooltip.style.display = "none";
+          return;
+        }
+        const wrapRect = wrap.getBoundingClientRect();
+        const rowRect = row.getBoundingClientRect();
+        tooltip.style.display = "block";
+        tooltip.style.left = ev.clientX - wrapRect.left + "px";
+        tooltip.style.top = rowRect.top - wrapRect.top + "px";
+        tooltip.textContent = `${data.name} — ${data.count} pedidos (${data.pct}%)`;
+      }
+
+      document.getElementById("categories").addEventListener("mousemove", handleCategoryHover);
+      document.getElementById("categories").addEventListener("mouseleave", () => {
+        document.getElementById("category-tooltip").style.display = "none";
+      });
 
       let lastCostSeries = [];
 

@@ -30,9 +30,10 @@ def db_path():
 def _all_ok(monkeypatch):
     ok = {"status": "ok", "latency_ms": 1.0, "detail": None}
     monkeypatch.setattr(health_checks, "check_qdrant", lambda: dict(ok))
-    monkeypatch.setattr(health_checks, "check_openai", lambda: dict(ok))
+    monkeypatch.setattr(health_checks, "check_openrouter", lambda: dict(ok))
+    monkeypatch.setattr(health_checks, "check_openai_embeddings", lambda: dict(ok))
     monkeypatch.setattr(
-        health_checks, "check_telegram_heartbeat", lambda store: dict(ok)
+        health_checks, "check_heartbeat", lambda service, store: dict(ok)
     )
 
 
@@ -53,7 +54,13 @@ def test_snapshot_always_written_and_no_alert_under_limits(monkeypatch, db_path)
 
     # (a) snapshot always written — one row per probed service
     snapshots = {r["service"]: r for r in cs.read_health_snapshot(db_path)}
-    assert set(snapshots) == {"qdrant", "openai", "telegram_bot"}
+    assert set(snapshots) == {
+        "qdrant",
+        "openrouter",
+        "openai",
+        "telegram_bot",
+        "whatsapp_bot",
+    }
     assert all(r["status"] == "ok" for r in snapshots.values())
 
     # (b) no alert, no email, switch untouched
@@ -88,16 +95,17 @@ def test_cost_breach_disables_switch_once_and_is_edge_triggered(monkeypatch, db_
     assert len(cs.read_alerts(db_path=db_path)) == 1
     assert email.call_count == 1
     # snapshot still refreshed while off
-    assert len(cs.read_health_snapshot(db_path)) == 3
+    assert len(cs.read_health_snapshot(db_path)) == 5
 
 
 def test_health_breach_disables_switch_after_grace(monkeypatch, db_path):
     fail = {"status": "unreachable", "latency_ms": None, "detail": "down"}
     ok = {"status": "ok", "latency_ms": 1.0, "detail": None}
     monkeypatch.setattr(health_checks, "check_qdrant", lambda: dict(ok))
-    monkeypatch.setattr(health_checks, "check_openai", lambda: dict(fail))
+    monkeypatch.setattr(health_checks, "check_openrouter", lambda: dict(fail))
+    monkeypatch.setattr(health_checks, "check_openai_embeddings", lambda: dict(ok))
     monkeypatch.setattr(
-        health_checks, "check_telegram_heartbeat", lambda store: dict(ok)
+        health_checks, "check_heartbeat", lambda service, store: dict(ok)
     )
     _set_cost(monkeypatch, cost=0.0)
     email = MagicMock(return_value=True)
@@ -113,10 +121,10 @@ def test_health_breach_disables_switch_after_grace(monkeypatch, db_path):
 
     switch = cs.get_switch(db_path)
     assert switch["enabled"] is False
-    assert switch["changed_by"] == "watchdog:health:openai"
+    assert switch["changed_by"] == "watchdog:health:openrouter"
     alerts = cs.read_alerts(db_path=db_path)
     assert len(alerts) == 1
-    assert alerts[0]["trigger"] == "health:openai"
+    assert alerts[0]["trigger"] == "health:openrouter"
     assert email.call_count == 1
 
 
