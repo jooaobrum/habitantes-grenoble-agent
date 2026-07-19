@@ -109,18 +109,7 @@
       }
       .category-row:hover { background: rgba(79, 140, 255, 0.1); }
       .category-name { width: 110px; flex-shrink: 0; text-transform: capitalize; }
-      .category-bar {
-        flex: 1; position: relative; background: #1c2130; border-radius: 4px;
-        height: 14px; overflow: hidden;
-      }
-      .category-bar::after {
-        content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
-        background: rgba(139, 147, 163, 0.3);
-      }
-      .category-bar .fill {
-        position: relative; height: 100%; background: var(--accent);
-        border-radius: 0 4px 4px 0; min-width: 2px;
-      }
+      .category-bar { flex: 1; min-width: 0; height: 16px; display: block; }
       .category-count { width: 34px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 
       .chart-wrap { position: relative; }
@@ -363,6 +352,35 @@
 
       let lastCategories = [];
 
+      // Same solid-fillRect style as #cost-chart (renderCostChart below), just
+      // horizontal: one canvas per row instead of one canvas for every day, so
+      // row height can vary with a wrapped two-line category name.
+      function drawCategoryBar(canvas, ratio) {
+        const cssWidth = canvas.clientWidth || canvas.parentElement.clientWidth;
+        const cssHeight = 16;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = cssWidth * dpr;
+        canvas.height = cssHeight * dpr;
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, cssWidth, cssHeight);
+
+        const accent = getComputedStyle(document.documentElement)
+          .getPropertyValue("--accent")
+          .trim() || "#4f8cff";
+        const barW = Math.max(ratio * cssWidth, ratio > 0 ? 2 : 0);
+        ctx.fillStyle = accent;
+        ctx.fillRect(0, 0, barW, cssHeight);
+      }
+
+      function redrawCategoryBars() {
+        if (!lastCategories.length) return;
+        const max = Math.max(...lastCategories.map((c) => c.count), 1);
+        document.querySelectorAll("#categories .category-bar").forEach((canvas, i) => {
+          if (lastCategories[i]) drawCategoryBar(canvas, lastCategories[i].count / max);
+        });
+      }
+
       function renderCategories(categories) {
         const el = document.getElementById("categories");
         if (!categories.length) {
@@ -381,7 +399,7 @@
           .map(
             (c, i) => `<div class="category-row" data-index="${i}">
               <span class="category-name"></span>
-              <span class="category-bar"><span class="fill" style="width:${(c.count / max) * 100}%"></span></span>
+              <canvas class="category-bar"></canvas>
               <span class="category-count">${c.count}</span>
             </div>`
           )
@@ -390,6 +408,9 @@
         // inserted as text (never via the innerHTML template above).
         el.querySelectorAll(".category-name").forEach((span, i) => {
           span.textContent = lastCategories[i].name;
+        });
+        el.querySelectorAll(".category-bar").forEach((canvas, i) => {
+          drawCategoryBar(canvas, lastCategories[i].count / max);
         });
       }
 
@@ -499,7 +520,10 @@
       let resizeTimer = null;
       window.addEventListener("resize", () => {
         clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => renderCostChart(lastCostSeries), 150);
+        resizeTimer = setTimeout(() => {
+          renderCostChart(lastCostSeries);
+          redrawCategoryBars();
+        }, 150);
       });
 
       function renderAlerts(alerts) {

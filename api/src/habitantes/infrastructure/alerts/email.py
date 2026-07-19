@@ -33,11 +33,23 @@ def send_alert(subject: str, body: str) -> bool:
     message.set_content(body)
 
     try:
-        with smtplib.SMTP(alerts.smtp_host, alerts.smtp_port, timeout=10) as server:
-            server.starttls()
-            if alerts.smtp_user and alerts.smtp_password:
-                server.login(alerts.smtp_user, alerts.smtp_password)
-            server.send_message(message)
+        # Port 465 is implicit TLS (SMTP_SSL, encrypted from the first byte);
+        # every other port (587, 25, ...) is plaintext-then-upgrade (STARTTLS).
+        # The two are different wire protocols, not a login-time setting — a
+        # provider like IONOS may only offer one or the other for a mailbox.
+        if alerts.smtp_port == 465:
+            with smtplib.SMTP_SSL(
+                alerts.smtp_host, alerts.smtp_port, timeout=10
+            ) as server:
+                if alerts.smtp_user and alerts.smtp_password:
+                    server.login(alerts.smtp_user, alerts.smtp_password)
+                server.send_message(message)
+        else:
+            with smtplib.SMTP(alerts.smtp_host, alerts.smtp_port, timeout=10) as server:
+                server.starttls()
+                if alerts.smtp_user and alerts.smtp_password:
+                    server.login(alerts.smtp_user, alerts.smtp_password)
+                server.send_message(message)
     except (OSError, smtplib.SMTPException) as exc:
         logger.error("send_alert failed: %s", exc)
         return False
