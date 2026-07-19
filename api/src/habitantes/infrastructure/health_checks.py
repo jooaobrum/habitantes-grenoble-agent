@@ -14,24 +14,39 @@ import datetime
 import time
 from typing import Any
 
-_openai_client = None
+_openrouter_client = None
+_openai_embeddings_client = None
 
 
-def _get_openai_client():
-    global _openai_client
-    if _openai_client is None:
+def _get_openrouter_client():
+    global _openrouter_client
+    if _openrouter_client is None:
         from openai import OpenAI
 
         from habitantes.config import load_settings
 
         settings = load_settings()
-        # Chat runs through OpenRouter, so the primary-LLM health check pings
-        # OpenRouter (not OpenAI). OpenRouter is OpenAI-API-compatible.
-        _openai_client = OpenAI(
+        # Chat runs through OpenRouter (OpenAI-API-compatible), a separate
+        # credential/host from the real OpenAI API used for embeddings below.
+        _openrouter_client = OpenAI(
             api_key=settings.llm.openrouter_api_key,
             base_url=settings.llm.base_url,
         )
-    return _openai_client
+    return _openrouter_client
+
+
+def _get_openai_embeddings_client():
+    global _openai_embeddings_client
+    if _openai_embeddings_client is None:
+        from openai import OpenAI
+
+        from habitantes.config import load_settings
+
+        settings = load_settings()
+        # Embeddings stay on the real OpenAI API (OpenRouter has no embeddings
+        # endpoint) — see domain/tools/_embedding.py. Same host as production.
+        _openai_embeddings_client = OpenAI(api_key=settings.llm.openai_api_key)
+    return _openai_embeddings_client
 
 
 def _elapsed_ms(start: float) -> float:
@@ -51,36 +66,49 @@ def check_qdrant() -> dict[str, Any]:
     return {"status": "ok", "latency_ms": _elapsed_ms(start), "detail": None}
 
 
-def check_openai() -> dict[str, Any]:
+def check_openrouter() -> dict[str, Any]:
     """Ping the chat LLM provider (OpenRouter) with a metadata-only `models.list`
     — no completion, zero tokens. `models.retrieve(id)` is unreliable on
-    OpenRouter, so we list instead. Key/health name kept as "openai" to avoid
-    churn in watchdog and the admin dashboard."""
+    OpenRouter, so we list instead."""
     start = time.perf_counter()
     try:
-        client = _get_openai_client()
+        client = _get_openrouter_client()
         client.models.list()
     except Exception as exc:
         return {"status": "unreachable", "latency_ms": None, "detail": str(exc)[:200]}
     return {"status": "ok", "latency_ms": _elapsed_ms(start), "detail": None}
 
 
-def check_telegram_heartbeat(
-    store: Any, stale_after_seconds: float | None = None
-) -> dict[str, Any]:
-    """Report `ok` if the bot's heartbeat is fresh, `critical` if stale or missing.
+def check_openai_embeddings() -> dict[str, Any]:
+    """Ping the real OpenAI API used for embeddings (`domain/tools/_embedding.py`)
+    with a metadata-only `models.list` — no embedding call, zero tokens. Separate
+    credential/host from OpenRouter, so it needs its own probe."""
+    start = time.perf_counter()
+    try:
+        client = _get_openai_embeddings_client()
+        client.models.list()
+    except Exception as exc:
+        return {"status": "unreachable", "latency_ms": None, "detail": str(exc)[:200]}
+    return {"status": "ok", "latency_ms": _elapsed_ms(start), "detail": None}
 
-    The bot posts a heartbeat on its own poll loop; if we haven't heard from it
-    within `stale_after_seconds` it's presumed down. The default staleness bound
-    is `3 × alerts.interval_seconds` (three missed cycles) so a single late post
-    doesn't flip the status — config stays the single source of truth.
+
+def check_heartbeat(
+    service: str, store: Any, stale_after_seconds: float | None = None
+) -> dict[str, Any]:
+    """Report `ok` if `service`'s heartbeat is fresh, `critical` if stale or missing.
+
+    Each bot (Telegram, WhatsApp) posts a heartbeat on its own poll loop; if we
+    haven't heard from it within `stale_after_seconds` it's presumed down. The
+    default staleness bound is `3 × alerts.interval_seconds` (three missed
+    cycles) so a single late post doesn't flip the status — config stays the
+    single source of truth.
     """
     if stale_after_seconds is None:
         from habitantes.config import load_settings
 
         stale_after_seconds = load_settings().alerts.interval_seconds * 3
 
-    record = store.read_heartbeat()
+    record = store.read_heartbeat(service)
     if not record or not record.get("last_seen_at"):
         return {
             "status": "critical",
