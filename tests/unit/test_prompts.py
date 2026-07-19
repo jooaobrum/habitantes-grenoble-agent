@@ -1,5 +1,8 @@
 from habitantes.domain.prompts.intent import build_intent_messages
-from habitantes.domain.prompts.synthesis import build_synthesis_messages
+from habitantes.domain.prompts.synthesis import (
+    REACT_SYSTEM_PROMPT,
+    build_synthesis_messages,
+)
 
 
 def _assert_valid_messages(messages: list) -> None:
@@ -104,3 +107,21 @@ class TestSynthesisPrompt:
         msgs = build_synthesis_messages("Pergunta", self._sample_chunks)
         system_content = msgs[0]["content"]
         assert "Não encontrei informações confiáveis" in system_content
+
+    def test_system_has_privacy_guardrail(self):
+        """The privacy guardrail must survive prompt edits — it protects the
+        identity/contact info of community members, not the KB's business/
+        official-source recommendations.
+        """
+        msgs = build_synthesis_messages("Pergunta", self._sample_chunks)
+        system_content = msgs[0]["content"]
+        assert "identidade de um" in system_content
+        assert "participante" in system_content
+
+    def test_react_system_prompt_has_privacy_guardrail(self):
+        """REACT_SYSTEM_PROMPT is what the real agent (agent.py) builds its
+        system message from — pin the guardrail there too so a future
+        refactor that decouples it from _SYSTEM can't silently drop it.
+        """
+        assert "identidade de um" in REACT_SYSTEM_PROMPT
+        assert "participante" in REACT_SYSTEM_PROMPT
