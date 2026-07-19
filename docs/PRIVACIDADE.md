@@ -1,7 +1,7 @@
 # Privacidade — histórico do grupo e o bot
 
-Este documento explica, de forma simples, o que o bot faz com o histórico
-de mensagens do grupo. Pode ser copiado/colado no grupo.
+Este documento explica o que o bot faz com o histórico de mensagens do
+grupo.
 
 ## O que é coletado
 
@@ -19,9 +19,12 @@ data/hora).
 
 ## O que fica guardado, e por quanto tempo
 
-- **Base final do bot** (perguntas e respostas, sem autor): fica indefinidamente, é o que o bot usa para responder.
-- **Histórico bruto e arquivos intermediários** (usados só durante o processamento, ainda contêm nome/número): apagados depois de um prazo definido, não ficam para sempre.
-- **Registro de conversas com o bot** (pergunta feita, resposta dada): guardado por 30 dias, depois apagado automaticamente.
+A base final do bot (perguntas e respostas, sem autor) fica indefinidamente
+— é o que o bot usa para responder. O histórico bruto e os arquivos
+intermediários usados durante o processamento ainda contêm nome e número
+de quem escreveu; são apagados depois de um prazo definido, não ficam
+guardados para sempre. O registro de conversas com o bot (pergunta feita,
+resposta dada) é guardado por 30 dias e depois apagado automaticamente.
 
 ## Base legal
 

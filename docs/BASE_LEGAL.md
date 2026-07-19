@@ -1,9 +1,9 @@
 # Base legal — teste de balanceamento (interesse legítimo)
 
-Documento interno. Registra a análise exigida pela CNIL para usar
+Este é um registro interno da análise exigida pela CNIL para usar
 "intérêt légitime" (RGPD art. 6.1.f) como base legal do processamento do
-histórico do grupo. Não é enviado a nenhum órgão — fica guardado para
-eventual auditoria, e deve ser atualizado se o escopo do projeto mudar.
+histórico do grupo. Não é enviado a nenhum órgão; fica guardado para
+eventual auditoria e deve ser atualizado se o escopo do projeto mudar.
 
 ## 1. Interesse legítimo
 
