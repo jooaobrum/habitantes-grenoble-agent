@@ -15,7 +15,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.9",
+    "@whiskeysockets/baileys": "7.0.0-rc13",
     "js-yaml": "^4.1.0",
     "pino": "^9.5.0",
     "qrcode-terminal": "^0.12.0"
