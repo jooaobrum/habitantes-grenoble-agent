@@ -1,0 +1,264 @@
+/**
+ * Health Monitor — Detect ban warning signs early
+ *
+ * Tracks connection patterns to identify when WhatsApp is
+ * getting suspicious. Gives you time to back off before a ban.
+ *
+ * Warning signs:
+ * - Frequent disconnections (connection.update → close)
+ * - 403 Forbidden errors
+ * - 401 Logged Out (possible temp ban)
+ * - Messages failing silently (sent but not delivered)
+ * - QR re-request loops
+ * - Rate limit responses (429-like behavior)
+ */
+
+export type BanRiskLevel = 'low' | 'medium' | 'high' | 'critical';
+
+export interface HealthStatus {
+  risk: BanRiskLevel;
+  score: number; // 0-100, higher = more danger
+  reasons: string[];
+  recommendation: string;
+  stats: {
+    disconnectsLastHour: number;
+    failedMessagesLastHour: number;
+    forbiddenErrors: number;
+    timelockErrors: number;
+    uptimeMs: number;
+    lastDisconnectReason?: string;
+  };
+}
+
+export interface HealthMonitorConfig {
+  /** Disconnects per hour before warning (default: 3) */
+  disconnectWarningThreshold: number;
+  /** Disconnects per hour before critical (default: 5) */
+  disconnectCriticalThreshold: number;
+  /** Failed messages per hour before warning (default: 5) */
+  failedMessageThreshold: number;
+  /** Callback when risk level changes */
+  onRiskChange?: (status: HealthStatus) => void;
+  /** Auto-pause sending at this risk level (default: 'high') */
+  autoPauseAt: BanRiskLevel;
+}
+
+const DEFAULT_CONFIG: HealthMonitorConfig = {
+  disconnectWarningThreshold: 3,
+  disconnectCriticalThreshold: 5,
+  failedMessageThreshold: 5,
+  autoPauseAt: 'high',
+};
+
+interface Event {
+  type: 'disconnect' | 'forbidden' | 'loggedOut' | 'messageFailed' | 'reconnect' | 'reachoutTimelocked';
+  timestamp: number;
+  detail?: string;
+}
+
+export class HealthMonitor {
+  private config: HealthMonitorConfig;
+  private events: Event[] = [];
+  private startTime = Date.now();
+  private paused = false;
+  private lastRisk: BanRiskLevel = 'low';
+  private lastBadEventTime: number = Date.now();
+  private lastEventWasSevere: boolean = false;
+
+  constructor(config: Partial<HealthMonitorConfig> = {}) {
+    this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  /**
+   * Record a disconnection event
+   */
+  recordDisconnect(reason: string | number): void {
+    const reasonStr = String(reason);
+
+    if (reasonStr === '403' || reasonStr === 'forbidden') {
+      this.events.push({ type: 'forbidden', timestamp: Date.now(), detail: reasonStr });
+      this.lastBadEventTime = Date.now();
+      this.lastEventWasSevere = true;
+    } else if (reasonStr === '401' || reasonStr === 'loggedOut') {
+      this.events.push({ type: 'loggedOut', timestamp: Date.now(), detail: reasonStr });
+      this.lastBadEventTime = Date.now();
+      this.lastEventWasSevere = true;
+    } else {
+      this.events.push({ type: 'disconnect', timestamp: Date.now(), detail: reasonStr });
+      this.lastBadEventTime = Date.now();
+      this.lastEventWasSevere = false;
+    }
+    this.checkAndNotify();
+  }
+
+  /**
+   * Record a successful reconnection
+   */
+  recordReconnect(): void {
+    this.events.push({ type: 'reconnect', timestamp: Date.now() });
+  }
+
+  /**
+   * Record a failed message send
+   */
+  recordMessageFailed(error?: string): void {
+    this.events.push({ type: 'messageFailed', timestamp: Date.now(), detail: error });
+    this.lastBadEventTime = Date.now();
+    this.lastEventWasSevere = false;
+    this.checkAndNotify();
+  }
+
+  /**
+   * Record a 463 reachout timelock error
+   */
+  recordReachoutTimelock(detail?: string): void {
+    this.events.push({ type: 'reachoutTimelocked', timestamp: Date.now(), detail });
+    this.lastBadEventTime = Date.now();
+    this.lastEventWasSevere = false;
+    this.checkAndNotify();
+  }
+
+  /**
+   * Get current health status
+   */
+  getStatus(): HealthStatus {
+    const now = Date.now();
+    this.cleanup(now);
+
+    const hourEvents = this.events.filter(e => now - e.timestamp < 3600000);
+    const disconnects = hourEvents.filter(e => e.type === 'disconnect').length;
+    const forbidden = hourEvents.filter(e => e.type === 'forbidden').length;
+    const loggedOut = hourEvents.filter(e => e.type === 'loggedOut').length;
+    const failedMessages = hourEvents.filter(e => e.type === 'messageFailed').length;
+
+    let score = 0;
+    const reasons: string[] = [];
+
+    // Forbidden errors are serious
+    if (forbidden > 0) {
+      score += 40 * forbidden;
+      reasons.push(`${forbidden} forbidden (403) error${forbidden > 1 ? 's' : ''} in last hour`);
+    }
+
+    // Logged out is very serious
+    if (loggedOut > 0) {
+      score += 60;
+      reasons.push('Logged out by WhatsApp — possible temporary ban');
+    }
+
+    // Reachout timelocked (463)
+    const timelocked = hourEvents.filter(e => e.type === 'reachoutTimelocked').length;
+    if (timelocked > 0) {
+      score += 25;
+      reasons.push(`${timelocked} reachout timelock (463) error${timelocked > 1 ? 's' : ''} in last hour`);
+    }
+
+    // Frequent disconnects
+    if (disconnects >= this.config.disconnectCriticalThreshold) {
+      score += 30;
+      reasons.push(`${disconnects} disconnects in last hour (critical threshold)`);
+    } else if (disconnects >= this.config.disconnectWarningThreshold) {
+      score += 30;
+      reasons.push(`${disconnects} disconnects in last hour`);
+    }
+
+    // Failed messages
+    if (failedMessages >= this.config.failedMessageThreshold) {
+      score += 20;
+      reasons.push(`${failedMessages} failed messages in last hour`);
+    }
+
+    // Determine risk level
+    score = Math.min(100, score);
+
+    // Tiered decay: recover based on time since last bad event
+    // Severe (403/401): 2pts/min — ~50min to clear 100pts
+    // Normal: 5pts/min — ~20min to clear 100pts
+    const minutesSinceLastBad = (now - this.lastBadEventTime) / 60000;
+    const decayRate = this.lastEventWasSevere ? 2 : 5;
+    score = Math.max(0, score - Math.floor(minutesSinceLastBad * decayRate));
+
+    let risk: BanRiskLevel;
+    if (score >= 80) risk = 'critical';
+    else if (score >= 40) risk = 'high';
+    else if (score >= 15) risk = 'medium';
+    else risk = 'low';
+
+    // Determine recommendation
+    let recommendation: string;
+    switch (risk) {
+      case 'critical':
+        recommendation = 'STOP ALL MESSAGING IMMEDIATELY. Disconnect and wait 24-48 hours before reconnecting.';
+        break;
+      case 'high':
+        recommendation = 'Reduce messaging rate by 80%. Consider pausing for 1-2 hours.';
+        break;
+      case 'medium':
+        recommendation = 'Reduce messaging rate by 50%. Increase delays between messages.';
+        break;
+      default:
+        recommendation = 'Operating normally. Continue monitoring.';
+    }
+
+    const lastDisconnect = [...this.events].reverse().find(e =>
+      e.type === 'disconnect' || e.type === 'forbidden' || e.type === 'loggedOut'
+    );
+
+    return {
+      risk,
+      score,
+      reasons: reasons.length ? reasons : ['No issues detected'],
+      recommendation,
+      stats: {
+        disconnectsLastHour: disconnects,
+        failedMessagesLastHour: failedMessages,
+        forbiddenErrors: forbidden,
+        timelockErrors: timelocked,
+        uptimeMs: now - this.startTime,
+        lastDisconnectReason: lastDisconnect?.detail,
+      },
+    };
+  }
+
+  /**
+   * Check if sending should be paused
+   */
+  isPaused(): boolean {
+    if (this.paused) return true;
+    const status = this.getStatus();
+    const riskOrder: BanRiskLevel[] = ['low', 'medium', 'high', 'critical'];
+    return riskOrder.indexOf(status.risk) >= riskOrder.indexOf(this.config.autoPauseAt);
+  }
+
+  /**
+   * Manually pause/resume
+   */
+  setPaused(paused: boolean): void {
+    this.paused = paused;
+  }
+
+  /**
+   * Reset all tracked events
+   */
+  reset(): void {
+    this.events = [];
+    this.startTime = Date.now();
+    this.paused = false;
+    this.lastRisk = 'low';
+    this.lastBadEventTime = Date.now();
+    this.lastEventWasSevere = false;
+  }
+
+  private cleanup(now: number): void {
+    // Keep last 6 hours of events
+    this.events = this.events.filter(e => now - e.timestamp < 21600000);
+  }
+
+  private checkAndNotify(): void {
+    const status = this.getStatus();
+    if (status.risk !== this.lastRisk) {
+      this.lastRisk = status.risk;
+      this.config.onRiskChange?.(status);
+    }
+  }
+}
