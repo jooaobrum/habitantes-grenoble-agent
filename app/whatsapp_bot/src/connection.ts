@@ -35,6 +35,12 @@ export interface ConnectionCallbacks {
   onOpen?: () => void;
   /** Called once when WhatsApp reports a permanent logout (re-pair required). */
   onLoggedOut?: () => void;
+  /**
+   * Called for every non-intentional close (loggedOut and transient alike)
+   * with the Boom `statusCode` (may be `undefined`) so the caller can feed a
+   * health/ban-risk monitor. Not called when `close()` was invoked deliberately.
+   */
+  onDisconnect?: (statusCode: number | undefined) => void;
 }
 
 /** Handle returned to the caller for graceful shutdown. */
@@ -132,6 +138,10 @@ export async function startConnection(
 
         // Boom error carries the disconnect reason as an HTTP-like statusCode.
         const statusCode = (lastDisconnect?.error as any)?.output?.statusCode;
+
+        // Notify for every non-intentional close (loggedOut and transient
+        // alike) so a health/ban-risk monitor sees every disconnect.
+        callbacks.onDisconnect?.(statusCode);
 
         if (statusCode === DisconnectReason.loggedOut) {
           logger.warn(

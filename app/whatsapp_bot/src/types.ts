@@ -6,6 +6,62 @@
  * module's concrete implementation — mirrors the repo's dependency-inversion rule.
  */
 
+/** `whatsapp.antiban.account` — account-wide RateLimiter budget/pacing. */
+export interface WhatsAppAntibanAccountSettings {
+  max_per_minute: number;
+  max_per_hour: number;
+  max_per_day: number;
+  min_delay_ms: number;
+  max_delay_ms: number;
+}
+
+/** `whatsapp.antiban.health` — connection-health ban-risk thresholds. */
+export interface WhatsAppAntibanHealthSettings {
+  disconnect_warning_threshold: number;
+  disconnect_critical_threshold: number;
+  failed_message_threshold: number;
+  auto_pause_at: string;
+  hard_pause_enabled: boolean;
+}
+
+/** `whatsapp.antiban.warmup` — post-repair burst safety valve. */
+export interface WhatsAppAntibanWarmupSettings {
+  enabled: boolean;
+  day1_limit: number;
+  warmup_days: number;
+  inactivity_threshold_hours: number;
+}
+
+/** `whatsapp.antiban.alerts` — yaml-mirrored alert policy (no secrets here). */
+export interface WhatsAppAntibanAlertsSettings {
+  min_risk_level: string;
+  cooldown_ms: number;
+  transport: string;
+}
+
+/** Resolved `whatsapp.antiban` block from config/base.yaml. */
+export interface WhatsAppAntibanSettings {
+  account: WhatsAppAntibanAccountSettings;
+  health: WhatsAppAntibanHealthSettings;
+  warmup: WhatsAppAntibanWarmupSettings;
+  alerts: WhatsAppAntibanAlertsSettings;
+}
+
+/**
+ * Resolved alert transport: yaml policy (`min_risk_level`/`cooldown_ms`) merged
+ * with the env-only Telegram secrets. `enabled` is false whenever either secret
+ * is absent — alerting is optional, so a missing secret never throws (unlike
+ * `WHATSAPP_ID_SALT`). Shaped so a later phase can build `WebhookAlerts` from it
+ * directly.
+ */
+export interface WhatsAppAlertTransportSettings {
+  enabled: boolean;
+  telegramBotToken?: string;
+  telegramChatId?: string;
+  minRiskLevel: string;
+  cooldownMs: number;
+}
+
 /** Resolved `whatsapp:` block from config/base.yaml + env overrides. */
 export interface WhatsAppSettings {
   api_url: string;
@@ -19,6 +75,10 @@ export interface WhatsAppSettings {
   heartbeat_interval_seconds: number;
   id_hash_length: number;
   feedback_positive_keywords: string[];
+  /** Anti-ban hardening config (yaml-mirrored; secrets resolved separately). */
+  antiban: WhatsAppAntibanSettings;
+  /** Resolved alert transport — yaml policy + env secrets, pre-merged. */
+  alertTransport: WhatsAppAlertTransportSettings;
 }
 
 /** Top-level resolved settings the adapter needs. */

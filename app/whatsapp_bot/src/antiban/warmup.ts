@@ -1,0 +1,201 @@
+/**
+ * WarmUp — Gradual activity increase for new/reconnected numbers
+ *
+ * New numbers or numbers reconnecting after a break are under extra scrutiny.
+ * This module enforces a gradual ramp-up of messaging activity.
+ *
+ * WhatsApp flags:
+ * - New numbers sending many messages immediately
+ * - Numbers going from 0 to 100 messages/day overnight
+ * - Sudden pattern changes after period of inactivity
+ */
+
+export interface WarmUpConfig {
+  /** Number of warm-up days (default: 7) */
+  warmUpDays: number;
+  /** Messages allowed on day 1 (default: 20) */
+  day1Limit: number;
+  /**
+   * Growth factor per day (default: randomized 1.5–2.2 per instance).
+   * A fixed value creates a cross-account fingerprint — all bots using this
+   * library would follow the identical daily growth curve, trivially clusterable.
+   * Leave unset to get a random value in the safe range each time.
+   */
+  growthFactor?: number;
+  /** Hours of inactivity before re-entering warm-up (default: 72) */
+  inactivityThresholdHours: number;
+}
+
+/** Generate a random growth factor in [1.5, 2.2] to avoid cross-account clustering */
+function randomGrowthFactor(): number {
+  return Math.round((1.5 + Math.random() * 0.7) * 100) / 100;
+}
+
+const DEFAULT_CONFIG: Required<WarmUpConfig> = {
+  warmUpDays: 7,
+  day1Limit: 20,
+  growthFactor: randomGrowthFactor(), // intentionally non-deterministic
+  inactivityThresholdHours: 72,
+};
+
+export interface WarmUpState {
+  /** When warm-up started */
+  startedAt: number;
+  /** Last message timestamp */
+  lastActiveAt: number;
+  /** Messages sent per day [day0count, day1count, ...] */
+  dailyCounts: number[];
+  /** Whether warm-up is complete */
+  graduated: boolean;
+  /** Current day's send count (for crash recovery) */
+  todaySentCount?: number;
+  /** Date (YYYY-MM-DD) of todaySentCount (for validation) */
+  todayDate?: string;
+}
+
+export interface WarmUpStatus {
+  phase: 'warming' | 'graduated';
+  day: number;
+  totalDays: number;
+  todayLimit: number;
+  todaySent: number;
+  progress: number;
+}
+
+export class WarmUp {
+  private config: Required<WarmUpConfig>;
+  private state: WarmUpState;
+
+  constructor(config: Partial<WarmUpConfig> = {}, existingState?: WarmUpState) {
+    this.config = { ...DEFAULT_CONFIG, ...config };
+    this.state = existingState || this.freshState();
+  }
+
+  /**
+   * Get the current daily message limit based on warm-up phase
+   */
+  getDailyLimit(): number {
+    if (this.state.graduated) return Infinity;
+
+    const day = this.getCurrentDay();
+    if (day >= this.config.warmUpDays) {
+      this.state.graduated = true;
+      return Infinity;
+    }
+
+    return Math.round(this.config.day1Limit * Math.pow(this.config.growthFactor, day));
+  }
+
+  /**
+   * Check if a message can be sent (within warm-up limits)
+   */
+  canSend(): boolean {
+    this.checkInactivity();
+
+    if (this.state.graduated) return true;
+
+    const day = this.getCurrentDay();
+    const todayCount = this.state.dailyCounts[day] || 0;
+    return todayCount < this.getDailyLimit();
+  }
+
+  /**
+   * Record a sent message
+   */
+  record(): void {
+    const now = Date.now();
+    const day = this.getCurrentDay();
+
+    while (this.state.dailyCounts.length <= day) {
+      this.state.dailyCounts.push(0);
+    }
+    this.state.dailyCounts[day]++;
+    this.state.lastActiveAt = now;
+  }
+
+  /**
+   * Get current warm-up status
+   */
+  getStatus(): WarmUpStatus {
+    const day = this.getCurrentDay();
+    const todaySent = this.state.dailyCounts[day] || 0;
+    const limit = this.getDailyLimit();
+
+    return {
+      phase: this.state.graduated ? 'graduated' : 'warming',
+      day: Math.min(day + 1, this.config.warmUpDays),
+      totalDays: this.config.warmUpDays,
+      todayLimit: limit === Infinity ? -1 : limit,
+      todaySent,
+      progress: this.state.graduated ? 100 : Math.round((day / this.config.warmUpDays) * 100),
+    };
+  }
+
+  /**
+   * Export state for persistence
+   */
+  exportState(): WarmUpState {
+    const day = this.getCurrentDay();
+    const todaySent = this.state.dailyCounts[day] || 0;
+    const todayDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    return {
+      ...this.state,
+      todaySentCount: todaySent,
+      todayDate,
+    };
+  }
+
+  /**
+   * Import state from persistence
+   */
+  importState(state: WarmUpState): void {
+    this.state = { ...state };
+    // BUG FIX 1: Restore today's send count from persisted state
+    // If todayDate matches current date, restore the count to prevent
+    // post-crash burst (issue: warmup day counter survives but send history lost)
+    if (state.todayDate && state.todaySentCount !== undefined) {
+      const todayDate = new Date().toISOString().split('T')[0];
+      if (state.todayDate === todayDate) {
+        const day = this.getCurrentDay();
+        // Restore the persisted count if higher than current
+        while (this.state.dailyCounts.length <= day) {
+          this.state.dailyCounts.push(0);
+        }
+        this.state.dailyCounts[day] = Math.max(
+          this.state.dailyCounts[day] || 0,
+          state.todaySentCount
+        );
+      }
+    }
+  }
+
+  /**
+   * Reset warm-up (e.g., after detected ban risk)
+   */
+  reset(): void {
+    this.state = this.freshState();
+  }
+
+  private getCurrentDay(): number {
+    return Math.floor((Date.now() - this.state.startedAt) / 86400000);
+  }
+
+  private checkInactivity(): void {
+    const hoursSinceActive = (Date.now() - this.state.lastActiveAt) / 3600000;
+    if (hoursSinceActive > this.config.inactivityThresholdHours && this.state.graduated) {
+      // Re-enter warm-up after extended inactivity
+      this.state = this.freshState();
+      this.state.graduated = false;
+    }
+  }
+
+  private freshState(): WarmUpState {
+    const now = Date.now();
+    return {
+      startedAt: now,
+      lastActiveAt: now,
+      dailyCounts: [],
+      graduated: false,
+    };
+  }
+}

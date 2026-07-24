@@ -89,6 +89,34 @@ whatsapp:
     - "👍"
     - "❤️"
     - "🥰"
+  # Anti-ban hardening layer: account-wide send pacing, connection-health risk
+  # scoring, a post-repair warm-up safety valve, and operator alerting. day1_limit
+  # is a FLOOR (200/day) not a target — a reply-only bot's normal DM volume never
+  # gets close, so warm-up stays inert and only clamps an anomalous burst (bug or
+  # abuse) right when a freshly (re)paired number is most fragile. See
+  # .specs/features/whatsapp-antiban-hardening/design.md for full rationale.
+  antiban:
+    account: # account-wide RateLimiter (vendored defaults shown)
+      max_per_minute: 8
+      max_per_hour: 200
+      max_per_day: 1500
+      min_delay_ms: 1500
+      max_delay_ms: 5000
+    health:
+      disconnect_warning_threshold: 3
+      disconnect_critical_threshold: 5
+      failed_message_threshold: 5
+      auto_pause_at: "critical" # reply-only bot: never pause below critical
+      hard_pause_enabled: false # default OFF — elevated risk slows, does not stop
+    warmup:
+      enabled: true
+      day1_limit: 200 # FLOOR: well above community volume → inert in normal use
+      warmup_days: 7
+      inactivity_threshold_hours: 72
+    alerts:
+      min_risk_level: "high" # alert on high+ only (medium is noisy)
+      cooldown_ms: 300000 # 5 min between alerts
+      transport: "telegram"
 
 # ── Search & Ranking (single source of truth for tuning) ─────────────────────
 search:

@@ -23,6 +23,7 @@ import {
   isGratitudeOnly,
   isResetCommand,
 } from "./guards.js";
+import type { SendGate } from "./sendGate.js";
 import type { ChatSource, Settings } from "./types.js";
 
 /** Portuguese user-facing copy — kept identical to the Telegram channel. */
@@ -62,20 +63,12 @@ export interface HandlerDeps {
   rateLimiter: RateLimiter;
   dedup: DedupSet;
   locks: KeyedLock;
+  /** The single guarded outbound path (Phase 2) — every send routes through it. */
+  sendGate: SendGate;
   /** bot answer message id → chat_id (hash), for reaction feedback. */
   answerToChat: Map<string, string>;
   /** raw JID → last answered turn, for gratitude-word feedback. */
   lastTurn: Map<string, { chatId: string; answerMsgId: string }>;
-}
-
-/** Random human-like pacing delay within the configured window. */
-function pacingDelay(settings: Settings): number {
-  const { reply_min_delay_ms: min, reply_max_delay_ms: max } = settings.whatsapp;
-  return min + Math.floor(Math.random() * Math.max(0, max - min));
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((res) => setTimeout(res, ms));
 }
 
 /** Pull plain text from a message, or undefined for non-text / empty messages. */
@@ -190,7 +183,7 @@ async function handleMessage(
         rating: "up",
       });
       logger.info({ chatId, recorded: ok }, "gratitude feedback recorded");
-      await safeSend(sock, jid, COPY.gratitude, logger);
+      await safeSend(sock, jid, COPY.gratitude, deps);
       return;
     }
     // No prior turn to attribute it to → fall through and treat as a question.
@@ -201,19 +194,19 @@ async function handleMessage(
   if (isResetCommand(text)) {
     const ok = await api.postReset({ chatId });
     logger.info({ chatId, ok }, "memory reset requested");
-    await safeSend(sock, jid, COPY.reset, logger);
+    await safeSend(sock, jid, COPY.reset, deps);
     return;
   }
 
   // 5. Length cap → ask to shorten; no API call.
   if (exceedsLength(text, whatsapp.max_message_length)) {
-    await safeSend(sock, jid, COPY.oversize(whatsapp.max_message_length), logger);
+    await safeSend(sock, jid, COPY.oversize(whatsapp.max_message_length), deps);
     return;
   }
 
   // 6. Per-user rate limit → polite throttle; no API call.
   if (!rateLimiter.allow(jid)) {
-    await safeSend(sock, jid, COPY.throttle, logger);
+    await safeSend(sock, jid, COPY.throttle, deps);
     return;
   }
 
@@ -221,7 +214,6 @@ async function handleMessage(
   await locks.run(jid, async () => {
     try {
       await sock.sendPresenceUpdate("composing", jid);
-      await sleep(pacingDelay(settings)); // human-like pacing
 
       const result = await api.postChat({ chatId, message: text, messageId });
 
@@ -234,14 +226,16 @@ async function handleMessage(
           { chatId, error_code: result.error_code },
           "relaying API error to user",
         );
-        await safeSend(sock, jid, reply, logger);
+        await safeSend(sock, jid, reply, deps);
         return;
       }
 
       const replyText = formatReply(result.data.answer, result.data.sources);
-      const sent = await sock.sendMessage(jid, { text: replyText });
+      const sent = await deps.sendGate.send(sock, jid, replyText, { track: true });
 
       // Track the answer for feedback correlation (reactions + gratitude).
+      // `sent` is `undefined` when the gate deferred the send — the optional
+      // chaining below naturally treats that the same as "no id to track".
       const answerMsgId = sent?.key?.id ?? undefined;
       if (answerMsgId) {
         answerToChat.set(answerMsgId, chatId);
@@ -256,7 +250,7 @@ async function handleMessage(
         { chatId, err: (err as Error)?.message },
         "unexpected error handling message",
       );
-      await safeSend(sock, jid, COPY.techError, logger);
+      await safeSend(sock, jid, COPY.techError, deps);
     } finally {
       // Best-effort: clear typing presence.
       try {
@@ -294,19 +288,22 @@ async function handleReaction(
 
   const ok = await api.postFeedback({ chatId, messageId: reactedId, rating });
   logger.info({ chatId, rating, recorded: ok }, "reaction feedback recorded");
-  if (ok) await safeSend(sock, jid, COPY.feedbackAck, logger);
+  if (ok) await safeSend(sock, jid, COPY.feedbackAck, deps);
 }
 
-/** Send a text reply, swallowing (but logging) any send failure. Never throws. */
+/**
+ * Send a text reply through the guarded send path, swallowing (but logging)
+ * any send failure. Never throws — callers fire-and-forget notices via this.
+ */
 async function safeSend(
   sock: WASocket,
   jid: string,
   text: string,
-  logger: Logger,
+  deps: HandlerDeps,
 ): Promise<void> {
   try {
-    await sock.sendMessage(jid, { text });
+    await deps.sendGate.send(sock, jid, text);
   } catch (err) {
-    logger.warn({ err: (err as Error)?.message }, "failed to send reply");
+    deps.logger.warn({ err: (err as Error)?.message }, "failed to send reply");
   }
 }
