@@ -52,14 +52,15 @@ def test_snapshot_always_written_and_no_alert_under_limits(monkeypatch, db_path)
 
     watchdog.run_watchdog_cycle(db_path)
 
-    # (a) snapshot always written — one row per probed service
+    # (a) snapshot always written — one row per probed service. whatsapp_bot is
+    # absent: it's not in alerts.heartbeat_services (config/base.yaml) since the
+    # Baileys channel was parked in favor of the in-process Cloud API webhook.
     snapshots = {r["service"]: r for r in cs.read_health_snapshot(db_path)}
     assert set(snapshots) == {
         "qdrant",
         "openrouter",
         "openai",
         "telegram_bot",
-        "whatsapp_bot",
     }
     assert all(r["status"] == "ok" for r in snapshots.values())
 
@@ -94,8 +95,8 @@ def test_cost_breach_disables_switch_once_and_is_edge_triggered(monkeypatch, db_
 
     assert len(cs.read_alerts(db_path=db_path)) == 1
     assert email.call_count == 1
-    # snapshot still refreshed while off
-    assert len(cs.read_health_snapshot(db_path)) == 5
+    # snapshot still refreshed while off (qdrant, openrouter, openai, telegram_bot)
+    assert len(cs.read_health_snapshot(db_path)) == 4
 
 
 def test_health_breach_disables_switch_after_grace(monkeypatch, db_path):
@@ -126,6 +127,40 @@ def test_health_breach_disables_switch_after_grace(monkeypatch, db_path):
     assert len(alerts) == 1
     assert alerts[0]["trigger"] == "health:openrouter"
     assert email.call_count == 1
+
+
+def test_stale_whatsapp_bot_heartbeat_does_not_trip_switch(monkeypatch, db_path):
+    """Regression guard: with `whatsapp_bot` removed from alerts.heartbeat_services
+    (config/base.yaml), a missing/stale heartbeat for it must never reach
+    evaluate_thresholds — otherwise stopping the parked Baileys container would
+    silently disable the whole bot (including the unrelated Telegram channel)
+    within a few watchdog cycles.
+    """
+    ok = {"status": "ok", "latency_ms": 1.0, "detail": None}
+    monkeypatch.setattr(health_checks, "check_qdrant", lambda: dict(ok))
+    monkeypatch.setattr(health_checks, "check_openrouter", lambda: dict(ok))
+    monkeypatch.setattr(health_checks, "check_openai_embeddings", lambda: dict(ok))
+
+    def _heartbeat(service, store):
+        # telegram_bot is fine; whatsapp_bot would be critical/missing if probed.
+        if service == "whatsapp_bot":
+            return {"status": "critical", "latency_ms": None, "detail": "stale"}
+        return dict(ok)
+
+    monkeypatch.setattr(health_checks, "check_heartbeat", _heartbeat)
+    _set_cost(monkeypatch, cost=0.0)
+    email = MagicMock(return_value=True)
+    monkeypatch.setattr(watchdog, "send_alert", email)
+
+    for _ in range(5):  # well past the default health_grace_checks=3
+        watchdog.run_watchdog_cycle(db_path)
+
+    assert "whatsapp_bot" not in {
+        r["service"] for r in cs.read_health_snapshot(db_path)
+    }
+    assert cs.get_switch(db_path)["enabled"] is True
+    assert cs.read_alerts(db_path=db_path) == []
+    email.assert_not_called()
 
 
 def test_email_failure_still_disables_switch(monkeypatch, db_path):

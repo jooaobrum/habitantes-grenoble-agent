@@ -36,7 +36,10 @@ services:
       # env_file, regardless of what a developer's .env sets.
       - QDRANT_URL=http://qdrant:6333
     ports:
-      - "127.0.0.1:8000:8000"
+      # Host port 8001 (not 8000) — matches the homelab's existing local
+      # binding. Container-internal port stays 8000: telegram-bot, cloudflared
+      # and the in-network API_URL=http://api:8000 all talk to it unaffected.
+      - "127.0.0.1:8001:8000"
     expose:
       - "8000"
     depends_on:
@@ -70,7 +73,11 @@ services:
     command: uv run python /app/app/telegram_bot.py
 
   # ── WhatsApp Bot (Baileys, Node) ──────────────────────────────────────────
+  # Parked in favor of the official Cloud API webhook (see routers/webhooks.py).
+  # Kept in the repo, not deleted — just excluded from a plain `docker compose up`.
+  # Re-enable with: docker compose --profile baileys up
   whatsapp-bot:
+    profiles: ["baileys"]
     build:
       context: .
       dockerfile: app/whatsapp_bot/Dockerfile
@@ -87,6 +94,28 @@ services:
     volumes:
       - ./config:/app/config             # read base.yaml
       - ./artifacts:/app/artifacts       # persist auth session (git-ignored)
+
+  # ── Cloudflare Tunnel ─────────────────────────────────────────────────────
+  # Public HTTPS ingress for the WhatsApp Cloud API webhook (Meta must POST to
+  # us — see routers/webhooks.py). Dials OUT to Cloudflare's edge, so no port
+  # is published here and no firewall rule changes on the homelab.
+  #
+  # Set up once in the Cloudflare Zero Trust dashboard: add idwt.cloud (Free
+  # plan), create a named tunnel, copy its token into .env as
+  # CLOUDFLARE_TUNNEL_TOKEN, then add a Public Hostname rule. Recommended:
+  # scope it to the webhook path only (Hostname: bot.idwt.cloud, Path:
+  # webhooks/*, Service: http://api:8000) rather than the whole API — /admin/*
+  # is token-guarded either way, but there's no reason to expose it to the
+  # internet at all when only /webhooks/whatsapp needs to be public.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      api:
+        condition: service_started
 
 networks:
   default:

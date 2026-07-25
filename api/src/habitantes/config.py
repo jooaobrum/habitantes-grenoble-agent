@@ -54,6 +54,45 @@ class TelegramConfig(BaseModel):
     max_message_length: int = 2000
 
 
+class WhatsAppCloudConfig(BaseModel):
+    """Official WhatsApp Cloud API channel (webhook, lives inside the API process).
+
+    Secrets default to "" — like WebSearchConfig's tavily_api_key — so a missing
+    value *disables* the channel (webhook rejects with 403 / send calls no-op)
+    rather than crashing API startup. That matters here more than for Telegram:
+    unlike the required TELEGRAM_BOT_TOKEN, this channel is expected to be unset
+    until the Meta app setup (Phase 9 of the migration) is complete.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+    access_token: str = Field(default="", alias="WHATSAPP_BUSINESS_TOKEN")
+    phone_number_id: str = Field(default="", alias="WHATSAPP_PHONE_NUMBER_ID")
+    waba_id: str = Field(default="", alias="WHATSAPP_WABA_ID")
+    app_secret: str = Field(default="", alias="WHATSAPP_APP_SECRET")
+    verify_token: str = Field(default="", alias="WHATSAPP_VERIFY_TOKEN")
+    # Shared with the parked Baileys `whatsapp:` config on purpose — see
+    # config/base.yaml's whatsapp_cloud comment for why chat_ids stay stable.
+    id_salt: str = Field(default="", alias="WHATSAPP_ID_SALT")
+    rate_limit_per_minute: int = 5
+    max_message_length: int = 2000
+    id_hash_length: int = 16
+    graph_api_base: str = "https://graph.facebook.com"
+    graph_api_version: str = "v23.0"
+    request_timeout_seconds: int = 10
+    feedback_positive_keywords: list[str] = []
+
+    @property
+    def enabled(self) -> bool:
+        """True once the minimum set of secrets needed to run the channel is present."""
+        return bool(
+            self.access_token
+            and self.phone_number_id
+            and self.app_secret
+            and self.verify_token
+            and self.id_salt
+        )
+
+
 class SearchConfig(BaseModel):
     dense_prefetch_k: int = 80
     sparse_prefetch_k: int = 120
@@ -129,6 +168,13 @@ class AlertsConfig(BaseModel):
     monthly_budget_usd: float = 120.0  # display-only in v1, not an alert trigger
     health_grace_checks: int = 3
     auto_disable_enabled: bool = True
+    # Which channel bots the watchdog expects a heartbeat from. A channel with no
+    # poll loop of its own (e.g. the WhatsApp Cloud API webhook, which lives
+    # in-process inside the API) needs no entry here — if the API answers, it's up.
+    # Removing a channel from this list (rather than hardcoding it in watchdog.py)
+    # is what lets that channel's container be stopped without tripping the
+    # kill switch for the whole bot.
+    heartbeat_services: list[str] = ["telegram_bot"]
     # Recipient + SMTP connection details identify a real person/mailbox, so
     # they're env-only (never in yaml, never logged) rather than checked in.
     email_to: str = Field(default="", alias="EMAIL_TO")
@@ -154,6 +200,7 @@ class Settings(BaseSettings):
     vector_store: VectorStoreConfig
     api: ApiConfig
     telegram: TelegramConfig
+    whatsapp_cloud: WhatsAppCloudConfig = WhatsAppCloudConfig()
     search: SearchConfig = SearchConfig()
     web_search: WebSearchConfig = WebSearchConfig()
     ranking: RankingConfig = RankingConfig()
@@ -226,6 +273,21 @@ def load_settings() -> Settings:
         config_data.setdefault("web_search", {})["tavily_api_key"] = os.environ[
             "TAVILY_API_KEY"
         ]
+    # WhatsApp Cloud API secrets — all optional like TAVILY_API_KEY above; a
+    # missing value disables the channel (see WhatsAppCloudConfig.enabled)
+    # rather than crashing startup, since this channel is expected to be unset
+    # until the Meta app setup is complete.
+    whatsapp_cloud_env_map = {
+        "WHATSAPP_BUSINESS_TOKEN": "access_token",
+        "WHATSAPP_PHONE_NUMBER_ID": "phone_number_id",
+        "WHATSAPP_WABA_ID": "waba_id",
+        "WHATSAPP_APP_SECRET": "app_secret",
+        "WHATSAPP_VERIFY_TOKEN": "verify_token",
+        "WHATSAPP_ID_SALT": "id_salt",
+    }
+    for env_key, field in whatsapp_cloud_env_map.items():
+        if env_key in os.environ:
+            config_data.setdefault("whatsapp_cloud", {})[field] = os.environ[env_key]
     if "ADMIN_TOKEN" in os.environ:
         # yaml `admin:` block is intentionally empty (None), so build the dict.
         admin_cfg = config_data.get("admin") or {}

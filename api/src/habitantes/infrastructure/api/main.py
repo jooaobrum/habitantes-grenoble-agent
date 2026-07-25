@@ -10,7 +10,13 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from habitantes.config import load_settings
-from habitantes.infrastructure.api.routers import admin, chat, feedback, health
+from habitantes.infrastructure.api.routers import (
+    admin,
+    chat,
+    feedback,
+    health,
+    webhooks,
+)
 
 # Simple in-memory rate limiting state
 # Reset on restart as per design.md
@@ -34,10 +40,18 @@ def check_rate_limit(chat_id: str) -> bool:
 
 
 async def _cleanup_rate_limits():
-    """Periodically clear ALL rate limits to prevent memory leaks from inactive users."""
+    """Periodically clear ALL rate limits to prevent memory leaks from inactive users.
+
+    Also bounds the WhatsApp Cloud API channel's process-lived state (dedup
+    set, per-user rate limiter, feedback-correlation maps) — reusing this
+    existing hourly timer rather than adding a second one for that channel.
+    """
+    from habitantes.infrastructure.whatsapp.processor import get_channel_state
+
     while True:
         await asyncio.sleep(3600)  # Every hour
         _rate_limits.clear()
+        get_channel_state().cleanup()
         logger.info("Cleared in-memory rate limits.")
 
 
@@ -112,6 +126,7 @@ app.include_router(chat, prefix="/chat", tags=["Agent"])
 app.include_router(feedback, prefix="/feedback", tags=["Feedback"])
 app.include_router(health, prefix="/health", tags=["Health"])
 app.include_router(admin, prefix="/admin", tags=["Admin"])
+app.include_router(webhooks, prefix="/webhooks", tags=["Webhooks"])
 
 # Mount the static admin dashboard if present (repo-root app/admin/). Guarded so
 # the API container, which may not ship app/, still starts cleanly.
