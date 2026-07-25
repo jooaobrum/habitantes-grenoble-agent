@@ -39,9 +39,12 @@ def run_watchdog_cycle(db_path=control_store.DEFAULT_DB_PATH) -> None:
         "qdrant": health_checks.check_qdrant(),
         "openrouter": health_checks.check_openrouter(),
         "openai": health_checks.check_openai_embeddings(),
-        "telegram_bot": health_checks.check_heartbeat("telegram_bot", control_store),
-        "whatsapp_bot": health_checks.check_heartbeat("whatsapp_bot", control_store),
     }
+    # Heartbeat-based channels are config-driven (alerts.heartbeat_services) rather
+    # than hardcoded, so a parked channel bot (e.g. Baileys) can be stopped without
+    # its stale heartbeat tripping the kill switch for the whole system.
+    for service in load_settings().alerts.heartbeat_services:
+        probes[service] = health_checks.check_heartbeat(service, control_store)
     prior = {row["service"]: row for row in control_store.read_health_snapshot(db_path)}
     streaks: dict[str, int] = {}
     for service, result in probes.items():
