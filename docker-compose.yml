@@ -110,9 +110,12 @@ services:
   cloudflared:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
-    command: tunnel --no-autoupdate run
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    # Token passed as an explicit CLI arg (Cloudflare's own documented `docker
+    # run` invocation) rather than via a TUNNEL_TOKEN env var — the latter
+    # isn't reliably picked up by `tunnel run` on current cloudflared builds
+    # and the container just crash-loops with "requires the ID or name of
+    # the tunnel to run".
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
       api:
         condition: service_started
