@@ -25,118 +25,24 @@ telegram:
   rate_limit_per_minute: 5
   max_message_length: 2000
 
-# ── WhatsApp (Baileys) channel — DM-only 2nd channel ─────────────────────────
-# Thin adapter (Node service, app/whatsapp_bot/). Mirrors telegram:; the adapter
-# owns these settings (the Python API does not read this block).
-whatsapp:
-  api_url: "http://api:8000" # forced by docker-compose env (in-network host)
-  rate_limit_per_minute: 5
-  max_message_length: 2000
-  reconnect_base_delay_ms: 2000
-  reconnect_max_delay_ms: 60000
-  reply_min_delay_ms: 600 # human-like pacing (randomized up to max)
-  reply_max_delay_ms: 1800
-  auth_dir: "artifacts/whatsapp/auth"
-  heartbeat_interval_seconds: 30
-  # chat_id = hash(JID). Salt is env-only (WHATSAPP_ID_SALT) so hashes are not
-  # reversible via a rainbow table of phone numbers. Never a plaintext default here.
-  id_hash_length: 16 # hex chars kept from the SHA-256 digest
-  # Gratitude replies that count as a 👍 on the last answer. Matched on a
-  # normalized (lowercased, accent-stripped, punctuation-trimmed) message.
-  # Extend freely here — no code change needed.
-  feedback_positive_keywords:
-    # Portuguese
-    - "obrigado"
-    - "obrigada"
-    - "obg"
-    - "obgd"
-    - "brigado"
-    - "brigada"
-    - "valeu"
-    - "vlw"
-    - "agradecido"
-    - "agradecida"
-    - "gratidao"
-    - "muito obrigado"
-    - "muito obrigada"
-    - "ajudou"
-    - "ajudou muito"
-    - "top"
-    - "perfeito"
-    - "show"
-    - "otimo"
-    - "maravilha"
-    # English
-    - "thanks"
-    - "thank you"
-    - "thx"
-    - "ty"
-    - "tks"
-    - "cheers"
-    - "appreciate it"
-    - "great"
-    - "perfect"
-    # French
-    - "merci"
-    - "merci beaucoup"
-    - "mercii"
-    - "parfait"
-    # Spanish
-    - "gracias"
-    - "muchas gracias"
-    # Emoji-only replies
-    - "🙏"
-    - "👍"
-    - "❤️"
-    - "🥰"
-  # Anti-ban hardening layer: account-wide send pacing, connection-health risk
-  # scoring, a post-repair warm-up safety valve, and operator alerting. day1_limit
-  # is a FLOOR (200/day) not a target — a reply-only bot's normal DM volume never
-  # gets close, so warm-up stays inert and only clamps an anomalous burst (bug or
-  # abuse) right when a freshly (re)paired number is most fragile. See
-  # .specs/features/whatsapp-antiban-hardening/design.md for full rationale.
-  antiban:
-    account: # account-wide RateLimiter (vendored defaults shown)
-      max_per_minute: 8
-      max_per_hour: 200
-      max_per_day: 1500
-      min_delay_ms: 1500
-      max_delay_ms: 5000
-    health:
-      disconnect_warning_threshold: 3
-      disconnect_critical_threshold: 5
-      failed_message_threshold: 5
-      auto_pause_at: "critical" # reply-only bot: never pause below critical
-      hard_pause_enabled: false # default OFF — elevated risk slows, does not stop
-    warmup:
-      enabled: true
-      day1_limit: 200 # FLOOR: well above community volume → inert in normal use
-      warmup_days: 7
-      inactivity_threshold_hours: 72
-    alerts:
-      min_risk_level: "high" # alert on high+ only (medium is noisy)
-      cooldown_ms: 300000 # 5 min between alerts
-      transport: "telegram"
-
 # ── WhatsApp (Cloud API) channel — DM-only, official/sanctioned transport ────
-# Webhook-based, lives inside the API process (routers/webhooks.py) — unlike the
-# parked Baileys `whatsapp:` block above, this one IS read by the Python API.
-# Secrets (WHATSAPP_BUSINESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_WABA_ID,
-# WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN) are env-only — see .env.example.
-# WHATSAPP_ID_SALT is shared with the parked Baileys config on purpose: the
-# Cloud API's `wa_id` is the same bare-digits phone number Baileys hashed
-# (phoneNumberPart(jid)), so reusing the salt keeps existing users' chat_id
-# stable across the migration (same conversation memory, same feedback history).
+# Webhook-based, lives inside the API process (routers/webhooks.py) and IS read
+# by the Python API. Secrets (WHATSAPP_BUSINESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID,
+# WHATSAPP_WABA_ID, WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN) are env-only —
+# see .env.example.
+# WHATSAPP_ID_SALT must never be rotated: it derives every migrated user's
+# chat_id from their phone number (wa_id), so rotating it breaks existing
+# users' conversation memory and feedback history.
 whatsapp_cloud:
   rate_limit_per_minute: 5
   max_message_length: 2000
-  id_hash_length: 16 # hex chars kept from the SHA-256 digest — matches Baileys
+  id_hash_length: 16 # hex chars kept from the SHA-256 digest
   graph_api_base: "https://graph.facebook.com"
   graph_api_version: "v23.0"
   request_timeout_seconds: 10
-  # Same keyword list as the Baileys `whatsapp.feedback_positive_keywords` block —
-  # kept as a separate copy (not a YAML anchor) so this channel's list can diverge
-  # later without touching the parked config.
+  # Gratitude replies that count as a 👍 on the last answer. Matched on a
+  # normalized (lowercased, accent-stripped, punctuation-trimmed) message.
+  # Extend freely here — no code change needed.
   feedback_positive_keywords:
     # Portuguese
     - "obrigado"
@@ -261,12 +167,9 @@ alerts:
   # email_to / smtp_host / smtp_port / smtp_user / smtp_from / SMTP_PASSWORD
   # are env-only (see .env.example) — they identify a real mailbox, so they
   # never go in a checked-in file.
-  # Channels the watchdog expects a heartbeat from. `whatsapp_bot` (Baileys) was
-  # removed here when that channel was parked in favor of the Cloud API webhook —
-  # the webhook has no poll loop of its own (it lives inside the API process), so
-  # it needs no heartbeat entry. If Baileys is ever re-enabled
-  # (docker compose --profile baileys up), add "whatsapp_bot" back or its stale
-  # heartbeat will trip the kill switch for the whole bot within a few cycles.
+  # Channels the watchdog expects a heartbeat from. The WhatsApp Cloud API
+  # webhook has no poll loop of its own (it lives inside the API process), so
+  # it needs no heartbeat entry here.
   heartbeat_services: ["telegram_bot"]
 
 # ── Categories (single source of truth) ──────────────────────────────────────

@@ -72,29 +72,6 @@ services:
       - ./config:/app/config
     command: uv run python /app/app/telegram_bot.py
 
-  # ── WhatsApp Bot (Baileys, Node) ──────────────────────────────────────────
-  # Parked in favor of the official Cloud API webhook (see routers/webhooks.py).
-  # Kept in the repo, not deleted — just excluded from a plain `docker compose up`.
-  # Re-enable with: docker compose --profile baileys up
-  whatsapp-bot:
-    profiles: ["baileys"]
-    build:
-      context: .
-      dockerfile: app/whatsapp_bot/Dockerfile
-    restart: unless-stopped
-    env_file: .env
-    environment:
-      - APP_ENV=${APP_ENV:-dev}
-      - CONFIG_DIR=/app/config
-      - API_URL=http://api:8000          # in-network host wins over .env
-      # ADMIN_TOKEN + WHATSAPP_ID_SALT come from .env (heartbeat auth + JID hashing)
-    depends_on:
-      api:
-        condition: service_started
-    volumes:
-      - ./config:/app/config             # read base.yaml
-      - ./artifacts:/app/artifacts       # persist auth session (git-ignored)
-
   # ── Cloudflare Tunnel ─────────────────────────────────────────────────────
   # Public HTTPS ingress for the WhatsApp Cloud API webhook (Meta must POST to
   # us — see routers/webhooks.py). Dials OUT to Cloudflare's edge, so no port

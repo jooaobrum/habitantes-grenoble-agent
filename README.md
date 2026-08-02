@@ -1,6 +1,6 @@
 # Habitantes de Grenoble — AI Chatbot
 
-An AI-powered assistant that helps Brazilian expats in Grenoble navigate daily life, bureaucracy, and housing. The bot leverages 5 years of community knowledge from WhatsApp groups to provide instant, reliable, grounded answers in Portuguese.
+An AI-powered assistant that helps Brazilian expats in Grenoble navigate daily life, bureaucracy, and housing. The bot leverages years of community knowledge from WhatsApp groups to provide instant, reliable, grounded answers in Portuguese.
 
 ---
 
@@ -8,27 +8,36 @@ An AI-powered assistant that helps Brazilian expats in Grenoble navigate daily l
 
 ```mermaid
 flowchart LR
-    TG[Telegram & WhatsApp Bots] --> API[FastAPI]
-    API --> Agent[LangGraph ReAct Agent]
-    Agent --> DB[(Qdrant<br>hybrid search)]
+    TG[Telegram Bot<br>long-polling process] --> API[FastAPI]
+    WA[WhatsApp<br>Meta Cloud API] -->|webhook POST| CF[cloudflared<br>public HTTPS ingress] --> API
+    API --> Agent[Hand-rolled agent loop<br>intent classify → ReAct]
+    Agent --> DB[(Qdrant<br>hybrid dense+sparse search)]
+    Agent -.->|optional secondary source| Web[Tavily web search]
+    Admin[Control Center dashboard] -->|/admin/*| API
     Ingest[Ingestion pipeline<br>offline only] --> DB
 ```
 
-- **Orchestration**: LangGraph ReAct loop with explicit intent routing
-- **Backend**: FastAPI
-- **Vector Store**: Qdrant with hybrid search (dense + sparse RRF fusion)
-- **Client**: Telegram Bot (long-polling) & WhatsApp
-- **Config**: `config/base.yaml` + `.env` secrets + `APP_ENV` environment selector
+- **Orchestration**: no LangGraph — a hand-rolled two-layer loop in `api/src/habitantes/domain/agent.py`:
+  1. `_classify_intent` — a numeric category shortcut (typed "1".."19"), or an LLM call forced (via OpenAI-style tool-calling) to return `greeting | qa | feedback | out_of_scope`.
+  2. `_run_react_loop` — an LLM + tool-calling loop (up to `agent.max_react_iterations` rounds) that calls `search_knowledge_base` (and, for `qa`, optionally `web_search_grenoble`) and synthesizes the final answer.
+  Short-term memory is a plain in-process `dict` keyed by `chat_id` (`_memory` in `agent.py`), capped at `agent.max_history` turns — it is **not** persisted and resets on process restart.
+- **Backend**: FastAPI (`api/src/habitantes/infrastructure/api/`)
+- **Vector store**: Qdrant, hybrid search — dense (OpenAI `text-embedding-3-small`, 1536‑d) + sparse (`Qdrant/bm25` via `fastembed`), fused with a weighted RRF, then date-decay + anchor rerank + thread-level dedup.
+- **Channels**:
+  - **Telegram** (`app/telegram_bot.py`) — a separate long-polling process, calls the API over HTTP.
+  - **WhatsApp** (official Meta Cloud API) — **not** a separate bot process. It's a webhook handled inside the FastAPI process itself (`infrastructure/whatsapp/{client,processor,guards}.py`, wired via `routers/webhooks.py`), fronted by a `cloudflared` container that gives the homelab a public HTTPS endpoint for Meta to POST to. See [docs/WHATSAPP_CLOUD_SETUP.md](docs/WHATSAPP_CLOUD_SETUP.md) for the manual Meta-panel setup.
+- **Web search**: Tavily, an optional lower-priority secondary source scoped to Grenoble — see `docs/ARCHITECTURE.md` for its limitations.
+- **Control Center**: a token-gated admin dashboard (`app/admin/`, static HTML served at `/admin/ui`) plus `/admin/*` API routes — kill switch, cost/usage KPIs, health status, alert log. No extra container; it lives inside the `api` service.
+- **Config**: `config/base.yaml` + `.env` secrets + `APP_ENV` environment selector (`dev` / `prod`)
 
 ---
 
 ## Prerequisites
 
-- Python 3.12+
+- Python `>=3.10` (per `pyproject.toml`'s `requires-python`; CI itself runs 3.12)
 - Docker & Docker Compose
 - `uv` (recommended) or `pip`
-- OpenAI API Key
-- Telegram Bot Token (from [@BotFather](https://t.me/botfather))
+- API keys/tokens for the services below — see [Configure secrets](#2-configure-secrets)
 
 ---
 
@@ -38,10 +47,12 @@ flowchart LR
 
 ```bash
 uv sync                 # runtime dependencies only
-uv sync --extra dev     # add test/lint tooling (pytest, black, isort, flake8, mypy)
+uv sync --extra dev     # add test tooling (pytest, pytest-asyncio)
 ```
 
 `make install` runs the `--extra dev` sync for you.
+
+Linting/formatting is **ruff** (`ruff` + `ruff-format`), run through `pre-commit` (`make lint-format` / `make setup-hooks`) — it is not one of the `--extra dev` packages, `pre-commit` pulls it into its own managed environment.
 
 ### 2. Configure secrets
 
@@ -49,12 +60,21 @@ uv sync --extra dev     # add test/lint tooling (pytest, black, isort, flake8, m
 cp .env.example .env
 ```
 
-Edit `.env` and set:
+The API **will not start** unless these are set (Pydantic validates them at startup and raises `RuntimeError: Missing required configuration: ...` otherwise — see `config.py`'s `load_settings()`):
 
 ```bash
-OPENAI_API_KEY=sk-...
-TELEGRAM_BOT_TOKEN=...
+OPENROUTER_API_KEY=sk-or-...   # chat/completions (agent, ingestion synthesis, eval judge)
+OPENAI_API_KEY=sk-...          # embeddings only (text-embedding-3-small)
+ADMIN_TOKEN=...                # shared secret for the Control Center's /admin/* routes
 ```
+
+The Telegram bot process (`app/telegram_bot.py`, run separately from the API) additionally requires:
+
+```bash
+TELEGRAM_BOT_TOKEN=...         # from @BotFather — the bot process exits immediately without it
+```
+
+Everything else in `.env.example` is optional and only enables a specific feature when set (web search, the WhatsApp Cloud API channel, the Cloudflare tunnel, email alerts) — see the [full reference table](#environment-variables-reference) below.
 
 `APP_ENV` defaults to `dev` — only set it explicitly if you want `prod`.
 
@@ -75,12 +95,12 @@ All commands go through `make`. The `ENV` variable controls which environment co
 | `make down` | Stop all services |
 | `make logs` | Follow live logs from all containers |
 
-What changes between environments:
+What changes between environments (see the `environments:` block in `config/base.yaml`):
 
 | Setting | `dev` | `prod` |
 |---|---|---|
 | `api.log_level` | `DEBUG` | `WARNING` |
-| `api.eval_gate_enabled` | `false` | `true` |
+| `vector_store.collection_name` | `habitantes_qa_chat_kb` | `habitantes_qa_chat_kb` |
 
 To add more per-environment overrides, edit the `environments:` block in [config/base.yaml](config/base.yaml).
 
@@ -92,9 +112,13 @@ Ingestion is **offline only** — never runs at query time. It parses raw WhatsA
 
 ### Step 1 — Place the raw data
 
+The pipeline reads whatever filename is configured in `config/base.yaml`'s `ingestion.input_file` (currently `chat-21022026-18072026.txt`):
+
 ```
-data/chat-19012021-20022026.txt   ← WhatsApp export file
+data/chat-21022026-18072026.txt   ← WhatsApp export file
 ```
+
+Update `ingestion.input_file` in `config/base.yaml` if you're loading a different export.
 
 ### Step 2 — Full pipeline (parse → synthesize → load)
 
@@ -133,43 +157,51 @@ make ingest          # full pipeline
 make load-only       # re-index existing artifacts
 
 # 3. Start the API
-make run-api         # FastAPI on http://localhost:8000
+make run-api          # FastAPI on http://localhost:8000 (local run — Docker Compose publishes it on host :8001, see below)
 
 # 4. Start the Telegram bot
 make run-bot
 ```
+
+Note the port difference: `make run-api` (bare `uvicorn`, no Docker) binds `:8000` directly. Under `docker compose up`, the `api` service is published as `127.0.0.1:8001:8000` on the host (container-internal port stays `8000` — Telegram, `cloudflared`, and everything on the compose network still address it as `http://api:8000`). See `docker-compose.yml`'s `api.ports`.
+
+WhatsApp isn't part of this local workflow — its webhook needs a real public HTTPS endpoint (Meta cannot reach `localhost`), so it's only exercised via `docker compose up` with `cloudflared` running. See [docs/WHATSAPP_CLOUD_SETUP.md](docs/WHATSAPP_CLOUD_SETUP.md).
 
 ---
 
 ## Quality
 
 ```bash
-make test            # Run pytest suite
-make lint-format     # Run pre-commit hooks (black, isort, flake8)
-make eval            # Run RAG evaluation pipeline
-make setup-hooks     # Install pre-commit hooks (first time only)
+make test            # Run pytest suite (tests/unit + api/tests)
+make lint-format      # Run pre-commit hooks (ruff, ruff-format, + basic hygiene hooks)
+make eval             # Run the RAG evaluation pipeline (tests/eval/run_eval.py)
+make setup-hooks      # Install pre-commit hooks (first time only)
 ```
 
-The eval gate (`python tests/eval/run_eval.py`) must pass before any merge.
+CI (`.github/workflows/ci.yml`) runs `pre-commit` and the **unit test suite only** (`pytest tests/unit api/tests`) on every push/PR. The eval gate (`make eval` — real OpenAI embeddings + LLM judge over the KB fixture) is **not** run in CI — it needs live API credits and re-embeds the whole KB, so it's a manual/pre-release step: run it locally or on the VPS before shipping a change that could affect retrieval or answer quality.
 
 ---
 
 ## Project structure
 
 ```
-├── api/                     # FastAPI backend + domain logic
+├── api/                       # FastAPI backend + domain logic
 │   └── src/habitantes/
-│       ├── domain/          # Agent, nodes, tools, prompts
-│       ├── infrastructure/  # API routes, DB clients
-│       └── config.py        # Pydantic Settings loader
-├── app/                     # Telegram bot client
+│       ├── domain/             # Agent loop, prompts, tools (search, web_search, embedding)
+│       ├── infrastructure/     # API routers, WhatsApp Cloud API client, control store, alerts
+│       └── config.py           # Pydantic Settings loader
+├── app/
+│   ├── telegram_bot.py         # Telegram bot process (long-polling)
+│   └── admin/                  # Control Center static dashboard (served at /admin/ui)
 ├── config/
-│   └── base.yaml            # All tuning constants + env overrides
-├── ingestion/               # Offline ETL pipeline
-├── data/                    # Raw WhatsApp exports (gitignored)
-├── artifacts/               # Ingestion outputs (gitignored)
-├── infra/                   # Qdrant storage volume
-└── tests/                   # Unit, integration, eval suites
+│   └── base.yaml                # All tuning constants + env overrides
+├── ingestion/                   # Offline ETL pipeline (parse → synthesize → load)
+├── data/                        # Raw WhatsApp exports (gitignored)
+├── artifacts/                   # Ingestion outputs + Control Center SQLite db (gitignored)
+├── infra/                       # Qdrant storage volume
+├── docs/                        # Architecture, WhatsApp setup runbook, legal/privacy notes
+├── .github/workflows/           # CI (lint + unit tests)
+└── tests/                       # unit / integration / eval suites
 ```
 
 ---
@@ -194,7 +226,8 @@ apt-get install -y docker-compose-plugin
 ### 3. Secure the server
 
 ```bash
-# Firewall — only allow SSH (no need to open 8000 or 6333)
+# Firewall — only allow SSH (no need to open 8000/8001 or 6333; cloudflared
+# dials out to Cloudflare's edge, so no inbound port needs opening for it either)
 ufw default deny incoming
 ufw allow ssh
 ufw enable
@@ -213,7 +246,7 @@ source $HOME/.cargo/env   # or start a new shell
 git clone https://github.com/jooaobrum/habitantes-grenoble-agent.git
 cd habitantes-grenoble-agent
 cp .env.example .env
-nano .env          # fill OPENROUTER_API_KEY, OPENAI_API_KEY and TELEGRAM_BOT_TOKEN
+nano .env          # fill OPENROUTER_API_KEY, OPENAI_API_KEY, ADMIN_TOKEN, TELEGRAM_BOT_TOKEN
 chmod 600 .env
 ```
 
@@ -253,7 +286,11 @@ Alternatively, if you want to reuse vectors already stored in Qdrant from a prev
 scp -r ./infra/qdrant_storage root@<your-vps-ip>:/root/habitantes-grenoble-agent/infra/
 ```
 
-### 8. Start the services
+### 8. (Optional) Set up the WhatsApp Cloud API channel
+
+If you want the WhatsApp channel live (not just Telegram), fill in the `WHATSAPP_*` and `CLOUDFLARE_TUNNEL_TOKEN` variables in `.env` — the channel is entirely optional and disables itself cleanly when unset (no crash). The manual steps in Meta's dashboards (finding the Phone Number ID / WABA ID, generating a permanent token, and — critically — subscribing the app to the WABA's webhook events, which is a separate step from just setting the Callback URL) are documented in [docs/WHATSAPP_CLOUD_SETUP.md](docs/WHATSAPP_CLOUD_SETUP.md).
+
+### 9. Start the services
 
 ```bash
 make up ENV=prod
@@ -261,14 +298,14 @@ make up ENV=prod
 APP_ENV=prod docker compose up -d --build
 ```
 
-### 9. Verify everything is running
+### 10. Verify everything is running
 
 ```bash
 docker compose ps
 docker compose logs -f
 ```
 
-All three containers (`qdrant`, `api`, `telegram-bot`) should be healthy. The Telegram bot uses long-polling — no domain or reverse proxy needed.
+Four services should be healthy: `qdrant`, `api`, `telegram-bot`, and `cloudflared` (`docker-compose.yml`). The Telegram bot uses long-polling — no domain or reverse proxy needed for it. `cloudflared` exists solely to expose `/webhooks/whatsapp` publicly for Meta; if you're not using the WhatsApp channel you can leave `CLOUDFLARE_TUNNEL_TOKEN` unset, but the container will still start (and idle) since `docker-compose.yml` doesn't gate it on that variable.
 
 ### Updating the deployment
 
@@ -281,11 +318,50 @@ APP_ENV=prod docker compose up -d --build
 
 ## Environment variables reference
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `OPENROUTER_API_KEY` | Yes | — | OpenRouter API key — powers all chat/completions (agent, ingestion synthesis, eval judge) |
-| `OPENAI_API_KEY` | Yes | — | OpenAI API key — embeddings only (`text-embedding-3-small`); OpenRouter has no embeddings endpoint |
-| `TELEGRAM_BOT_TOKEN` | Yes | — | Telegram bot token from @BotFather |
-| `APP_ENV` | No | `dev` | Environment selector (`dev` or `prod`) |
-| `QDRANT_URL` | No | `http://qdrant:6333` | Override Qdrant URL |
-| `MODEL_NAME` | No | `google/gemini-2.5-flash-lite` | Override LLM model (OpenRouter `provider/model` id) |
+Required/optional as read by `config.py`'s `load_settings()`, plus the small set of vars consumed directly by `docker-compose.yml` or the ingestion scripts (not through `config.py`).
+
+### Secrets — required for the API to start
+
+| Variable | Description |
+|---|---|
+| `OPENROUTER_API_KEY` | Powers all chat/completions (agent, ingestion synthesis, eval judge) |
+| `OPENAI_API_KEY` | Embeddings only (`text-embedding-3-small`); OpenRouter has no embeddings endpoint |
+| `ADMIN_TOKEN` | Shared secret for the Control Center's `/admin/*` routes (dashboard + Telegram bot heartbeat) |
+
+### Secrets — required for a specific process/channel, optional for the API itself
+
+| Variable | Description |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | From @BotFather. Defaults to `""` in config (API starts fine without it), but `app/telegram_bot.py` calls `sys.exit(1)` immediately if unset |
+| `TAVILY_API_KEY` | Enables the Grenoble-scoped web search tool. Missing = web search silently disabled, KB-only behavior, no error surfaced |
+| `WHATSAPP_BUSINESS_TOKEN` | Permanent System User access token for the WhatsApp Cloud API (Graph API) |
+| `WHATSAPP_PHONE_NUMBER_ID` | The WhatsApp Business phone number's ID |
+| `WHATSAPP_WABA_ID` | WhatsApp Business Account ID |
+| `WHATSAPP_APP_SECRET` | Verifies the `X-Hub-Signature-256` header on inbound webhook calls |
+| `WHATSAPP_VERIFY_TOKEN` | Self-chosen value echoed back by Meta on the webhook GET handshake |
+| `WHATSAPP_ID_SALT` | Salts the `chat_id = sha256(salt + wa_id)` hash. **Never rotate** — see [docs/WHATSAPP_CLOUD_SETUP.md](docs/WHATSAPP_CLOUD_SETUP.md) |
+| `CLOUDFLARE_TUNNEL_TOKEN` | Not read by the Python app — consumed directly by the `cloudflared` container in `docker-compose.yml` to expose the webhook publicly |
+| `EMAIL_TO` / `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_FROM` / `SMTP_PASSWORD` | Control Center alert email. Leave unset to disable email sending (alerts still log + trip the kill switch — fail-safe by design) |
+
+The WhatsApp Cloud API channel as a whole (`WhatsAppCloudConfig.enabled`) only turns on once `WHATSAPP_BUSINESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, and `WHATSAPP_ID_SALT` are **all** set — `WHATSAPP_WABA_ID` is not required for messaging itself, only for number/template management calls.
+
+### Docker-only — required for a working container deployment
+
+| Variable | Description |
+|---|---|
+| `CONFIG_DIR` | Set to `/app/config` by `docker-compose.yml`'s `api` service — overrides where `load_settings()` looks for `base.yaml` |
+| `CONTROL_DB_PATH` | Set to `/app/artifacts/control/control.db` by `docker-compose.yml`. **Do not lose this** — without it the Control Center's SQLite path resolves outside the mounted `./artifacts` volume, wiping the kill switch/thresholds/alert history on every rebuild (see the comment in `docker-compose.yml` and `infrastructure/control_store.py`) |
+
+### Other optional overrides (env wins over `config/base.yaml`)
+
+| Variable | Default | Description |
+|---|---|---|
+| `APP_ENV` | `dev` | Environment selector (`dev` or `prod`) |
+| `QDRANT_URL` | `http://qdrant:6333` | Override Qdrant URL. Forced back to `http://qdrant:6333` inside `docker-compose.yml`'s `api` service regardless of `.env`, so this override is mainly for running the API outside Docker against a different Qdrant |
+| `COLLECTION_NAME` | `habitantes_qa_chat_kb` (per `config/base.yaml`'s `environments:` block) | Qdrant collection name |
+| `MODEL_NAME` | `google/gemini-2.5-flash-lite` | Override the chat LLM (OpenRouter `provider/model` id) |
+| `EMBEDDING_MODEL_NAME` | `text-embedding-3-small` | Override the OpenAI embedding model |
+| `LOG_LEVEL` | `DEBUG`/`WARNING` (per env) | Override `api.log_level` |
+| `RATE_LIMIT_PER_HOUR` | `100` | Override `api.rate_limit_per_hour` |
+| `API_URL` | `http://api:8000` | Override the Telegram bot's target API URL |
+| `QDRANT_API_KEY` | unset | **Not read by the running API** — only by the standalone ingestion scripts (`ingestion/load/qdrant.py`, `ingestion/erase.py`) that talk to Qdrant directly |

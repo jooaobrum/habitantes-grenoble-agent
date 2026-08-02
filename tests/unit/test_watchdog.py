@@ -52,9 +52,10 @@ def test_snapshot_always_written_and_no_alert_under_limits(monkeypatch, db_path)
 
     watchdog.run_watchdog_cycle(db_path)
 
-    # (a) snapshot always written — one row per probed service. whatsapp_bot is
-    # absent: it's not in alerts.heartbeat_services (config/base.yaml) since the
-    # Baileys channel was parked in favor of the in-process Cloud API webhook.
+    # (a) snapshot always written — one row per probed service. Only services
+    # listed in alerts.heartbeat_services (config/base.yaml) get a heartbeat
+    # probe; the WhatsApp channel needs none since its webhook runs in-process
+    # with the API rather than as a separate poll loop.
     snapshots = {r["service"]: r for r in cs.read_health_snapshot(db_path)}
     assert set(snapshots) == {
         "qdrant",
@@ -129,12 +130,12 @@ def test_health_breach_disables_switch_after_grace(monkeypatch, db_path):
     assert email.call_count == 1
 
 
-def test_stale_whatsapp_bot_heartbeat_does_not_trip_switch(monkeypatch, db_path):
-    """Regression guard: with `whatsapp_bot` removed from alerts.heartbeat_services
-    (config/base.yaml), a missing/stale heartbeat for it must never reach
-    evaluate_thresholds — otherwise stopping the parked Baileys container would
-    silently disable the whole bot (including the unrelated Telegram channel)
-    within a few watchdog cycles.
+def test_unlisted_service_heartbeat_does_not_trip_switch(monkeypatch, db_path):
+    """Regression guard: a service whose heartbeat is stale but which is NOT
+    listed in alerts.heartbeat_services (config/base.yaml) must never have
+    that heartbeat reach evaluate_thresholds — otherwise a stopped/unrelated
+    service could silently disable the whole bot (including the unaffected
+    Telegram channel) within a few watchdog cycles.
     """
     ok = {"status": "ok", "latency_ms": 1.0, "detail": None}
     monkeypatch.setattr(health_checks, "check_qdrant", lambda: dict(ok))

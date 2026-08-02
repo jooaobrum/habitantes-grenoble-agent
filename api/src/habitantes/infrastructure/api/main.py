@@ -56,8 +56,9 @@ async def _cleanup_rate_limits():
 
 
 # Initialize logging
+_log_level = getattr(logging, load_settings().api.log_level.upper(), logging.INFO)
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=_log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
