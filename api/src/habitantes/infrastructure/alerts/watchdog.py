@@ -41,8 +41,8 @@ def run_watchdog_cycle(db_path=control_store.DEFAULT_DB_PATH) -> None:
         "openai": health_checks.check_openai_embeddings(),
     }
     # Heartbeat-based channels are config-driven (alerts.heartbeat_services) rather
-    # than hardcoded, so a parked channel bot (e.g. Baileys) can be stopped without
-    # its stale heartbeat tripping the kill switch for the whole system.
+    # than hardcoded, so a service not listed there can go stale (or be stopped
+    # entirely) without its heartbeat tripping the kill switch for the whole system.
     for service in load_settings().alerts.heartbeat_services:
         probes[service] = health_checks.check_heartbeat(service, control_store)
     prior = {row["service"]: row for row in control_store.read_health_snapshot(db_path)}

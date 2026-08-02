@@ -1,12 +1,12 @@
 """Background message pipeline for the WhatsApp Cloud API webhook.
 
-Ported from the Baileys adapter's `app/whatsapp_bot/src/handlers.ts` (kept in
-place, untouched). This is the channel's translation layer: inbound webhook
-event -> guards -> agent turn -> reply. It holds NO agent logic itself (that
-lives behind `run_chat_turn`, shared with the Telegram/HTTP channel) — it only
-decides *whether* and *how* to relay.
+Originally ported from the pre-migration WhatsApp adapter's handler logic.
+This is the channel's translation layer: inbound webhook event -> guards ->
+agent turn -> reply. It holds NO agent logic itself (that lives behind
+`run_chat_turn`, shared with the Telegram/HTTP channel) — it only decides
+*whether* and *how* to relay.
 
-Unlike the Node adapter, which calls the agent over HTTP (`api.ts`), this runs
+Unlike the pre-migration adapter, which called the agent over HTTP, this runs
 *inside* the same FastAPI process as the agent — so `run_chat_turn` and
 `reset_agent_memory` are called directly, no self-HTTP round trip.
 
@@ -37,8 +37,9 @@ from habitantes.infrastructure.whatsapp.guards import (
 
 logger = logging.getLogger(__name__)
 
-# Portuguese user-facing copy — kept identical to handlers.ts's COPY (and, by
-# extension, to the Telegram channel's copy for the shared strings).
+# Portuguese user-facing copy — kept identical to the pre-migration adapter's
+# copy (and, by extension, to the Telegram channel's copy for the shared
+# strings).
 COPY = {
     "oversize": lambda max_length: (
         f"⚠️ Sua mensagem é muito longa (máximo {max_length} caracteres). "
@@ -48,22 +49,22 @@ COPY = {
         "⏳ Você enviou muitas mensagens em pouco tempo. "
         "Por favor, aguarde um minuto antes de perguntar novamente."
     ),
-    # handlers.ts also has a distinct `apiError` for a failed HTTP call to a
-    # separate API process. Not applicable here — the webhook runs in-process,
-    # so an agent-turn failure is an unexpected exception, not a network error,
-    # and collapses into tech_error below.
+    # The pre-migration adapter also had a distinct `apiError` for a failed
+    # HTTP call to a separate API process. Not applicable here — the webhook
+    # runs in-process, so an agent-turn failure is an unexpected exception,
+    # not a network error, and collapses into tech_error below.
     "tech_error": "Ocorreu um erro técnico. Estamos trabalhando para resolver!",
     "gratitude": "De nada! 😊",
     "reset": "🔄 Prontinho! Comecei uma conversa nova — pode perguntar o que quiser. 😊",
     "feedback_ack": "Obrigado pelo seu feedback! 🙏",
 }
 
-# Emoji reactions that map to a rating on a bot answer (mirrors handlers.ts).
+# Emoji reactions that map to a rating on a bot answer.
 UP_EMOJI = {"👍", "👍🏻", "👍🏼", "👍🏽", "👍🏾", "👍🏿", "❤️", "❤", "🙏", "🥰", "😍"}
 DOWN_EMOJI = {"👎", "👎🏻", "👎🏼", "👎🏽", "👎🏾", "👎🏿"}
 
-# Bound the feedback-correlation maps the same way handlers.ts / index.ts do
-# (only clear once oversized — correlation only matters short-term).
+# Bound the feedback-correlation maps (only clear once oversized —
+# correlation only matters short-term).
 _FEEDBACK_MAP_MAX_SIZE = 5000
 
 
@@ -71,10 +72,9 @@ _FEEDBACK_MAP_MAX_SIZE = 5000
 class _ChannelState:
     """Process-lived, connection-independent state for the Cloud API channel.
 
-    Mirrors `HandlerDeps` in the Baileys adapter's `index.ts`: one instance for
-    the process lifetime, cleaned up periodically by the API's existing hourly
-    cleanup task (see `main.py`'s `_cleanup_rate_limits`) rather than a second
-    timer.
+    One instance for the process lifetime, cleaned up periodically by the
+    API's existing hourly cleanup task (see `main.py`'s
+    `_cleanup_rate_limits`) rather than a second timer.
     """
 
     dedup: DedupSet = field(default_factory=DedupSet)

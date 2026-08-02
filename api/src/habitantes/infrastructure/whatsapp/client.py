@@ -55,7 +55,8 @@ def send_text(wa_id: str, body: str, cfg: WhatsAppCloudConfig) -> str | None:
 def mark_read_and_typing(message_id: str, cfg: WhatsAppCloudConfig) -> bool:
     """Mark an inbound message as read and show the typing indicator. The
     indicator auto-clears when the reply lands or after 25s — there is no
-    separate "stop typing" call to make (unlike Baileys' presence updates).
+    separate "stop typing" call to make (unlike a presence-update-based
+    adapter, which must explicitly clear the indicator).
     Best-effort: failure here should never block answering the user.
     """
     payload = {

@@ -1,9 +1,9 @@
 """Pure guard/utility functions for the WhatsApp Cloud API channel.
 
-Ported from the Baileys adapter's `app/whatsapp_bot/src/guards.ts` (kept in
-place, untouched — see docker-compose.yml's `whatsapp-bot` service). Every
-function here is side-effect-free except the two small in-memory state
-classes (`RateLimiter`, `DedupSet`), which mirror their TS counterparts.
+Originally ported from the pre-migration WhatsApp adapter's guard logic;
+kept for chat_id continuity with users who joined before the migration to
+the official Cloud API. Every function here is side-effect-free except the
+two small in-memory state classes (`RateLimiter`, `DedupSet`).
 
 Not ported: `isDirectMessage` / the DM-only firewall. The Cloud API only ever
 delivers 1:1 business-number traffic — groups cannot reach a WhatsApp Business
@@ -20,9 +20,9 @@ from typing import Awaitable, Callable, TypeVar
 T = TypeVar("T")
 
 # ASCII punctuation ranges to collapse to whitespace during normalization:
-# !-/  :-@  [-`  {-~   (mirrors guards.ts's `[!-/:-@[-\`{-~]+`). Deliberately
-# excludes digits/letters and leaves non-ASCII (accented letters after
-# stripping, emoji) untouched.
+# !-/  :-@  [-`  {-~   (matches the pre-migration adapter's
+# `[!-/:-@[-\`{-~]+`). Deliberately excludes digits/letters and leaves
+# non-ASCII (accented letters after stripping, emoji) untouched.
 _ASCII_PUNCT_RE = re.compile(r"[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]+")
 _WHITESPACE_RE = re.compile(r"\s+")
 
@@ -32,10 +32,10 @@ def hash_wa_id(wa_id: str, salt: str, hash_length: int) -> str:
 
     `sha256(salt + wa_id)`, hex, truncated to `hash_length`. `wa_id` (as
     delivered by Meta's webhook, e.g. "553199999999") is already the bare
-    digits Baileys' `hashJid` derived via `phoneNumberPart(jid)` — so no
-    stripping step is needed here. Using the same salt as the Baileys channel
+    digits the pre-migration adapter derived from the JID — so no stripping
+    step is needed here. Using the same salt across the migration
     (WHATSAPP_ID_SALT) means a returning user resolves to the same `chat_id`
-    across the migration.
+    they had before the migration.
     """
     digest = sha256((salt + wa_id).encode("utf-8")).hexdigest()
     return digest[:hash_length]
@@ -135,7 +135,7 @@ class DedupSet:
 
     Meta retries webhook delivery on anything but a fast 200, so this makes
     processing idempotent. Kept as a class (not a bare set) so the periodic
-    cleanup task can `clear()` it, mirroring the Baileys adapter's `DedupSet`.
+    cleanup task can `clear()` it.
     """
 
     def __init__(self) -> None:
@@ -157,15 +157,15 @@ class DedupSet:
 class KeyedLock:
     """Per-key serial lock so one wa_id is processed one message at a time.
 
-    Port of `guards.ts`'s `KeyedLock`. Guards against a real race: two rapid
-    messages from the same user can arrive as two separate webhook POSTs,
-    each scheduled as an independent `BackgroundTasks` job, which can then
-    interleave on the event loop and corrupt the per-`chat_id` agent memory
-    dict (`domain/agent.py`'s `_memory`) if processed concurrently.
+    Guards against a real race: two rapid messages from the same user can
+    arrive as two separate webhook POSTs, each scheduled as an independent
+    `BackgroundTasks` job, which can then interleave on the event loop and
+    corrupt the per-`chat_id` agent memory dict (`domain/agent.py`'s
+    `_memory`) if processed concurrently.
 
-    Unlike the TS version (which drops a key's lock once idle to bound a
-    Map), this keeps one `asyncio.Lock` per key for the process lifetime —
-    acceptable at this project's scale (~100 users, see docs/OVERVIEW.md).
+    Keeps one `asyncio.Lock` per key for the process lifetime (rather than
+    dropping a key's lock once idle) — acceptable at this project's scale
+    (~100 users, see docs/OVERVIEW.md).
     """
 
     def __init__(self) -> None:

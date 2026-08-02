@@ -1,10 +1,11 @@
 """Unit tests for infrastructure/whatsapp/guards.py.
 
-Cases are ported 1:1 from the Baileys adapter's
-`app/whatsapp_bot/src/guards.test.ts` so both channels are held to the same
-behavioral contract. `TestHashParity` additionally locks in the property the
-migration depends on: a returning user must resolve to the same `chat_id`
-under the Cloud API as they did under Baileys.
+Cases are ported 1:1 from the pre-migration WhatsApp adapter's own guard
+tests, frozen here as a hash-continuity contract rather than a live
+cross-check against running code (that adapter no longer exists in this
+repo). `TestHashParityWithPreMigrationChannel` additionally locks in the
+property the migration depended on: a returning user must resolve to the
+same `chat_id` under the Cloud API as they did before the migration.
 """
 
 import asyncio
@@ -42,22 +43,27 @@ class TestHashWaId(unittest.TestCase):
         self.assertNotIn(PHONE, hash_wa_id(PHONE, "salt", 16))
 
 
-class TestHashParityWithBaileys(unittest.TestCase):
-    """The migration's identity-continuity guarantee: Baileys' `hashJid`
-    computed `sha256(salt + phoneNumberPart(jid))` where `phoneNumberPart`
-    strips everything from the first `:`/`.`/`@` onward — i.e. exactly the
-    bare digits Meta's Cloud API delivers as `wa_id`. Same salt, same bare
-    digits in, must produce the same `chat_id` out, or every existing user's
-    conversation memory and feedback history breaks on migration.
+class TestHashParityWithPreMigrationChannel(unittest.TestCase):
+    """The migration's identity-continuity guarantee: the pre-migration
+    adapter's `hashJid` computed `sha256(salt + phoneNumberPart(jid))` where
+    `phoneNumberPart` strips everything from the first `:`/`.`/`@` onward —
+    i.e. exactly the bare digits Meta's Cloud API delivers as `wa_id`. Same
+    salt, same bare digits in, must produce the same `chat_id` out, or every
+    existing user's conversation memory and feedback history breaks on
+    migration. This is a frozen contract, not a live cross-check — the
+    original adapter no longer exists in this repo.
     """
 
-    def test_matches_baileys_hashjid_for_the_bare_digit_wa_id(self):
-        def ts_style_hash_jid(jid_phone_part: str, salt: str, length: int) -> str:
+    def test_matches_pre_migration_hashjid_for_the_bare_digit_wa_id(self):
+        def pre_migration_style_hash_jid(
+            jid_phone_part: str, salt: str, length: int
+        ) -> str:
             return sha256((salt + jid_phone_part).encode()).hexdigest()[:length]
 
         salt = "some-long-random-salt"
         self.assertEqual(
-            hash_wa_id(PHONE, salt, 16), ts_style_hash_jid(PHONE, salt, 16)
+            hash_wa_id(PHONE, salt, 16),
+            pre_migration_style_hash_jid(PHONE, salt, 16),
         )
 
 

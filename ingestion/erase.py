@@ -168,8 +168,9 @@ def purge_logs_by_chat_id(
     filepath: Path, chat_ids: Iterable[str], dry_run: bool = True
 ) -> int:
     """chat_id in these logs is already a salted hash (see
-    app/whatsapp_bot/src/guards.ts), so this is a plain line filter — no
-    identity reversal needed, the caller supplies the exact hash(es)."""
+    api/src/habitantes/infrastructure/whatsapp/guards.py), so this is a plain
+    line filter — no identity reversal needed, the caller supplies the exact
+    hash(es)."""
     if not filepath.exists():
         return 0
 

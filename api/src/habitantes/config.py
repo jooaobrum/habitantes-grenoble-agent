@@ -70,8 +70,8 @@ class WhatsAppCloudConfig(BaseModel):
     waba_id: str = Field(default="", alias="WHATSAPP_WABA_ID")
     app_secret: str = Field(default="", alias="WHATSAPP_APP_SECRET")
     verify_token: str = Field(default="", alias="WHATSAPP_VERIFY_TOKEN")
-    # Shared with the parked Baileys `whatsapp:` config on purpose — see
-    # config/base.yaml's whatsapp_cloud comment for why chat_ids stay stable.
+    # Must never be rotated — see config/base.yaml's whatsapp_cloud comment
+    # for why chat_ids need to stay stable.
     id_salt: str = Field(default="", alias="WHATSAPP_ID_SALT")
     rate_limit_per_minute: int = 5
     max_message_length: int = 2000

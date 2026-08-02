@@ -41,7 +41,8 @@ BOT_TOKEN = settings.telegram.bot_token
 ADMIN_TOKEN = settings.admin.token
 HEARTBEAT_INTERVAL_SECONDS = 30
 
-# Kept identical to the WhatsApp channel's COPY.reset (app/whatsapp_bot/src/handlers.ts).
+# Kept identical to the WhatsApp Cloud API channel's COPY["reset"]
+# (api/src/habitantes/infrastructure/whatsapp/processor.py).
 RESET_CONFIRMATION = (
     "🔄 Prontinho! Comecei uma conversa nova — pode perguntar o que quiser. 😊"
 )
