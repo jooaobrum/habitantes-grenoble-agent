@@ -52,11 +52,13 @@ def should_drop(rec: Dict[str, Any]) -> Tuple[bool, List[str]]:
     if value in ("LOW", "UNKNOWN"):
         reasons.append(f'value="{value}"')
 
-    # Jev's needs_review is the primary signal; the synthesis LLM's flag is
-    # only consulted when Jev gave no verdict (fallback / call failure).
+    # Drop only when both reviewers agree the pair needs review: Jev's
+    # needs_review and the synthesis LLM's needs_human_review. If only one gave
+    # a verdict (Jev failed/fell back, or the LLM flag is absent), that one decides.
     jev_review = rec.get("jev_needs_review")
-    review = jev_review if jev_review is not None else rec.get("needs_human_review")
-    if review is True:
+    llm_review = rec.get("needs_human_review")
+    verdicts = [v for v in (jev_review, llm_review) if v is not None]
+    if verdicts and all(v is True for v in verdicts):
         reasons.append("needs_human_review=true")
 
     tags = rec.get("tags", [])
