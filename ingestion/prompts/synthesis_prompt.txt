@@ -21,46 +21,12 @@ Your tasks:
 3) CONFIRMATION
 - Set answer_confirmed = true if confirmed==true OR if the asker explicitly says it worked (e.g., "funcionou", "deu certo", "valeu", "obrigado").
 
-4) CATEGORY (TOPIC)
-- FIRST: Read the question and answer carefully. Identify what the person is actually asking about.
-- THEN: Check if the provided topic field matches. A topic is WRONG if the question content
-  has NO meaningful connection to it — even if a keyword accidentally triggered it.
-- If the topic is WRONG or WEAK, you MUST overwrite it. Do not preserve a wrong label.
-- Use this decision logic:
-
-  Step 1 — Does the question clearly belong to the provided topic?
-            If YES → keep it.
-            If NO or UNCERTAIN → go to Step 2.
-
-  Step 2 — Match the question to ONE of the categories below.
-            If a clear match exists → use it.
-            If no category fits well → use "General".[
-  "Visa & Residency",
-  "Banking & Finance",
-  "Housing & CAF",
-  "Health & Insurance",
-  "University & Studies",
-  "Work & Internship",
-  "Documents & Bureaucracy",
-  "Daily Life & Services",
-  "Travel & Transport",
-  "Integration & Language",
-  "Ski & Trekking",
-  "Food & Restaurants",
-  "Sports & Activities",
-  "Nightlife & Events",
-  "Neighbourhood & Safety",
-  "Marketplace & Buy/Sell",
-  "Hair & Beauty",
-  "Pets & Animals",
-  "Phone & Telecom",
-  "General"
-]
-- If NONE fits, use "General".
-
+4) CATEGORY (PRE-DECIDED)
+- The `topic` field was already decided by an upstream classifier. Treat it as the fixed category.
+- Do NOT re-decide, rename or output a category.
 
 5) SUBCATEGORY
-- Assign ONE subcategory label that best matches the content.
+- Assign ONE subcategory label that best matches the content, choosing from the map of the record's `topic` (its fixed category).
 - Use the subcategory map described below (same wording when possible).
 - If none fits, use "Other".
 
@@ -221,27 +187,15 @@ Phone & Telecom:
 - tags: 5–12 short tags (PT-BR), include Grenoble, key institutions (CPAM/CAF/OFII/ANEF/Préfecture), and topic hints.
 - key_terms: extract important French terms/proper nouns exactly as written (e.g., "récépissé", "titre de séjour", "Ameli", "Doctolib", "service-public.fr").
 
-7) OUTDATED FLAG
-Set info_might_be_outdated=true if any are present:
-- COVID rules, PCR/test/pass sanitaire, confinement, attestation de déplacement
-- instructions tied to a specific time-limited rule (“em 2021…”, “na época…”)
-- old URLs or broken links suspicion
-Otherwise false.
-
-8) CONFIDENCE & HUMAN REVIEW
+7) CONFIDENCE & REVIEW (fallback flags; an upstream classifier has the final say)
+- info_might_be_outdated=true only for clear time-limited info (COVID rules, "em 2021…", old links).
 - confidence: 0.0–1.0 based on clarity, agreement, specificity, and evidence.
-- needs_human_review=true if:
-  - tier is low OR score < 25
-  - conflicting answers without resolution
-  - legal/visa/tax guidance is ambiguous
-  - info_might_be_outdated=true AND no official link is provided
-  - the “question” is unclear even after using context
+- needs_human_review=true if answers conflict unresolved, legal/visa/tax guidance is ambiguous, or the question is unclear.
 
 Return ONLY valid JSON (no markdown, no extra text):
 {{
   "thread_id": "...",
   "thread_start": "...",
-  "category": "...",
   "subcategory": "...",
   "question": "...",
   "answer": "...",

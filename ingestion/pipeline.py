@@ -58,6 +58,11 @@ def cleanup_expired_artifacts(
                     f.unlink()
 
 
+def select_for_synthesis(all_qa: list[dict]) -> list[dict]:
+    """Keep only pairs Jev (or its heuristic fallback) rated HIGH/MEDIUM."""
+    return [qa for qa in all_qa if qa.get("value") in ("HIGH", "MEDIUM")]
+
+
 async def run_pipeline():
     """
     Run the full ingestion pipeline:
@@ -92,7 +97,7 @@ async def run_pipeline():
 
     # 2. Preprocessing (QA Pairs)
     logger.info("── Step 2: QA Pairing ───────────────────")
-    qa_path = run_qa_builder(
+    qa_path = await run_qa_builder(
         input_csv=classified_path,
         output_dir=chat_artifacts_dir,
         thread_gap_h=settings.qa.thread_gap_h,
@@ -100,17 +105,18 @@ async def run_pipeline():
         context_window=settings.qa.context_window,
         tier_high=settings.qa.tier_high,
         tier_medium=settings.qa.tier_medium,
+        jev=settings.jev,
     )
 
-    # 3. Synthesis (Only high/medium tiers)
+    # 3. Synthesis (Only HIGH/MEDIUM value)
     logger.info("── Step 3: Synthesis ────────────────────")
     import json
 
     with qa_path.open("r", encoding="utf-8") as f:
         all_qa = json.load(f)
 
-    # Filter by tier and optional date
-    to_synthesize = [qa for qa in all_qa if qa.get("tier") in ("high", "medium")]
+    # Filter by Jev value and optional date
+    to_synthesize = select_for_synthesis(all_qa)
 
     if settings.synthesis.start_time:
         st = settings.synthesis.start_time

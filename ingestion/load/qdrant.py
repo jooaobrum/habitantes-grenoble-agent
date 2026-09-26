@@ -48,10 +48,15 @@ def should_drop(rec: Dict[str, Any]) -> Tuple[bool, List[str]]:
     if conf < 0.65:
         reasons.append("confidence<0.65")
 
-    if str(rec.get("tier", "")).strip().lower() == "low":
-        reasons.append('tier="low"')
+    value = str(rec.get("value", "")).strip().upper()
+    if value in ("LOW", "UNKNOWN"):
+        reasons.append(f'value="{value}"')
 
-    if rec.get("needs_human_review") is True:
+    # Jev's needs_review is the primary signal; the synthesis LLM's flag is
+    # only consulted when Jev gave no verdict (fallback / call failure).
+    jev_review = rec.get("jev_needs_review")
+    review = jev_review if jev_review is not None else rec.get("needs_human_review")
+    if review is True:
         reasons.append("needs_human_review=true")
 
     tags = rec.get("tags", [])
@@ -162,6 +167,8 @@ _PAYLOAD_FIELDS = (
     "thread_start",
     "question_time",
     "tier",
+    "value",
+    "value_source",
     "confidence",
 )
 
