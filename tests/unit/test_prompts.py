@@ -125,3 +125,46 @@ class TestSynthesisPrompt:
         """
         assert "identidade de um" in REACT_SYSTEM_PROMPT
         assert "participante" in REACT_SYSTEM_PROMPT
+
+
+def test_intent_messages_only_use_last_three_history_messages():
+    history = [{"role": "user", "content": f"m{i}"} for i in range(5)]
+
+    messages = build_intent_messages("E o revolut?", history=history)
+
+    contents = [m["content"] for m in messages[1:]]
+    assert contents == ["m2", "m3", "m4", "E o revolut?"]
+
+
+def test_tells_user_to_search_web_detection():
+    from habitantes.domain.agent import _tells_user_to_search_web
+
+    assert _tells_user_to_search_web("Sugiro que você faça uma busca na web por X")
+    assert _tells_user_to_search_web("recomendo pesquisar na internet")
+    # a claimed search with no tool call behind it is also flagged
+    assert _tells_user_to_search_web("Isso não está na base, mas pesquisei na web:")
+    assert not _tells_user_to_search_web("A comunidade recomenda a Doctolib.")
+
+
+def test_today_context_has_weekday_and_date():
+    from habitantes.domain.agent import _today_context
+
+    text = _today_context()
+
+    assert "DATA DE HOJE" in text
+    assert "Europe/Paris" in text
+
+
+def test_admits_kb_gap_detection():
+    from habitantes.domain.agent import _admits_kb_gap
+
+    assert _admits_kb_gap("Não encontrei informações sobre outros restaurantes.")
+    assert _admits_kb_gap("Não há indicações específicas de dentistas.")
+    assert not _admits_kb_gap("A comunidade recomenda o Natal e o Snack Brasil.")
+
+
+def test_kb_first_message_is_an_explicit_next_step():
+    from habitantes.domain.agent import _KB_FIRST_MESSAGE
+
+    assert "search_knowledge_base" in _KB_FIRST_MESSAGE
+    assert "antes de usar a web" in _KB_FIRST_MESSAGE

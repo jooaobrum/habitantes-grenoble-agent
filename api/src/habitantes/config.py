@@ -131,7 +131,7 @@ class RankingConfig(BaseModel):
 
 
 class AgentConfig(BaseModel):
-    max_react_iterations: int = 5
+    max_react_iterations: int = 8
     max_history: int = 5
     temperature: float = 0.0
 

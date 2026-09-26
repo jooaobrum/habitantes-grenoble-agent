@@ -54,6 +54,9 @@ def _classify_qdrant_error(exc: Exception) -> str:
 # ── Public tool function ──────────────────────────────────────────────────────
 
 
+_MAX_TOP_K = 15
+
+
 def hybrid_search(
     query: str,
     categories: list[str] | None = None,
@@ -285,7 +288,7 @@ def _make_search_tool():
     from langchain_core.tools import tool
 
     @tool
-    def search_knowledge_base(query: str, category: str = "") -> Any:
+    def search_knowledge_base(query: str, category: str = "", top_k: int = 0) -> Any:
         """Search the knowledge base of Brazilian expats in Grenoble.
 
         Use this tool to find information about life in Grenoble for Brazilian
@@ -301,14 +304,18 @@ def _make_search_tool():
                    depois do dossiê da ENSAG?").
             category: Optional category filter (e.g. "Visa & Residency",
                       "Banking & Finance"). Leave empty to search all categories.
+            top_k: How many chunks to return (default 5). For LIST or
+                   RECOMMENDATION questions (restaurants, dentists, doctors,
+                   shops, services, "quais...?", "indicações") pass 15 so that
+                   every name mentioned in the group is retrieved.
         """
         from habitantes.config import load_settings
 
         settings = load_settings()
         cats = [category] if category else None
-        result = hybrid_search(
-            query=query, categories=cats, top_k=settings.search.top_k
-        )
+        default_k = settings.search.top_k
+        k = min(max(top_k, default_k), _MAX_TOP_K) if top_k else default_k
+        result = hybrid_search(query=query, categories=cats, top_k=k)
 
         if "error" in result:
             # Preserve the {"chunks": [...]} / {"error": {...}} contract so the

@@ -18,7 +18,10 @@ Memory: in-process dict keyed by chat_id, capped at last _MAX_HISTORY messages.
 """
 
 import logging
+import re
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -323,7 +326,128 @@ def _classify_intent(state: AgentState) -> dict:
 # Replaced by _get_agent_settings().max_react_iterations
 
 _EMPTY_RESPONSE_MAX_RETRIES = 2
+_MAX_WEB_SEARCHES = 3
+_SEARCH_YOURSELF_NUDGE = (
+    "Você tem a ferramenta web_search_grenoble: faça você mesmo a busca agora (query em "
+    "francês) em vez de pedir ao usuário para pesquisar, e responda com o resultado."
+)
+_TELLS_USER_TO_SEARCH = re.compile(
+    r"\b(buscar|busque|pesquisar|pesquise|procurar|procure)\s+(na\s+)?(web|internet|google)\b"
+    r"|\b(realize|fa[çc]a|fazer)\s+uma\s+(busca|pesquisa)\b",
+    re.IGNORECASE,
+)
+# The model claims a web search it never made (no web tool call happened).
+_CLAIMS_WEB_SEARCH = re.compile(
+    r"\bpesquisei\s+(na\s+)?web\b|\bsegundo\s+(a\s+)?pesquisa\s+(na\s+)?web\b"
+    r"|\b(busca|pesquisa)\s+(na\s+)?web\s+(indica|mostra|retornou|encontrou)\b",
+    re.IGNORECASE,
+)
+
+
+# The reply admits the knowledge base didn't cover (part of) the question.
+_ADMITS_KB_GAP = re.compile(
+    r"n[ãa]o\s+(encontrei|h[áa]|possui|tenho|existem?)\s+"
+    r"(informa|indica|registro|men[çc]|dados|nenhum)",
+    re.IGNORECASE,
+)
+# KB topics whose answers go stale (documents, rules, fees): always verify on the web.
+_VERIFY_ON_WEB_CATEGORIES = frozenset(
+    {
+        "Documents & Bureaucracy",
+        "Visa & Residency",
+        "Banking & Finance",
+        "Housing & CAF",
+    }
+)
+_VERIFY_ON_WEB_NUDGE = (
+    "Este tema (documentos, regras, valores) muda com o tempo. Complemente e confira "
+    "a resposta da base com a web: use web_search_grenoble (query em francês, "
+    "priorizando fontes oficiais como service-public.fr, ANEF, préfecture, CAF, "
+    "consulado) e responda em duas partes: o que a comunidade relata e o que as "
+    "fontes oficiais/web confirmam, com as URLs. Liste os itens/documentos "
+    "completos; se o resultado só apontar um link ou simulador, refine a busca."
+)
+_GAP_NUDGE = (
+    "Sua resposta admite que a base não cobre parte da pergunta. Complete com "
+    "web_search_grenoble (query em francês) e apresente separadamente o que veio da "
+    "comunidade e o que veio da web, com as URLs."
+)
+
+
+def _admits_kb_gap(text: str) -> bool:
+    return bool(_ADMITS_KB_GAP.search(text))
+
+
+# The reply admits the knowledge base didn't cover (part of) the question.
+_ADMITS_KB_GAP = re.compile(
+    r"n[ãa]o\s+(encontrei|h[áa]|possui|tenho|existem?)\s+"
+    r"(informa|indica|registro|men[çc]|dados|nenhum)",
+    re.IGNORECASE,
+)
+# KB topics whose answers go stale (documents, rules, fees): always verify on the web.
+_VERIFY_ON_WEB_CATEGORIES = frozenset(
+    {
+        "Documents & Bureaucracy",
+        "Visa & Residency",
+        "Banking & Finance",
+        "Housing & CAF",
+    }
+)
+_VERIFY_ON_WEB_NUDGE = (
+    "Este tema (documentos, regras, valores) muda com o tempo. Complemente e confira "
+    "a resposta da base com a web: use web_search_grenoble (query em francês, "
+    "priorizando fontes oficiais como service-public.fr, ANEF, préfecture, CAF, "
+    "consulado) e responda em duas partes: o que a comunidade relata e o que as "
+    "fontes oficiais/web confirmam, com as URLs. Liste os itens/documentos "
+    "completos; se o resultado só apontar um link ou simulador, refine a busca."
+)
+_GAP_NUDGE = (
+    "Sua resposta admite que a base não cobre parte da pergunta. Complete com "
+    "web_search_grenoble (query em francês) e apresente separadamente o que veio da "
+    "comunidade e o que veio da web, com as URLs."
+)
+_KB_FIRST_MESSAGE = (
+    "Você precisa buscar na base de conhecimento antes de usar a web. Próximo passo: "
+    "chame search_knowledge_base agora (não tem custo); depois, se a base não cobrir "
+    "ou o tema exigir confirmação, use web_search_grenoble."
+)
+
+
+def _admits_kb_gap(text: str) -> bool:
+    return bool(_ADMITS_KB_GAP.search(text))
+
+
+def _tells_user_to_search_web(text: str) -> bool:
+    """True if the reply defers the search to the user or claims a search it skipped.
+
+    Only meaningful when no web tool call was made this turn.
+    """
+    return bool(_TELLS_USER_TO_SEARCH.search(text) or _CLAIMS_WEB_SEARCH.search(text))
+
+
+_WEB_ORIGIN_NOTICE = "Pesquisei na web (parte disso não está na base da comunidade):"
+_WEEKDAYS_PT = (
+    "segunda-feira",
+    "terça-feira",
+    "quarta-feira",
+    "quinta-feira",
+    "sexta-feira",
+    "sábado",
+    "domingo",
+)
+
 _EMPTY_RESPONSE_NUDGE = "Responda agora, de forma direta e objetiva."
+
+
+def _today_context() -> str:
+    """Current date in Grenoble, so "hoje"/"amanhã" can be resolved in web queries."""
+    now = datetime.now(ZoneInfo("Europe/Paris"))
+    weekday = _WEEKDAYS_PT[now.weekday()]
+    return (
+        f"\n\nDATA DE HOJE: {weekday}, {now:%d/%m/%Y} ({now:%H:%M}, fuso Europe/Paris). "
+        "Use esta data para interpretar 'hoje', 'amanhã', 'agora' e 'próximos dias' "
+        "e inclua datas concretas nas buscas web."
+    )
 
 
 def _build_react_messages(state: AgentState) -> list:
@@ -376,6 +500,7 @@ def _build_react_messages(state: AgentState) -> list:
             )
 
     system_content += intent_context
+    system_content += _today_context()
 
     msgs: list = [SystemMessage(content=system_content)]
 
@@ -439,14 +564,28 @@ def _run_react_loop(state: AgentState) -> dict:
     # it (for confidence/sources) and whether it was attempted (so the empty-KB
     # backstop nudges web at most once).
     web_used = False
-    web_attempted = False
+    web_calls = 0
+    kb_searches = 0
+    force_web = False
     web_sources: list[dict] = []
     tokens_in = 0
     tokens_out = 0
 
     # ReAct loop
-    for _ in range(_get_agent_settings().max_react_iterations):
-        response = llm_with_tools.invoke(msgs)
+    max_iters = _get_agent_settings().max_react_iterations
+    for iteration in range(max_iters):
+        # On the last iteration drop tools so the loop always ends in a text answer
+        # (never a raw tool message).
+        if iteration == max_iters - 1:
+            active_llm = llm
+        elif force_web and web_available:
+            # KB came up empty: make the model actually search instead of telling
+            # the user to go search on their own.
+            active_llm = llm.bind_tools([web_tool], tool_choice="required")
+            force_web = False
+        else:
+            active_llm = llm_with_tools
+        response = active_llm.invoke(msgs)
         ti, to = _extract_usage(response)
         tokens_in += ti
         tokens_out += to
@@ -465,7 +604,7 @@ def _run_react_loop(state: AgentState) -> dict:
             empty_retries += 1
             msgs.append(response)
             msgs.append(HumanMessage(content=_EMPTY_RESPONSE_NUDGE))
-            response = llm_with_tools.invoke(msgs)
+            response = active_llm.invoke(msgs)
             ti, to = _extract_usage(response)
             tokens_in += ti
             tokens_out += to
@@ -475,14 +614,59 @@ def _run_react_loop(state: AgentState) -> dict:
 
         msgs.append(response)
 
-        # If no tool calls, we have the final answer
+        # If no tool calls, we have the final answer — unless the model is just
+        # telling the user to go search the web themselves, in which case make it
+        # do the search.
         if not getattr(response, "tool_calls", None):
+            if (
+                needs_tools
+                and web_available
+                and web_calls == 0
+                and iteration < max_iters - 2
+            ):
+                text = str(response.content)
+                nudge = None
+                if _tells_user_to_search_web(text):
+                    nudge = _SEARCH_YOURSELF_NUDGE
+                elif any(
+                    c.get("category") in _VERIFY_ON_WEB_CATEGORIES
+                    for c in context_chunks
+                ):
+                    nudge = _VERIFY_ON_WEB_NUDGE
+                elif _admits_kb_gap(text):
+                    nudge = _GAP_NUDGE
+                if nudge:
+                    msgs.append(HumanMessage(content=nudge))
+                    force_web = True
+                    continue
             break
 
         # Process tool calls
         for tool_call in response.tool_calls:
             tool_name = tool_call["name"]
             tool_args = tool_call["args"]
+
+            if tool_name == web_tool_name and kb_searches == 0:
+                # Web only after at least one KB look-up (the KB is free).
+                msgs.append(
+                    ToolMessage(content=_KB_FIRST_MESSAGE, tool_call_id=tool_call["id"])
+                )
+                continue
+
+            if tool_name == web_tool_name and web_calls >= _MAX_WEB_SEARCHES:
+                # Hard cap: the model may emit several parallel calls or keep
+                # refining forever — stop and make it answer with what it has.
+                msgs.append(
+                    ToolMessage(
+                        content=(
+                            "Limite de buscas web atingido nesta pergunta. Responda "
+                            "agora com o que já foi encontrado; se não bastar, diga "
+                            "o que foi pesquisado e o que faltou."
+                        ),
+                        tool_call_id=tool_call["id"],
+                    )
+                )
+                continue
 
             if tool_name in tool_map:
                 # Inject category from state into the KB search tool only (the web
@@ -495,12 +679,14 @@ def _run_react_loop(state: AgentState) -> dict:
                         tool_args["category"] = category
 
                 tool_result = tool_map[tool_name].invoke(tool_args)
+                if tool_name == search_tool.name:
+                    kb_searches += 1
 
                 # Web search (lower-priority secondary source). Returns a dict with
                 # "results" on success, or a plain PT string on empty/error (soft —
                 # a web failure never hard-fails the turn).
                 if tool_name == web_tool_name:
-                    web_attempted = True
+                    web_calls += 1
                     if isinstance(tool_result, dict) and "results" in tool_result:
                         web_used = True
                         for r in tool_result["results"]:
@@ -554,13 +740,20 @@ def _run_react_loop(state: AgentState) -> dict:
                         # nudge the LLM to try it (backstop for a KB-only path)
                         # before falling back. Otherwise short-circuit with the
                         # no-results fallback, no synthesis LLM call.
-                        if web_available and not web_attempted:
+                        if web_available and web_calls < _MAX_WEB_SEARCHES:
+                            force_web = web_calls == 0
                             tool_content = (
                                 "Nenhum resultado relevante na base de conhecimento. "
-                                "Se o tema puder se beneficiar de informação factual, "
-                                "recente ou oficial sobre Grenoble, use a ferramenta "
-                                "web_search_grenoble; caso contrário, responda com "
-                                "'Não encontrei informações confiáveis sobre este tema'."
+                                "Use agora a ferramenta web_search_grenoble (query em "
+                                "francês) para pesquisar o tema; refine com outros "
+                                "termos se o primeiro resultado não responder."
+                            )
+                        elif web_used:
+                            # Web already supplied context this turn — answer from
+                            # it instead of discarding it behind the fallback.
+                            tool_content = (
+                                "Nenhum resultado relevante na base de conhecimento. "
+                                "Responda com o que a busca web retornou."
                             )
                         else:
                             gated = True
@@ -618,6 +811,23 @@ def _run_react_loop(state: AgentState) -> dict:
             content = getattr(last, "content", None)
             if content:
                 answer = str(content)
+
+    if not answer and not search_error and not gated:
+        # The model produced nothing (known Gemini failure mode): one last tool-free
+        # attempt to summarise what was found, then a graceful message.
+        try:
+            final = llm.invoke(msgs + [HumanMessage(content=_EMPTY_RESPONSE_NUDGE)])
+            ti, to = _extract_usage(final)
+            tokens_in += ti
+            tokens_out += to
+            answer = str(final.content or "")
+        except OpenAIError:
+            answer = ""
+        if not answer:
+            answer = _NO_RESULTS_FALLBACK
+
+    if web_used and answer and "web" not in answer[:300].lower():
+        answer = f"{_WEB_ORIGIN_NOTICE}\n\n{answer}"
 
     # Build sources from context_chunks, then append any web sources used.
     sources = [

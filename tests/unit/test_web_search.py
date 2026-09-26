@@ -92,6 +92,22 @@ def test_web_search_success_returns_results_contract(monkeypatch):
     assert captured["headers"]["Authorization"] == "Bearer test-key"
 
 
+def test_web_search_unscoped_and_news_topic(monkeypatch):
+    monkeypatch.setattr(config_module, "load_settings", lambda: _fake_settings())
+    captured = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        captured["json"] = json
+        return _FakeResponse({"results": []})
+
+    monkeypatch.setattr(ws.httpx, "post", fake_post)
+
+    ws.web_search("eclipse solaire aujourd'hui", scope_to_grenoble=False, news=True)
+
+    assert captured["json"]["query"] == "eclipse solaire aujourd'hui"
+    assert captured["json"]["topic"] == "news"
+
+
 def test_web_search_disabled_when_no_key(monkeypatch):
     monkeypatch.setattr(config_module, "load_settings", lambda: _fake_settings(""))
     # httpx.post must never be reached.
@@ -140,7 +156,9 @@ def test_web_search_unreachable_on_other_error(monkeypatch):
 def test_tool_wrapper_returns_soft_string_on_error(monkeypatch):
     monkeypatch.setattr(config_module, "load_settings", lambda: _fake_settings())
     monkeypatch.setattr(
-        ws, "web_search", lambda query: {"error": {"error_code": "X", "message": "y"}}
+        ws,
+        "web_search",
+        lambda query, *a, **k: {"error": {"error_code": "X", "message": "y"}},
     )
 
     tool = ws.get_web_search_tool()
@@ -155,7 +173,7 @@ def test_tool_wrapper_formats_results(monkeypatch):
     monkeypatch.setattr(
         ws,
         "web_search",
-        lambda query: {
+        lambda query, *a, **k: {
             "results": [
                 {
                     "title": "T",
