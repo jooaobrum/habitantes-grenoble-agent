@@ -131,7 +131,7 @@ web_search:
 
 # ── Agent orchestration ──────────────────────────────────────────────────────
 agent:
-  max_react_iterations: 5
+  max_react_iterations: 8
   max_history: 5
   temperature: 0.0
 

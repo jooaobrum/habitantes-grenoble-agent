@@ -41,12 +41,17 @@ def _classify_web_error(exc: Exception) -> str:
 # ── Public tool function ──────────────────────────────────────────────────────
 
 
-def web_search(query: str) -> dict[str, Any]:
+def web_search(
+    query: str, scope_to_grenoble: bool = True, news: bool = False
+) -> dict[str, Any]:
     """Grenoble-scoped Tavily web search.
 
     Args:
         query: Natural-language query (Portuguese/French mixed). Grenoble scope is
-               enforced automatically.
+               added by default.
+        scope_to_grenoble: Append the Grenoble location suffix (default). Set False
+               for generic, non-local queries (national rules, astronomy, vocabulary).
+        news: Use Tavily's "news" topic (weather, events, current affairs).
 
     Returns:
         {"results": [{"title", "url", "content", "score", "published_date"}, ...]}
@@ -66,7 +71,7 @@ def web_search(query: str) -> dict[str, Any]:
             }
         }
 
-    scoped = _scope_query(query, cfg.location_suffix)
+    scoped = _scope_query(query, cfg.location_suffix) if scope_to_grenoble else query
 
     try:
         response = httpx.post(
@@ -76,7 +81,7 @@ def web_search(query: str) -> dict[str, Any]:
                 "query": scoped,
                 "max_results": cfg.max_results,
                 "search_depth": cfg.search_depth,
-                "topic": cfg.topic,
+                "topic": "news" if news else cfg.topic,
             },
             timeout=cfg.timeout_seconds,
         )
@@ -131,7 +136,9 @@ def _make_web_search_tool():
     from langchain_core.tools import tool
 
     @tool
-    def web_search_grenoble(query: str) -> Any:
+    def web_search_grenoble(
+        query: str, scope_to_grenoble: bool = True, news: bool = False
+    ) -> Any:
         """Search the web for information about Grenoble, France (lower priority).
 
         This is a SECONDARY source — always prefer search_knowledge_base first.
@@ -150,7 +157,13 @@ def _make_web_search_tool():
         Do not skip the check just because the knowledge-base chunk already contains a
         specific number or a confident-sounding claim in one of these categories.
 
-        Results are always scoped to Grenoble automatically.
+        The users are Brazilians living in Grenoble: when they ask about a document
+        (passport, CNH, RG, certificates) without naming a country, query the
+        BRAZILIAN document (e.g. "passeport brésilien consulat Marseille"), not the
+        French one.
+
+        Grenoble scope is added to the query by default. You may call this tool up to
+        3 times per question to refine a search that did not answer the question.
 
         Args:
             query: The search query, PHRASED IN FRENCH regardless of the
@@ -159,8 +172,13 @@ def _make_web_search_tool():
                    Météo France, local news) are in French, so a French query
                    returns far better results than a translated one. Grenoble
                    scope is added automatically — no need to add it yourself.
+            scope_to_grenoble: True (default) appends "Grenoble France" to the
+                   query. Pass False for generic, non-local questions (national
+                   rules, astronomy, product vocabulary in French).
+            news: True to search recent news/current events (weather, events,
+                   current office-holders). Default False.
         """
-        result = web_search(query)
+        result = web_search(query, scope_to_grenoble, news)
 
         # Keep failures soft: never surface an {"error"} dict to the loop — a web
         # outage must not hard-fail a turn. Return a friendly PT string instead.
