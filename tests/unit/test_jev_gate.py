@@ -141,14 +141,23 @@ def test_loader_drops_low_and_unknown_value():
     assert should_drop(_rec(tier="low"))[0] is False
 
 
-def test_loader_jev_needs_review_is_primary():
-    assert should_drop(_rec(jev_needs_review=True))[0] is True
-    # Jev says fine -> synthesis LLM flag ignored
+def test_loader_drops_on_review_only_when_both_agree():
+    assert should_drop(_rec(jev_needs_review=True, needs_human_review=True))[0] is True
+    # disagreement -> ingest, in either direction
+    assert (
+        should_drop(_rec(jev_needs_review=True, needs_human_review=False))[0] is False
+    )
     assert (
         should_drop(_rec(jev_needs_review=False, needs_human_review=True))[0] is False
     )
-    # no Jev verdict -> fall back to synthesis flag
+    assert (
+        should_drop(_rec(jev_needs_review=False, needs_human_review=False))[0] is False
+    )
+    # no Jev verdict -> synthesis flag decides alone
     assert should_drop(_rec(jev_needs_review=None, needs_human_review=True))[0] is True
+    assert (
+        should_drop(_rec(jev_needs_review=None, needs_human_review=False))[0] is False
+    )
 
 
 def test_loader_synthesis_confidence_check_untouched():
