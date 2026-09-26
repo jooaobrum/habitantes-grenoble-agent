@@ -146,3 +146,42 @@ def test_loader_jev_needs_review_is_primary():
 def test_loader_synthesis_confidence_check_untouched():
     drop, reasons = should_drop(_rec(confidence=0.5, jev_needs_review=False))
     assert drop and "confidence<0.65" in reasons
+
+
+def test_synthesis_keeps_jev_topic_and_outdated():
+    import asyncio
+    from types import SimpleNamespace
+    from ingestion.preprocess.synthesis import SynthesisResult, synthesize_qa
+
+    parsed = SynthesisResult(
+        subcategory="Other",
+        question="q",
+        answer="a",
+        answer_confirmed=False,
+        info_might_be_outdated=False,
+        tags=["x"],
+        key_terms=["y"],
+        confidence=0.9,
+        needs_human_review=False,
+    )
+    resp = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(parsed=parsed))]
+    )
+
+    class C:
+        class beta:
+            class chat:
+                class completions:
+                    @staticmethod
+                    async def parse(**kw):
+                        return resp
+
+    row = {
+        "topic": "Visa & Residency",
+        "jev_outdated": True,
+        "question": "q",
+        "answer": "a",
+    }
+    out = asyncio.run(synthesize_qa(C(), "{qa_record_json}", row))
+    assert out["category"] == "Visa & Residency"
+    assert out["info_might_be_outdated"] is True

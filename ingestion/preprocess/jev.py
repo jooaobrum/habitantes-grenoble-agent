@@ -2,7 +2,7 @@
 
 Jev (TypeSafe) is called through OpenRouter's decisions endpoint. Low-confidence
 answers and call failures fall back to the heuristic tier from qa_pairs.
-Not yet wired into the ingestion pipeline.
+Wired into ingestion as the value/topic gate (see qa_pairs and pipeline).
 """
 
 from __future__ import annotations

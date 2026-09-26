@@ -17,6 +17,16 @@ data/hora).
 3. Só essa versão final — sem nome ou número de ninguém — entra na base
    que o bot consulta para responder.
 
+## Serviços de terceiros
+
+O texto das mensagens é enviado a serviços externos durante o processamento:
+
+- **OpenRouter** e **OpenAI**: reescrita dos pares de pergunta e resposta
+  e geração de embeddings.
+- **TypeSafe** (classificador Jev, acessado via OpenRouter): recebe a
+  pergunta e a resposta para classificar tema, relevância, se a informação
+  está desatualizada e se precisa de revisão.
+
 ## O que fica guardado, e por quanto tempo
 
 A base final do bot (perguntas e respostas, sem autor) fica indefinidamente

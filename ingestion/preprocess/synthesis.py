@@ -18,9 +18,6 @@ logger = logging.getLogger(__name__)
 
 # ── Data Models ──────────────────────────────────────────────────────────────
 class SynthesisResult(BaseModel):
-    category: str = Field(
-        description="The main topic category (must match one of the predefined topics or 'General')"
-    )
     subcategory: str = Field(
         description="The assigned subcategory from the map, or 'Other'"
     )
@@ -96,12 +93,17 @@ async def synthesize_qa(
             result["raw_answer"] = row.get("answer")  # keep lineage of the raw chat
             result.update(
                 {
-                    "category": parsed.category,
+                    # Jev's topic is authoritative; the LLM no longer decides it.
+                    "category": row.get("topic") or "General",
                     "subcategory": parsed.subcategory,
                     "question": parsed.question,
                     "answer": parsed.answer,
                     "answer_confirmed": parsed.answer_confirmed,
-                    "info_might_be_outdated": parsed.info_might_be_outdated,
+                    "info_might_be_outdated": (
+                        row["jev_outdated"]
+                        if row.get("jev_outdated") is not None
+                        else parsed.info_might_be_outdated
+                    ),
                     "tags": parsed.tags,
                     "key_terms": parsed.key_terms,
                     "confidence": parsed.confidence,
