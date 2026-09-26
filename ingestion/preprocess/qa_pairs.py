@@ -343,7 +343,7 @@ def save_outputs(qa_pairs: list[dict], out_json: Path, out_csv: Path) -> None:
     df = pd.DataFrame(qa_pairs)
 
     # If empty, still create empty tier files (optional)
-    tiers = ["high", "medium", "low"]
+    tiers = ["high", "medium", "low", "unknown"]
     for tier in tiers:
         tier_df = df[df["value"].astype(str).str.lower() == tier].reset_index(drop=True)
 

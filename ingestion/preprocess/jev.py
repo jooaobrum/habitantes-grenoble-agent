@@ -129,7 +129,10 @@ async def classify_qa(
     Falls back to the heuristic tier (value_source="heuristic_fallback") when
     the call fails after `max_retries` or value confidence is below threshold.
     """
-    key = api_key or os.environ["OPENROUTER_API_KEY"]
+    key = api_key or os.environ.get("OPENROUTER_API_KEY")
+    if not key:
+        logger.error("OPENROUTER_API_KEY not set; using heuristic fallback")
+        return _heuristic_fallback(row)
     payload = {
         "model": model,
         "state": {
@@ -156,7 +159,12 @@ async def classify_qa(
             topic = answers["topic"]
             break
         except Exception as e:
-            if attempt == max_retries - 1:
+            permanent = (
+                isinstance(e, httpx.HTTPStatusError)
+                and 400 <= e.response.status_code < 500
+                and e.response.status_code not in (408, 429)
+            )
+            if permanent or attempt == max_retries - 1:
                 logger.error(
                     "Final Jev failure for thread %s: %s", row.get("thread_id"), e
                 )
