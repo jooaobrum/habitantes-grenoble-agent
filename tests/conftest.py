@@ -25,6 +25,12 @@ for _alerts_env_key in (
     os.environ.setdefault(_alerts_env_key, "")
 
 
+# Web search is only offered to the agent when a Tavily key is configured. Pin it
+# empty so a developer's real .env key never changes the scripted-LLM flows
+# (extra KB-first / verify-on-web turns) — tests that need web mock settings.
+os.environ.setdefault("TAVILY_API_KEY", "")
+
+
 @pytest.fixture(autouse=True)
 def reset_response_cache():
     """Reset the global response-cache singleton between tests.

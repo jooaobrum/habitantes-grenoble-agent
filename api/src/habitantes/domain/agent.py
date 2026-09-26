@@ -566,7 +566,6 @@ def _run_react_loop(state: AgentState) -> dict:
     web_used = False
     web_calls = 0
     kb_searches = 0
-    force_kb = False
     force_web = False
     web_sources: list[dict] = []
     tokens_in = 0
@@ -579,10 +578,6 @@ def _run_react_loop(state: AgentState) -> dict:
         # (never a raw tool message).
         if iteration == max_iters - 1:
             active_llm = llm
-        elif force_kb:
-            # Nothing searched yet: the KB comes first (it costs nothing).
-            active_llm = llm.bind_tools([search_tool], tool_choice="required")
-            force_kb = False
         elif force_web and web_available:
             # KB came up empty: make the model actually search instead of telling
             # the user to go search on their own.
@@ -623,10 +618,6 @@ def _run_react_loop(state: AgentState) -> dict:
         # telling the user to go search the web themselves, in which case make it
         # do the search.
         if not getattr(response, "tool_calls", None):
-            if needs_tools and kb_searches == 0 and iteration < max_iters - 2:
-                msgs.append(HumanMessage(content=_KB_FIRST_MESSAGE))
-                force_kb = True
-                continue
             if (
                 needs_tools
                 and web_available
@@ -660,7 +651,6 @@ def _run_react_loop(state: AgentState) -> dict:
                 msgs.append(
                     ToolMessage(content=_KB_FIRST_MESSAGE, tool_call_id=tool_call["id"])
                 )
-                force_kb = True
                 continue
 
             if tool_name == web_tool_name and web_calls >= _MAX_WEB_SEARCHES:
