@@ -114,14 +114,14 @@ async def test_context_never_includes_user():
     assert "Uns dois meses" in seen["raw"]
 
 
-async def test_low_confidence_falls_back_to_heuristic():
+async def test_low_confidence_is_unknown():
     def handler(request):
         return httpx.Response(200, json=_jev_payload(value="HIGH", confidence=0.4))
 
     out = await _run(handler, row=_row(tier="low", topic="Visa & Residency"))
 
-    assert out["value_source"] == "heuristic_fallback"
-    assert out["value"] == "LOW"
+    assert out["value_source"] == "low_confidence"
+    assert out["value"] == "UNKNOWN"
     assert out["value_confidence"] == 0.4
     assert out["topic"] == "Visa & Residency"
 
@@ -131,11 +131,11 @@ async def test_confidence_threshold_is_configurable():
         return httpx.Response(200, json=_jev_payload(confidence=0.7))
 
     out = await _run(handler, confidence_threshold=0.8)
-    assert out["value_source"] == "heuristic_fallback"
-    assert out["value"] == "MEDIUM"
+    assert out["value_source"] == "low_confidence"
+    assert out["value"] == "UNKNOWN"
 
 
-async def test_retry_exhausted_falls_back_to_heuristic():
+async def test_retry_exhausted_is_unknown():
     calls = {"n": 0}
 
     def handler(request):
@@ -145,8 +145,8 @@ async def test_retry_exhausted_falls_back_to_heuristic():
     out = await _run(handler, row=_row(tier="high"), max_retries=3)
 
     assert calls["n"] == 3
-    assert out["value_source"] == "heuristic_fallback"
-    assert out["value"] == "HIGH"
+    assert out["value_source"] == "jev_unavailable"
+    assert out["value"] == "UNKNOWN"
     assert out["value_confidence"] is None
     assert out["jev_outdated"] is None
     assert out["jev_needs_review"] is None

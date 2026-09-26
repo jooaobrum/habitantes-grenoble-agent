@@ -88,13 +88,13 @@ def test_extract_falls_back_to_heuristic_when_low_confidence(tmp_path):
         tmp_path, lambda r: httpx.Response(200, json=_jev_response("LOW", 0.2))
     )
     p = pairs[0]
-    assert p["value_source"] == "heuristic_fallback"
-    assert p["value"] == p["heuristic_tier"].upper()
+    assert p["value_source"] == "low_confidence"
+    assert p["value"] == "UNKNOWN"
 
 
 def test_extract_falls_back_when_call_fails(tmp_path):
     pairs = _run(tmp_path, lambda r: httpx.Response(500))
-    assert pairs[0]["value_source"] == "heuristic_fallback"
+    assert pairs[0]["value_source"] == "jev_unavailable"
     assert pairs[0]["topic"] == "Visa & Residency"
 
 

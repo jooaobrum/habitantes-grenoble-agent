@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 DEFAULT_MODEL = "~typesafe/jev-latest"
 DEFAULT_BASE_URL = "https://openrouter.ai/api/alpha/decisions"
 
-TIER_TO_VALUE = {"high": "HIGH", "medium": "MEDIUM", "low": "LOW"}
 
 VALUE_CRITERIA = {
     "HIGH": "common problem for newcomers, not a one-off, rich and complete answer that can be reused as-is",
@@ -97,17 +96,21 @@ def _questions() -> Dict[str, Any]:
     }
 
 
-def _heuristic_fallback(row: Dict[str, Any]) -> Dict[str, Any]:
+def _heuristic_fallback(
+    row: Dict[str, Any], source: str = "jev_unavailable"
+) -> Dict[str, Any]:
+    """Heuristic tier proved unreliable (see JEV_BENCHMARK), so never trust it
+    as the value: unclassifiable pairs become UNKNOWN and are not ingested."""
     result = row.copy()
     result.update(
         {
-            "value": TIER_TO_VALUE.get(str(row.get("tier", "")).lower(), "UNKNOWN"),
+            "value": "UNKNOWN",
             "value_confidence": None,
             "value_probabilities": None,
             "topic": row.get("topic"),
             "jev_outdated": None,
             "jev_needs_review": None,
-            "value_source": "heuristic_fallback",
+            "value_source": source,
         }
     )
     return result
@@ -183,7 +186,7 @@ async def classify_qa(
 
     confidence = float(value.get("confidence", 0.0))
     if confidence < confidence_threshold:
-        result = _heuristic_fallback(row)
+        result = _heuristic_fallback(row, "low_confidence")
         result["value_confidence"] = confidence
         result["value_probabilities"] = value.get("probabilities")
         return result
