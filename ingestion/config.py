@@ -31,6 +31,15 @@ class SynthesisConfig(BaseModel):
     overwrite: bool = False
 
 
+class JevConfig(BaseModel):
+    # Jev classifier via OpenRouter decisions endpoint, key from OPENROUTER_API_KEY.
+    model: str = "~typesafe/jev-latest"
+    base_url: str = "https://openrouter.ai/api/alpha/decisions"
+    confidence_threshold: float = 0.6
+    max_retries: int = 4
+    retry_base_sleep_s: float = 1.5
+
+
 class LoadConfig(BaseModel):
     collection_name: str = "habitantes_qa_chat_kb"
     dense_batch_size: int = 64
@@ -53,6 +62,7 @@ class IngestionSettings(BaseSettings):
     parser: ParserConfig = ParserConfig()
     qa: QAConfig = QAConfig()
     synthesis: SynthesisConfig = SynthesisConfig()
+    jev: JevConfig = JevConfig()
     load: LoadConfig = LoadConfig()
 
 
