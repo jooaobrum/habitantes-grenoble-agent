@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
+import httpx
 import pandas as pd
+
+from ingestion.preprocess.jev import _heuristic_fallback, classify_qa
 
 
 # ── Logging ──────────────────────────────────────────────────────────────────
@@ -188,13 +192,46 @@ def detect_threads(df: pd.DataFrame, thread_gap_h: int) -> List[pd.DataFrame]:
     return threads
 
 
-def extract_qa_pairs(
+async def _classify_all(
+    rows: List[Dict[str, Any]],
+    jev: Any,
+    jev_client: Optional[httpx.AsyncClient],
+    concurrency: int,
+) -> List[Dict[str, Any]]:
+    """Label every row with Jev under bounded concurrency (never raises)."""
+    sem = asyncio.Semaphore(max(1, concurrency))
+    own_client = jev_client is None
+    client = jev_client or httpx.AsyncClient()
+
+    async def one(row: Dict[str, Any]) -> Dict[str, Any]:
+        async with sem:
+            return await classify_qa(
+                client,
+                row,
+                model=jev.model,
+                base_url=jev.base_url,
+                confidence_threshold=jev.confidence_threshold,
+                max_retries=jev.max_retries,
+                retry_base_sleep_s=jev.retry_base_sleep_s,
+            )
+
+    try:
+        return list(await asyncio.gather(*(one(r) for r in rows)))
+    finally:
+        if own_client:
+            await client.aclose()
+
+
+async def extract_qa_pairs(
     input_csv: Path,
     thread_gap_h: int,
     answer_window_h: int,
     context_window: int,
     tier_high: int,
     tier_medium: int,
+    jev: Any = None,
+    jev_client: Optional[httpx.AsyncClient] = None,
+    jev_concurrency: int = 8,
 ) -> List[Dict[str, Any]]:
     df = pd.read_csv(input_csv, parse_dates=["timestamp"])
     df = df.sort_values("timestamp").reset_index(drop=True)
@@ -269,6 +306,7 @@ def extract_qa_pairs(
                     "thread_id": tid,
                     "thread_start": str(classified[0]["timestamp"]),
                     "topic": ctx["topic"],
+                    "heuristic_topic": ctx["topic"],
                     "context": ctx["context_messages"],
                     "question": q_text.strip(),
                     "question_user": q_user,
@@ -280,10 +318,15 @@ def extract_qa_pairs(
                     "confirmed": confirmed,
                     "score": sc,
                     "tier": tier,
+                    "heuristic_score": sc,
+                    "heuristic_tier": tier,
                 }
             )
 
-    return qa_pairs
+    # Jev is the value/topic gate; without a jev config, use the heuristic tier.
+    if jev is None:
+        return [_heuristic_fallback(r) for r in qa_pairs]
+    return await _classify_all(qa_pairs, jev, jev_client, jev_concurrency)
 
 
 def save_outputs(qa_pairs: list[dict], out_json: Path, out_csv: Path) -> None:
@@ -302,7 +345,7 @@ def save_outputs(qa_pairs: list[dict], out_json: Path, out_csv: Path) -> None:
     # If empty, still create empty tier files (optional)
     tiers = ["high", "medium", "low"]
     for tier in tiers:
-        tier_df = df[df["tier"] == tier].reset_index(drop=True)
+        tier_df = df[df["value"].astype(str).str.lower() == tier].reset_index(drop=True)
 
         tier_json = out_json.with_name(out_json.stem + f"-{tier}" + out_json.suffix)
         tier_csv = out_csv.with_name(out_csv.stem + f"-{tier}" + out_csv.suffix)
@@ -317,7 +360,7 @@ def save_outputs(qa_pairs: list[dict], out_json: Path, out_csv: Path) -> None:
         logger.info("Saved → %s (%s rows)", tier_csv, f"{len(tier_df):,}")
 
 
-def run_qa_builder(
+async def run_qa_builder(
     input_csv: Path,
     output_dir: Path,
     thread_gap_h: int,
@@ -325,6 +368,8 @@ def run_qa_builder(
     context_window: int,
     tier_high: int,
     tier_medium: int,
+    jev: Any = None,
+    jev_client: Optional[httpx.AsyncClient] = None,
 ) -> Path:
     """
     Input:  classified.csv
@@ -333,8 +378,15 @@ def run_qa_builder(
     out_json = output_dir / "qa_pairs.json"
     out_csv = output_dir / "qa_pairs.csv"
 
-    qa_pairs = extract_qa_pairs(
-        input_csv, thread_gap_h, answer_window_h, context_window, tier_high, tier_medium
+    qa_pairs = await extract_qa_pairs(
+        input_csv,
+        thread_gap_h,
+        answer_window_h,
+        context_window,
+        tier_high,
+        tier_medium,
+        jev=jev,
+        jev_client=jev_client,
     )
     save_outputs(qa_pairs, out_json, out_csv)
     return out_json
