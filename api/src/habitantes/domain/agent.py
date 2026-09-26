@@ -344,6 +344,79 @@ _CLAIMS_WEB_SEARCH = re.compile(
 )
 
 
+# The reply admits the knowledge base didn't cover (part of) the question.
+_ADMITS_KB_GAP = re.compile(
+    r"n[ãa]o\s+(encontrei|h[áa]|possui|tenho|existem?)\s+"
+    r"(informa|indica|registro|men[çc]|dados|nenhum)",
+    re.IGNORECASE,
+)
+# KB topics whose answers go stale (documents, rules, fees): always verify on the web.
+_VERIFY_ON_WEB_CATEGORIES = frozenset(
+    {
+        "Documents & Bureaucracy",
+        "Visa & Residency",
+        "Banking & Finance",
+        "Housing & CAF",
+    }
+)
+_VERIFY_ON_WEB_NUDGE = (
+    "Este tema (documentos, regras, valores) muda com o tempo. Complemente e confira "
+    "a resposta da base com a web: use web_search_grenoble (query em francês, "
+    "priorizando fontes oficiais como service-public.fr, ANEF, préfecture, CAF, "
+    "consulado) e responda em duas partes: o que a comunidade relata e o que as "
+    "fontes oficiais/web confirmam, com as URLs. Liste os itens/documentos "
+    "completos; se o resultado só apontar um link ou simulador, refine a busca."
+)
+_GAP_NUDGE = (
+    "Sua resposta admite que a base não cobre parte da pergunta. Complete com "
+    "web_search_grenoble (query em francês) e apresente separadamente o que veio da "
+    "comunidade e o que veio da web, com as URLs."
+)
+
+
+def _admits_kb_gap(text: str) -> bool:
+    return bool(_ADMITS_KB_GAP.search(text))
+
+
+# The reply admits the knowledge base didn't cover (part of) the question.
+_ADMITS_KB_GAP = re.compile(
+    r"n[ãa]o\s+(encontrei|h[áa]|possui|tenho|existem?)\s+"
+    r"(informa|indica|registro|men[çc]|dados|nenhum)",
+    re.IGNORECASE,
+)
+# KB topics whose answers go stale (documents, rules, fees): always verify on the web.
+_VERIFY_ON_WEB_CATEGORIES = frozenset(
+    {
+        "Documents & Bureaucracy",
+        "Visa & Residency",
+        "Banking & Finance",
+        "Housing & CAF",
+    }
+)
+_VERIFY_ON_WEB_NUDGE = (
+    "Este tema (documentos, regras, valores) muda com o tempo. Complemente e confira "
+    "a resposta da base com a web: use web_search_grenoble (query em francês, "
+    "priorizando fontes oficiais como service-public.fr, ANEF, préfecture, CAF, "
+    "consulado) e responda em duas partes: o que a comunidade relata e o que as "
+    "fontes oficiais/web confirmam, com as URLs. Liste os itens/documentos "
+    "completos; se o resultado só apontar um link ou simulador, refine a busca."
+)
+_GAP_NUDGE = (
+    "Sua resposta admite que a base não cobre parte da pergunta. Complete com "
+    "web_search_grenoble (query em francês) e apresente separadamente o que veio da "
+    "comunidade e o que veio da web, com as URLs."
+)
+_KB_FIRST_MESSAGE = (
+    "Você precisa buscar na base de conhecimento antes de usar a web. Próximo passo: "
+    "chame search_knowledge_base agora (não tem custo); depois, se a base não cobrir "
+    "ou o tema exigir confirmação, use web_search_grenoble."
+)
+
+
+def _admits_kb_gap(text: str) -> bool:
+    return bool(_ADMITS_KB_GAP.search(text))
+
+
 def _tells_user_to_search_web(text: str) -> bool:
     """True if the reply defers the search to the user or claims a search it skipped.
 
@@ -492,6 +565,8 @@ def _run_react_loop(state: AgentState) -> dict:
     # backstop nudges web at most once).
     web_used = False
     web_calls = 0
+    kb_searches = 0
+    force_kb = False
     force_web = False
     web_sources: list[dict] = []
     tokens_in = 0
@@ -504,6 +579,10 @@ def _run_react_loop(state: AgentState) -> dict:
         # (never a raw tool message).
         if iteration == max_iters - 1:
             active_llm = llm
+        elif force_kb:
+            # Nothing searched yet: the KB comes first (it costs nothing).
+            active_llm = llm.bind_tools([search_tool], tool_choice="required")
+            force_kb = False
         elif force_web and web_available:
             # KB came up empty: make the model actually search instead of telling
             # the user to go search on their own.
@@ -544,22 +623,45 @@ def _run_react_loop(state: AgentState) -> dict:
         # telling the user to go search the web themselves, in which case make it
         # do the search.
         if not getattr(response, "tool_calls", None):
+            if needs_tools and kb_searches == 0 and iteration < max_iters - 2:
+                msgs.append(HumanMessage(content=_KB_FIRST_MESSAGE))
+                force_kb = True
+                continue
             if (
                 needs_tools
                 and web_available
                 and web_calls == 0
                 and iteration < max_iters - 2
-                and _tells_user_to_search_web(str(response.content))
             ):
-                msgs.append(HumanMessage(content=_SEARCH_YOURSELF_NUDGE))
-                force_web = True
-                continue
+                text = str(response.content)
+                nudge = None
+                if _tells_user_to_search_web(text):
+                    nudge = _SEARCH_YOURSELF_NUDGE
+                elif any(
+                    c.get("category") in _VERIFY_ON_WEB_CATEGORIES
+                    for c in context_chunks
+                ):
+                    nudge = _VERIFY_ON_WEB_NUDGE
+                elif _admits_kb_gap(text):
+                    nudge = _GAP_NUDGE
+                if nudge:
+                    msgs.append(HumanMessage(content=nudge))
+                    force_web = True
+                    continue
             break
 
         # Process tool calls
         for tool_call in response.tool_calls:
             tool_name = tool_call["name"]
             tool_args = tool_call["args"]
+
+            if tool_name == web_tool_name and kb_searches == 0:
+                # Web only after at least one KB look-up (the KB is free).
+                msgs.append(
+                    ToolMessage(content=_KB_FIRST_MESSAGE, tool_call_id=tool_call["id"])
+                )
+                force_kb = True
+                continue
 
             if tool_name == web_tool_name and web_calls >= _MAX_WEB_SEARCHES:
                 # Hard cap: the model may emit several parallel calls or keep
@@ -587,6 +689,8 @@ def _run_react_loop(state: AgentState) -> dict:
                         tool_args["category"] = category
 
                 tool_result = tool_map[tool_name].invoke(tool_args)
+                if tool_name == search_tool.name:
+                    kb_searches += 1
 
                 # Web search (lower-priority secondary source). Returns a dict with
                 # "results" on success, or a plain PT string on empty/error (soft —

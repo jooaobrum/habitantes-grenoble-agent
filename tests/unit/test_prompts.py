@@ -153,3 +153,18 @@ def test_today_context_has_weekday_and_date():
 
     assert "DATA DE HOJE" in text
     assert "Europe/Paris" in text
+
+
+def test_admits_kb_gap_detection():
+    from habitantes.domain.agent import _admits_kb_gap
+
+    assert _admits_kb_gap("Não encontrei informações sobre outros restaurantes.")
+    assert _admits_kb_gap("Não há indicações específicas de dentistas.")
+    assert not _admits_kb_gap("A comunidade recomenda o Natal e o Snack Brasil.")
+
+
+def test_kb_first_message_is_an_explicit_next_step():
+    from habitantes.domain.agent import _KB_FIRST_MESSAGE
+
+    assert "search_knowledge_base" in _KB_FIRST_MESSAGE
+    assert "antes de usar a web" in _KB_FIRST_MESSAGE
