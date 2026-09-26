@@ -122,15 +122,17 @@ async def classify_qa(
     api_key: Optional[str] = None,
     model: str = DEFAULT_MODEL,
     base_url: str = DEFAULT_BASE_URL,
-    confidence_threshold: float = 0.6,
+    ingest_threshold: float = 0.6,
+    high_threshold: float = 0.3,
     max_retries: int = 4,
     retry_base_sleep_s: float = 1.5,
     timeout_s: float = 30.0,
 ) -> Dict[str, Any]:
     """Label one Q&A pair with Jev; never raises, always returns a record.
 
-    Falls back to the heuristic tier (value_source="heuristic_fallback") when
-    the call fails after `max_retries` or value confidence is below threshold.
+    Value is bucketed from Jev's probabilities (see docs/JEV_CALIBRATION.md):
+    HIGH if P(HIGH) >= high_threshold, MEDIUM if P(HIGH)+P(MEDIUM) >=
+    ingest_threshold, else LOW. A failed call yields UNKNOWN (not ingested).
     """
     key = api_key or os.environ.get("OPENROUTER_API_KEY")
     if not key:
@@ -184,17 +186,21 @@ async def classify_qa(
     else:
         return _heuristic_fallback(row)
 
+    probs = value.get("probabilities") or {}
+    p_high = float(probs.get("HIGH", 0.0))
+    p_ingest = p_high + float(probs.get("MEDIUM", 0.0))
+    if p_high >= high_threshold:
+        bucket = "HIGH"
+    elif p_ingest >= ingest_threshold:
+        bucket = "MEDIUM"
+    else:
+        bucket = "LOW"
     confidence = float(value.get("confidence", 0.0))
-    if confidence < confidence_threshold:
-        result = _heuristic_fallback(row, "low_confidence")
-        result["value_confidence"] = confidence
-        result["value_probabilities"] = value.get("probabilities")
-        return result
 
     result = row.copy()
     result.update(
         {
-            "value": value["choice"],
+            "value": bucket,
             "value_confidence": confidence,
             "value_probabilities": value.get("probabilities"),
             "topic": topic["choice"],

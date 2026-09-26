@@ -35,10 +35,17 @@ def _csv(tmp_path):
     return p
 
 
-def _jev_response(value="HIGH", confidence=0.9, topic="Housing & CAF", review=0.1):
+def _jev_response(
+    value="HIGH", confidence=0.9, topic="Housing & CAF", review=0.1, probs=None
+):
     return {
         "answers": {
-            "value": {"choice": value, "confidence": confidence, "probabilities": {}},
+            "value": {
+                "choice": value,
+                "confidence": confidence,
+                "probabilities": probs
+                or {"UNKNOWN": 0, "LOW": 0.05, "MEDIUM": 0.05, "HIGH": 0.9},
+            },
             "topic": {"choice": topic},
             "outdated": {"noul": 0.0},
             "needs_review": {"noul": review},
@@ -83,13 +90,14 @@ def test_extract_uses_jev_value_and_keeps_heuristics(tmp_path):
     assert isinstance(p["heuristic_score"], int)
 
 
-def test_extract_falls_back_to_heuristic_when_low_confidence(tmp_path):
+def test_extract_marks_low_probability_pairs_low(tmp_path):
+    probs = {"UNKNOWN": 0, "LOW": 0.9, "MEDIUM": 0.1, "HIGH": 0}
     pairs = _run(
-        tmp_path, lambda r: httpx.Response(200, json=_jev_response("LOW", 0.2))
+        tmp_path,
+        lambda r: httpx.Response(200, json=_jev_response("LOW", 0.9, probs=probs)),
     )
-    p = pairs[0]
-    assert p["value_source"] == "low_confidence"
-    assert p["value"] == "UNKNOWN"
+    assert pairs[0]["value"] == "LOW"
+    assert pairs[0]["value_source"] == "jev"
 
 
 def test_extract_falls_back_when_call_fails(tmp_path):

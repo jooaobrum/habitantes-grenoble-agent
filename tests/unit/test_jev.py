@@ -28,19 +28,20 @@ def _row(**over):
     return row
 
 
-def _jev_payload(value="HIGH", confidence=0.9, topic="Housing & CAF"):
+def _jev_payload(
+    value="HIGH",
+    confidence=0.9,
+    topic="Housing & CAF",
+    probs=None,
+):
     return {
         "model": "typesafe/jev-1.13",
         "answers": {
             "value": {
                 "type": "choice",
                 "choice": value,
-                "probabilities": {
-                    "UNKNOWN": 0,
-                    "LOW": 0.05,
-                    "MEDIUM": 0.05,
-                    "HIGH": 0.9,
-                },
+                "probabilities": probs
+                or {"UNKNOWN": 0, "LOW": 0.05, "MEDIUM": 0.05, "HIGH": 0.9},
                 "confidence": confidence,
             },
             "topic": {
@@ -114,25 +115,43 @@ async def test_context_never_includes_user():
     assert "Uns dois meses" in seen["raw"]
 
 
-async def test_low_confidence_is_unknown():
+def _probs(h, m, low):
+    return {"UNKNOWN": 0, "LOW": low, "MEDIUM": m, "HIGH": h}
+
+
+async def test_value_is_bucketed_from_probabilities_not_confidence():
+    # Jev is split between HIGH and MEDIUM (low confidence) but clearly not LOW.
     def handler(request):
-        return httpx.Response(200, json=_jev_payload(value="HIGH", confidence=0.4))
+        return httpx.Response(
+            200, json=_jev_payload(confidence=0.36, probs=_probs(0.2, 0.7, 0.1))
+        )
 
-    out = await _run(handler, row=_row(tier="low", topic="Visa & Residency"))
-
-    assert out["value_source"] == "low_confidence"
-    assert out["value"] == "UNKNOWN"
-    assert out["value_confidence"] == 0.4
-    assert out["topic"] == "Visa & Residency"
+    out = await _run(handler)
+    assert out["value"] == "MEDIUM"
+    assert out["value_source"] == "jev"
 
 
-async def test_confidence_threshold_is_configurable():
+async def test_high_bucket_when_p_high_reaches_threshold():
     def handler(request):
-        return httpx.Response(200, json=_jev_payload(confidence=0.7))
+        return httpx.Response(200, json=_jev_payload(probs=_probs(0.35, 0.4, 0.25)))
 
-    out = await _run(handler, confidence_threshold=0.8)
-    assert out["value_source"] == "low_confidence"
-    assert out["value"] == "UNKNOWN"
+    assert (await _run(handler))["value"] == "HIGH"
+
+
+async def test_low_bucket_below_ingest_threshold():
+    def handler(request):
+        return httpx.Response(200, json=_jev_payload(probs=_probs(0.0, 0.55, 0.45)))
+
+    out = await _run(handler)
+    assert out["value"] == "LOW"
+    assert out["value_source"] == "jev"
+
+
+async def test_ingest_threshold_is_configurable():
+    def handler(request):
+        return httpx.Response(200, json=_jev_payload(probs=_probs(0.0, 0.55, 0.45)))
+
+    assert (await _run(handler, ingest_threshold=0.5))["value"] == "MEDIUM"
 
 
 async def test_retry_exhausted_is_unknown():

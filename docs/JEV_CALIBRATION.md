@@ -67,7 +67,9 @@ precision roughly one-for-one.
 ## Recommendation
 
 Replace the confidence gate with a threshold on **P(HIGH)+P(MEDIUM)**,
-default **0.5** (config value). This is the same as taking Jev's argmax.
+default **0.6** (config value `jev.ingest_threshold`), chosen as a balance
+of recall (0.81) and precision (0.68). 0.5 is the same as taking Jev's argmax
+and maximises recall (0.90).
 Label the pair HIGH if P(HIGH) ≥ 0.3, else MEDIUM, else LOW. That label is
 informational only, because both HIGH and MEDIUM are ingested.
 

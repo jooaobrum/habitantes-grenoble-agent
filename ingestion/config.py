@@ -35,7 +35,8 @@ class JevConfig(BaseModel):
     # Jev classifier via OpenRouter decisions endpoint, key from OPENROUTER_API_KEY.
     model: str = "~typesafe/jev-latest"
     base_url: str = "https://openrouter.ai/api/alpha/decisions"
-    confidence_threshold: float = 0.6
+    ingest_threshold: float = 0.6  # P(HIGH)+P(MEDIUM) needed to ingest
+    high_threshold: float = 0.3  # P(HIGH) for the informational HIGH label
     max_retries: int = 4
     retry_base_sleep_s: float = 1.5
 

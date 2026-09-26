@@ -210,7 +210,8 @@ async def _classify_all(
                 row,
                 model=jev.model,
                 base_url=jev.base_url,
-                confidence_threshold=jev.confidence_threshold,
+                ingest_threshold=jev.ingest_threshold,
+                high_threshold=jev.high_threshold,
                 max_retries=jev.max_retries,
                 retry_base_sleep_s=jev.retry_base_sleep_s,
             )
