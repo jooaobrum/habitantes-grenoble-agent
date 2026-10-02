@@ -7,6 +7,7 @@ from .search import (
 
 # Only the tool getter is re-exported. The `web_search` function stays under
 # `tools.web_search` so it doesn't shadow the submodule of the same name.
+from .suggestions import get_suggestions_tool
 from .web_search import get_web_search_tool
 from ._ranking import enrich_bm25_input, strip_accents
 
@@ -16,6 +17,7 @@ __all__ = [
     "get_list_subcategories_tool",
     "get_get_category_chunks_tool",
     "get_web_search_tool",
+    "get_suggestions_tool",
     "enrich_bm25_input",
     "strip_accents",
 ]

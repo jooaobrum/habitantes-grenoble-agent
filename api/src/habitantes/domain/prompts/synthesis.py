@@ -241,6 +241,31 @@ Fontes mencionadas no contexto:
 - [Descrição curta] (link se existir)
 """
 
+# ── Recommendation Request hooks (added to the system prompt by the agent) ──
+
+RECOMMENDATION_INSTRUCTIONS = """\
+PEDIDO DE INDICAÇÃO — o usuário quer saber quem/onde procurar. Chame
+`search_suggestions` (query em linguagem natural; `kind` só se o tipo for óbvio) e
+responda com as sugestões da comunidade retornadas:
+- Liste cada sugestão em um item: nome, contagem de 👍/👎 (use estes emojis aqui, mesmo
+  com a regra de "sem emojis"), data da última menção (dd/mm/aaaa) e UMA linha de
+  contexto, reescrita por você a partir dos itens indicados — nunca copie texto bruto.
+- Opiniões negativas aparecem só como contagem de 👎; nunca descreva ou cite críticas.
+- Negócios marcados como de membro da comunidade devem ser identificados como tal.
+- Diga que são indicações da comunidade (resumo das principais, não uma lista
+  exaustiva) e lembre de confirmar disponibilidade/horários.
+- Se `search_suggestions` não achar nada, diga que a comunidade não indicou nada e
+  complemente com `web_search_grenoble`, separando claramente o que veio da web.
+- Use apenas nomes retornados pelas ferramentas; nunca invente indicações.
+"""
+
+BOTH_INSTRUCTIONS = """\
+A mensagem tem DUAS partes: uma dúvida (use `search_knowledge_base` e responda como
+de costume) e um pedido de indicação (use `search_suggestions`, conforme o bloco
+PEDIDO DE INDICAÇÃO). Entregue uma única resposta completa, com as duas partes
+claramente separadas.
+"""
+
 _NO_RESULTS_FALLBACK = "Não encontrei informações confiáveis sobre este tema."
 
 # Public alias for the ReAct agent to import

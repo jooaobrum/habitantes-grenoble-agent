@@ -4,11 +4,14 @@ Architecture:
 
     Layer 1: classify_intent (deterministic + LLM classification)
         - Number shortcut: "1"-"19" → set category, skip LLM
-        - LLM classifies: greeting | qa | feedback | out_of_scope
+        - LLM classifies: greeting | qa | recommendation | both | feedback | out_of_scope
 
     Layer 2: ReAct agent (LLM + tool calling loop)
         - Receives the classified intent as context
         - For greeting / out_of_scope / feedback / clarify → responds directly
+        - Tools are chosen from the classified intent (docs/adr/0001):
+          qa → knowledge-base tools; recommendation → search_suggestions;
+          both → both sets; web search is bound in every tool-using case
         - For rag → calls search_knowledge_base tool → synthesizes answer
         - Loops until the LLM decides no more tool calls are needed
 
@@ -40,7 +43,9 @@ from habitantes.domain.categories import (
 from habitantes.domain.prompts.intent import build_intent_messages
 from habitantes.domain.prompts.synthesis import (
     _NO_RESULTS_FALLBACK,
+    BOTH_INSTRUCTIONS,
     REACT_SYSTEM_PROMPT,
+    RECOMMENDATION_INSTRUCTIONS,
 )
 from habitantes.domain.schemas import IntentClassification
 from habitantes.domain.state import AgentState
@@ -48,7 +53,9 @@ from habitantes.domain.tools import (
     get_get_category_chunks_tool,
     get_list_subcategories_tool,
     get_search_tool,
+    get_suggestions_tool,
     get_web_search_tool,
+    strip_accents,
 )
 
 logger = logging.getLogger(__name__)
@@ -325,11 +332,19 @@ def _classify_intent(state: AgentState) -> dict:
 
 # Replaced by _get_agent_settings().max_react_iterations
 
+# Intent → tool sets (docs/adr/0001-tools-chosen-from-classified-intent.md).
+_KB_INTENTS = frozenset({"qa", "both"})
+_SUGGESTION_INTENTS = frozenset({"recommendation", "both"})
+
 _EMPTY_RESPONSE_MAX_RETRIES = 2
 _MAX_WEB_SEARCHES = 3
+# Nudges go in as a user-role message, which a weak model can take as a new
+# question — so each one restates the user's original question ({question}) and
+# names no topic of its own.
 _SEARCH_YOURSELF_NUDGE = (
-    "Você tem a ferramenta web_search_grenoble: faça você mesmo a busca agora (query em "
-    "francês) em vez de pedir ao usuário para pesquisar, e responda com o resultado."
+    "Você tem a ferramenta web_search_grenoble: faça você mesmo a busca agora sobre a "
+    'pergunta original do usuário ("{question}"), com query em francês, em vez de '
+    "pedir ao usuário para pesquisar, e responda a essa pergunta com o resultado."
 )
 _TELLS_USER_TO_SEARCH = re.compile(
     r"\b(buscar|busque|pesquisar|pesquise|procurar|procure)\s+(na\s+)?(web|internet|google)\b"
@@ -350,61 +365,38 @@ _ADMITS_KB_GAP = re.compile(
     r"(informa|indica|registro|men[çc]|dados|nenhum)",
     re.IGNORECASE,
 )
-# KB topics whose answers go stale (documents, rules, fees): always verify on the web.
+# KB topics whose answers go stale (documents, rules, fees): always verify on the
+# web when the question is about one of them. Housing & CAF is left out — it's
+# mostly lifestyle content; CAF rules are covered by the prompt's perishable-data
+# signals instead.
 _VERIFY_ON_WEB_CATEGORIES = frozenset(
     {
         "Documents & Bureaucracy",
         "Visa & Residency",
         "Banking & Finance",
-        "Housing & CAF",
     }
 )
 _VERIFY_ON_WEB_NUDGE = (
-    "Este tema (documentos, regras, valores) muda com o tempo. Complemente e confira "
-    "a resposta da base com a web: use web_search_grenoble (query em francês, "
-    "priorizando fontes oficiais como service-public.fr, ANEF, préfecture, CAF, "
-    "consulado) e responda em duas partes: o que a comunidade relata e o que as "
-    "fontes oficiais/web confirmam, com as URLs. Liste os itens/documentos "
-    "completos; se o resultado só apontar um link ou simulador, refine a busca."
+    "Antes de finalizar, confira na web sua resposta à pergunta original do usuário: "
+    '"{question}". Use web_search_grenoble (query em francês sobre essa mesma '
+    "pergunta, priorizando fontes oficiais) e responda a essa pergunta, sem mudar de "
+    "assunto, em duas partes: o que a comunidade relata e o que as fontes "
+    "oficiais/web confirmam, com as URLs. Se a pergunta pedir uma lista, liste os "
+    "itens completos; se o resultado só apontar um link ou simulador, refine a busca."
 )
 _GAP_NUDGE = (
-    "Sua resposta admite que a base não cobre parte da pergunta. Complete com "
-    "web_search_grenoble (query em francês) e apresente separadamente o que veio da "
-    "comunidade e o que veio da web, com as URLs."
+    "Sua resposta admite que a base não cobre parte da pergunta original do usuário "
+    '("{question}"). Complete com web_search_grenoble (query em francês sobre essa '
+    "mesma pergunta) e apresente separadamente o que veio da comunidade e o que veio "
+    "da web, com as URLs."
 )
-
-
-def _admits_kb_gap(text: str) -> bool:
-    return bool(_ADMITS_KB_GAP.search(text))
-
-
-# The reply admits the knowledge base didn't cover (part of) the question.
-_ADMITS_KB_GAP = re.compile(
-    r"n[ãa]o\s+(encontrei|h[áa]|possui|tenho|existem?)\s+"
-    r"(informa|indica|registro|men[çc]|dados|nenhum)",
-    re.IGNORECASE,
-)
-# KB topics whose answers go stale (documents, rules, fees): always verify on the web.
-_VERIFY_ON_WEB_CATEGORIES = frozenset(
-    {
-        "Documents & Bureaucracy",
-        "Visa & Residency",
-        "Banking & Finance",
-        "Housing & CAF",
-    }
-)
-_VERIFY_ON_WEB_NUDGE = (
-    "Este tema (documentos, regras, valores) muda com o tempo. Complemente e confira "
-    "a resposta da base com a web: use web_search_grenoble (query em francês, "
-    "priorizando fontes oficiais como service-public.fr, ANEF, préfecture, CAF, "
-    "consulado) e responda em duas partes: o que a comunidade relata e o que as "
-    "fontes oficiais/web confirmam, com as URLs. Liste os itens/documentos "
-    "completos; se o resultado só apontar um link ou simulador, refine a busca."
-)
-_GAP_NUDGE = (
-    "Sua resposta admite que a base não cobre parte da pergunta. Complete com "
-    "web_search_grenoble (query em francês) e apresente separadamente o que veio da "
-    "comunidade e o que veio da web, com as URLs."
+# A verified answer that keeps less than this share of the draft's vocabulary
+# answered some other question; legit rewrites keep ~20-50%, drift ~10%.
+_MIN_VERIFIED_DRAFT_OVERLAP = 0.15
+_SUGGESTIONS_FIRST_MESSAGE = (
+    "Você precisa buscar nas sugestões da comunidade antes de usar a web. Próximo "
+    "passo: chame search_suggestions agora (não tem custo); depois, se a comunidade "
+    "não indicou nada ou pouco, use web_search_grenoble."
 )
 _KB_FIRST_MESSAGE = (
     "Você precisa buscar na base de conhecimento antes de usar a web. Próximo passo: "
@@ -415,6 +407,20 @@ _KB_FIRST_MESSAGE = (
 
 def _admits_kb_gap(text: str) -> bool:
     return bool(_ADMITS_KB_GAP.search(text))
+
+
+def _content_words(text: str) -> set[str]:
+    return set(re.findall(r"[a-z]{5,}", strip_accents(text)))
+
+
+def _drifted_from_draft(draft: str, answer: str) -> bool:
+    """True if the verified answer kept almost none of the draft's vocabulary —
+    the web pass answered some other question instead of checking the draft."""
+    draft_words = _content_words(draft)
+    if not draft_words:
+        return False
+    kept = len(draft_words & _content_words(answer)) / len(draft_words)
+    return kept < _MIN_VERIFIED_DRAFT_OVERLAP
 
 
 def _tells_user_to_search_web(text: str) -> bool:
@@ -499,6 +505,11 @@ def _build_react_messages(state: AgentState) -> list:
                 "sintetize uma resposta baseada nos resultados."
             )
 
+    if intent == "recommendation":
+        intent_context += f"\n\n{RECOMMENDATION_INSTRUCTIONS}"
+    elif intent == "both":
+        intent_context += f"\n\n{BOTH_INSTRUCTIONS}\n{RECOMMENDATION_INSTRUCTIONS}"
+
     system_content += intent_context
     system_content += _today_context()
 
@@ -527,12 +538,16 @@ def _run_react_loop(state: AgentState) -> dict:
     list_subs_tool = get_list_subcategories_tool()
     get_cat_chunks_tool = get_get_category_chunks_tool()
 
-    tools = [search_tool, list_subs_tool, get_cat_chunks_tool]
-    tool_map = {
-        search_tool.name: search_tool,
-        list_subs_tool.name: list_subs_tool,
-        get_cat_chunks_tool.name: get_cat_chunks_tool,
-    }
+    # The tool set comes from the classified intent, not from the model's choice.
+    tools: list = []
+    suggestions_tool_name = ""
+    if intent in _KB_INTENTS:
+        tools += [search_tool, list_subs_tool, get_cat_chunks_tool]
+    if intent in _SUGGESTION_INTENTS:
+        suggestions_tool = get_suggestions_tool()
+        suggestions_tool_name = suggestions_tool.name
+        tools.append(suggestions_tool)
+    tool_map = {t.name: t for t in tools}
 
     # Web search is a lower-priority, optional secondary source. Only offer it when
     # enabled and a Tavily key is configured — otherwise the tool is never bound.
@@ -546,8 +561,12 @@ def _run_react_loop(state: AgentState) -> dict:
         tools.append(web_tool)
         tool_map[web_tool.name] = web_tool
 
-    # Only bind tools for qa intent (other intents don't need search)
-    needs_tools = intent == "qa" and len(state.get("message", "").strip()) >= 10
+    # Only bind tools for question / recommendation intents (others don't search).
+    # A short bare question gets a clarification instead; a short recommendation
+    # ("dentista") is still a valid request.
+    needs_tools = (
+        intent in _KB_INTENTS and len(state.get("message", "").strip()) >= 10
+    ) or intent in _SUGGESTION_INTENTS
     if needs_tools:
         llm_with_tools = llm.bind_tools(tools)
     else:
@@ -566,7 +585,12 @@ def _run_react_loop(state: AgentState) -> dict:
     web_used = False
     web_calls = 0
     kb_searches = 0
+    suggestion_clusters: list[dict] = []
     force_web = False
+    forced_web = False  # a forced web pass ran this turn (answer is not cached)
+    # The answer the verify-on-web nudge was asked to check — kept if the web
+    # pass comes back empty, finds nothing, or drifts off the question.
+    draft_answer = ""
     web_sources: list[dict] = []
     tokens_in = 0
     tokens_out = 0
@@ -583,6 +607,7 @@ def _run_react_loop(state: AgentState) -> dict:
             # the user to go search on their own.
             active_llm = llm.bind_tools([web_tool], tool_choice="required")
             force_web = False
+            forced_web = True
         else:
             active_llm = llm_with_tools
         response = active_llm.invoke(msgs)
@@ -625,18 +650,25 @@ def _run_react_loop(state: AgentState) -> dict:
                 and iteration < max_iters - 2
             ):
                 text = str(response.content)
+                # The question's topic — the selected category, else the majority
+                # category retrieved — never a stray chunk among many.
+                topic = state.get("category") or _derive_category_from_sources(
+                    context_chunks
+                )
                 nudge = None
                 if _tells_user_to_search_web(text):
                     nudge = _SEARCH_YOURSELF_NUDGE
-                elif any(
-                    c.get("category") in _VERIFY_ON_WEB_CATEGORIES
-                    for c in context_chunks
-                ):
+                elif intent not in _KB_INTENTS:
+                    pass  # recommendation-only: no KB draft to verify or gap to fill
+                elif topic in _VERIFY_ON_WEB_CATEGORIES:
                     nudge = _VERIFY_ON_WEB_NUDGE
+                    draft_answer = text
                 elif _admits_kb_gap(text):
                     nudge = _GAP_NUDGE
                 if nudge:
-                    msgs.append(HumanMessage(content=nudge))
+                    msgs.append(
+                        HumanMessage(content=nudge.format(question=state["message"]))
+                    )
                     force_web = True
                     continue
             break
@@ -647,9 +679,14 @@ def _run_react_loop(state: AgentState) -> dict:
             tool_args = tool_call["args"]
 
             if tool_name == web_tool_name and kb_searches == 0:
-                # Web only after at least one KB look-up (the KB is free).
+                # Web only after at least one free look-up (KB or suggestions).
+                first_msg = (
+                    _KB_FIRST_MESSAGE
+                    if intent in _KB_INTENTS
+                    else _SUGGESTIONS_FIRST_MESSAGE
+                )
                 msgs.append(
-                    ToolMessage(content=_KB_FIRST_MESSAGE, tool_call_id=tool_call["id"])
+                    ToolMessage(content=first_msg, tool_call_id=tool_call["id"])
                 )
                 continue
 
@@ -679,7 +716,7 @@ def _run_react_loop(state: AgentState) -> dict:
                         tool_args["category"] = category
 
                 tool_result = tool_map[tool_name].invoke(tool_args)
-                if tool_name == search_tool.name:
+                if tool_name in (search_tool.name, suggestions_tool_name):
                     kb_searches += 1
 
                 # Web search (lower-priority secondary source). Returns a dict with
@@ -725,6 +762,25 @@ def _run_react_loop(state: AgentState) -> dict:
                     context_chunks.clear()
                     break
 
+                # search_suggestions: Clusters, or an explicit no-results signal.
+                if tool_name == suggestions_tool_name and isinstance(tool_result, dict):
+                    if "clusters" in tool_result:
+                        suggestion_clusters.extend(tool_result["clusters"])
+                    elif (
+                        web_available
+                        and web_calls == 0
+                        and not suggestion_clusters
+                        and not context_chunks
+                    ):
+                        force_web = True
+                    msgs.append(
+                        ToolMessage(
+                            content=tool_result["formatted"],
+                            tool_call_id=tool_call["id"],
+                        )
+                    )
+                    continue
+
                 # If tool_result is a dict with "chunks" (from search_knowledge_base),
                 # apply the relevance gate before letting the LLM synthesize.
                 if isinstance(tool_result, dict) and "chunks" in tool_result:
@@ -734,7 +790,7 @@ def _run_react_loop(state: AgentState) -> dict:
                         for c in raw_chunks
                         if float(c.get("dense_score", 0.0)) >= min_relevance
                     ]
-                    if not relevant and not context_chunks:
+                    if not relevant and not context_chunks and not suggestion_clusters:
                         # Nothing clears the floor on any KB search this turn. If
                         # web search is available and not yet tried, don't gate —
                         # nudge the LLM to try it (backstop for a KB-only path)
@@ -811,6 +867,14 @@ def _run_react_loop(state: AgentState) -> dict:
             content = getattr(last, "content", None)
             if content:
                 answer = str(content)
+        if draft_answer and (
+            not answer or not web_used or _drifted_from_draft(draft_answer, answer)
+        ):
+            # The verification pass came back empty, found nothing on the web, or
+            # answered another question: keep the KB answer it was meant to check
+            # (KB-only, so no web notice or web sources on it).
+            answer = draft_answer
+            web_used = False
 
     if not answer and not search_error and not gated:
         # The model produced nothing (known Gemini failure mode): one last tool-free
@@ -838,16 +902,25 @@ def _run_react_loop(state: AgentState) -> dict:
         }
         for chunk in context_chunks
     ]
+    sources.extend(
+        {
+            "text_snippet": f"{c.get('label', '')} — {c.get('summary', '')}"[:200],
+            "date": str(c.get("last_date", "")),
+            "category": c.get("topic", ""),
+        }
+        for c in suggestion_clusters
+    )
     if web_used:
         sources.extend(web_sources)
 
     top_dense = max(
-        (float(c.get("dense_score", 0.0)) for c in context_chunks),
+        [float(c.get("dense_score", 0.0)) for c in context_chunks]
+        + [float(c.get("score", 0.0)) for c in suggestion_clusters],
         default=gated_top_dense,
     )
     if search_error:
         confidence = 0.0
-    elif not context_chunks and web_used:
+    elif not context_chunks and not suggestion_clusters and web_used:
         # Web-only answer (no KB chunks): web results carry no dense score, so use
         # the configured web-answer confidence.
         confidence = settings.web_search.answer_confidence
@@ -865,6 +938,7 @@ def _run_react_loop(state: AgentState) -> dict:
         "tokens_in": tokens_in,
         "tokens_out": tokens_out,
         "timings": timings,
+        "forced_web": forced_web,
         "error": search_error,
     }
 
@@ -906,7 +980,7 @@ def _compute_confidence(
         return 1.0
     if gated:
         return float(top_dense)  # below the relevance floor → intentionally low
-    if intent == "qa" and not chunks:
+    if intent in ("qa", "both") and not chunks and top_dense <= 0:
         return 0.5  # clarification (short query, no search performed)
     return min(1.0, float(top_dense)) if top_dense > 0 else 0.0
 
@@ -953,6 +1027,7 @@ def run(
         "cost_usd": 0.0,
         "timings": {},
         "cached": False,
+        "forced_web": False,
         "error": None,
     }
 
@@ -966,7 +1041,7 @@ def run(
     # Cache check (only for QA intent with sufficient length)
     cache = get_cache()
     if cache and initial_state["intent"] == "qa" and len(message.strip()) >= 10:
-        cached_result = cache.get(message, initial_state["category"])
+        cached_result = cache.get(chat_id, message, initial_state["category"])
         if cached_result:
             initial_state.update(cached_result)
             initial_state["cached"] = True
@@ -1002,14 +1077,17 @@ def run(
     initial_state["tokens_out"] = total_out
     initial_state["cost_usd"] = _compute_cost(total_in, total_out)
 
-    # Store in cache if successful
+    # Store in cache if successful. A forced web pass is where a weak model can
+    # drift off the question, so never replay one.
     if (
         cache
         and initial_state["intent"] == "qa"
         and initial_state.get("answer")
         and not initial_state.get("error")
+        and not initial_state.get("forced_web")
     ):
         cache.set(
+            chat_id,
             message,
             initial_state["category"],
             {
