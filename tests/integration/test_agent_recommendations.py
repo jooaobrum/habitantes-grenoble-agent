@@ -205,7 +205,9 @@ def test_community_business_is_disclosed(monkeypatch, qdrant, seeded_clusters):
     )
     _run("onde compro polvilho e massa de pastel?")
     (tool_msg,) = llm.tool_messages()
-    assert re.search(r"Sabor do Brasil \[negócio de membro da comunidade\]", tool_msg)
+    assert re.search(
+        r"Sabor do Brasil \[negócio de membro do grupo — divulgação própria\]", tool_msg
+    )
 
 
 def test_results_capped_at_three_clusters_with_five_members_each(monkeypatch, qdrant):
@@ -295,3 +297,166 @@ def test_recommendation_prompt_asks_for_name_votes_date_and_context(
     assert "INTENT CLASSIFICADO: recommendation" in system
     assert "👍/👎" in system and "última menção" in system
     assert "search_knowledge_base" not in llm.bound[0]
+
+
+# --- #53: answer rules and long tail ---------------------------------------
+
+
+def _big_cluster(members: list[ClusterMember], label="Dentista grupo") -> ClusterEntry:
+    return ClusterEntry(
+        kind=Kind.DENTISTS,
+        label=label,
+        thumbs_up=50,
+        thumbs_down=0,
+        last_date=date(2026, 1, 1),
+        members=members,
+        summary="dentistas",
+    )
+
+
+def _m(name, up, items=("clareamento",), **kw) -> ClusterMember:
+    return ClusterMember(
+        name=name,
+        thumbs_up=up,
+        last_date=date(2026, 1, 1),
+        items=list(items),
+        **kw,
+    )
+
+
+def _tool_output(monkeypatch, qdrant, clusters, query="dentista limpeza") -> str:
+    _seed(qdrant, clusters)
+    llm = _script(
+        monkeypatch,
+        "recommendation",
+        _call("search_suggestions", {"query": query}),
+        "ok",
+    )
+    _run("indicação de dentista")
+    (tool_msg,) = llm.tool_messages()
+    return tool_msg
+
+
+def test_long_tail_matches_by_name_or_items_up_to_three_rest_as_outras(
+    monkeypatch, qdrant
+):
+    top = [_m(f"Top{i}", 30 - i) for i in range(5)]
+    tail = [
+        _m("Dentista Lima", 4),  # matches by name ("dentista")
+        _m("Cabinet B", 3, items=["limpeza dental"]),  # matches by items
+        _m("Cabinet C", 2, items=["limpeza dental"]),
+        _m("Cabinet D", 1, items=["limpeza dental"]),  # 4th match: cut
+        _m("Outro E", 1, items=["ortodontia"]),  # no match
+    ]
+    out = _tool_output(monkeypatch, qdrant, [_big_cluster(top + tail)])
+    for shown in ("Top0", "Top4", "Dentista Lima", "Cabinet B", "Cabinet C"):
+        assert shown in out
+    assert "Cabinet D" not in out and "Outro E" not in out
+    assert "+2 outras" in out
+
+
+def test_no_outras_when_everything_is_shown(monkeypatch, qdrant):
+    out = _tool_output(
+        monkeypatch, qdrant, [_big_cluster([_m("Top0", 5), _m("Top1", 4)])]
+    )
+    assert "outras" not in out
+
+
+def test_community_business_label(monkeypatch, qdrant):
+    out = _tool_output(
+        monkeypatch,
+        qdrant,
+        [_big_cluster([_m("Cabinet Dono", 5, community_business=True)])],
+    )
+    assert "Cabinet Dono [negócio de membro do grupo — divulgação própria]" in out
+
+
+def test_output_has_no_negative_text_only_counts(monkeypatch, qdrant):
+    out = _tool_output(
+        monkeypatch,
+        qdrant,
+        [
+            ClusterEntry(
+                kind=Kind.DENTISTS,
+                label="Dentista grupo",
+                thumbs_up=5,
+                thumbs_down=2,
+                last_date=date(2026, 1, 1),
+                members=[
+                    ClusterMember(
+                        name="Cabinet Bom",
+                        thumbs_up=5,
+                        thumbs_down=2,
+                        last_date=date(2026, 1, 1),
+                        items=["limpeza"],
+                    )
+                ],
+                summary="dentistas",
+            )
+        ],
+    )
+    assert "5👍/2👎" in out
+
+
+def test_score_zero_or_less_never_offered_even_if_only_member(monkeypatch, qdrant):
+    _seed(
+        qdrant,
+        [
+            _big_cluster(
+                [
+                    ClusterMember(
+                        name="Cabinet Ruim",
+                        thumbs_up=1,
+                        thumbs_down=3,
+                        last_date=date(2026, 1, 1),
+                        items=["limpeza dental"],
+                    )
+                ]
+            )
+        ],
+    )
+    web = _enable_web(monkeypatch)
+    llm = _script(
+        monkeypatch,
+        "recommendation",
+        _call("search_suggestions", {"query": "dentista limpeza dental"}),
+        _call("web_search_grenoble", {"query": "dentiste Grenoble"}, "c2"),
+        "pela web",
+    )
+    _run("indicação de dentista")
+    assert "Cabinet Ruim" not in llm.prompts[1][-1].content
+    assert "Nenhuma sugestão da comunidade" in llm.prompts[1][-1].content
+    web.invoke.assert_called_once()
+
+
+def test_output_bounded_regardless_of_members_and_items(monkeypatch, qdrant):
+    members = [
+        _m(
+            f"Cabinet {j} " + "x" * 400,
+            300 - j,
+            items=[f"item{k} dentista" for k in range(50)],
+        )
+        for j in range(200)
+    ]
+    out = _tool_output(monkeypatch, qdrant, [_big_cluster(members)])
+    assert out.count("- Cabinet") == 8
+    assert "+192 outras" in out
+    assert len(out) < 4000
+
+
+def test_reminder_and_more_suggestions_note(monkeypatch, qdrant):
+    clusters = [
+        _big_cluster(
+            [_m("Cabinet A", 5, items=["limpeza dental"])], label=f"Dentista {i}"
+        )
+        for i in range(5)
+    ]
+    out = _tool_output(monkeypatch, qdrant, clusters, "dentista limpeza dental")
+    assert "confirmar disponibilidade" in out.lower()
+    assert "há mais sugestões" in out.lower()
+
+
+def test_no_more_note_when_all_shown(monkeypatch, qdrant):
+    out = _tool_output(monkeypatch, qdrant, [_big_cluster([_m("Cabinet A", 5)])])
+    assert "confirmar disponibilidade" in out.lower()
+    assert "há mais sugestões" not in out.lower()

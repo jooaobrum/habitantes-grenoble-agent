@@ -43,11 +43,33 @@ def _net(member: dict) -> int:
     return int(member.get("thumbs_up", 0)) - int(member.get("thumbs_down", 0))
 
 
+_MAX_ITEMS = 3
+_MAX_TEXT = 80
+COMMUNITY_BUSINESS_LABEL = "[negócio de membro do grupo — divulgação própria]"
+AVAILABILITY_REMINDER = (
+    "Lembrete: avise o usuário para confirmar disponibilidade/horários. "
+    "São indicações da comunidade, não uma lista exaustiva."
+)
+MORE_SUGGESTIONS_NOTE = (
+    "Há mais sugestões da comunidade do que as mostradas; diga isso ao usuário."
+)
+
+
+def _clip(text: str, n: int = _MAX_TEXT) -> str:
+    text = " ".join(str(text).split())
+    return text if len(text) <= n else text[: n - 1] + "…"
+
+
+def _tokens(text: str) -> set[str]:
+    return set(strip_accents(text).lower().split())
+
+
 def _select_members(
     members: list[dict], query: str, summary_size: int, max_extra: int
-) -> list[dict]:
-    """Top members by net votes (disliked ones dropped), plus a few long-tail
-    members whose Items match the query — a place named once for a specific item."""
+) -> tuple[list[dict], int]:
+    """Top members by net votes (score <= 0 dropped), plus up to `max_extra`
+    long-tail members whose name or Items match the query. Returns the shown
+    members and how many eligible members remain unshown ("+K outras")."""
     ranked = sorted(
         (m for m in members if _net(m) > 0),
         key=lambda m: (_net(m), m.get("last_date", "")),
@@ -59,26 +81,31 @@ def _select_members(
         m
         for m in rest
         if words
-        & {w for i in m.get("items", []) for w in strip_accents(i).lower().split()}
-    ]
-    return top + extras[:max_extra]
+        & (
+            _tokens(m.get("name", ""))
+            | {w for i in m.get("items", []) for w in _tokens(i)}
+        )
+    ][:max_extra]
+    return top + extras, len(rest) - len(extras)
 
 
 def _format_cluster(cluster: dict, members: list[dict]) -> str:
     lines = [
-        f"Grupo: {cluster['label']} (tipo: {cluster['kind']}) | "
+        f"Grupo: {_clip(cluster['label'])} (tipo: {cluster['kind']}) | "
         f"{cluster['thumbs_up']}👍/{cluster['thumbs_down']}👎 no grupo | "
         f"última menção: {cluster['last_date']}"
     ]
     for m in members:
-        flag = (
-            " [negócio de membro da comunidade]" if m.get("community_business") else ""
-        )
-        items = ", ".join(m.get("items", [])) or "não especificado"
+        flag = f" {COMMUNITY_BUSINESS_LABEL}" if m.get("community_business") else ""
+        items = ", ".join(_clip(i) for i in m.get("items", [])[:_MAX_ITEMS])
         lines.append(
-            f"- {m['name']}{flag}: {m['thumbs_up']}👍/{m['thumbs_down']}👎 | "
-            f"última menção: {m['last_date']} | indicado para: {items}"
+            f"- {_clip(m['name'])}{flag}: {m['thumbs_up']}👍/{m['thumbs_down']}👎 | "
+            f"última menção: {m['last_date']} | indicado para: "
+            f"{items or 'não especificado'}"
         )
+    hidden = cluster.get("hidden_count", 0)
+    if hidden:
+        lines.append(f"+{hidden} outras")
     return "\n".join(lines)
 
 
@@ -121,7 +148,7 @@ def search_clusters(query: str, kind: str = "") -> dict[str, Any]:
                 collection_name=_collection_name(),
                 query=q_dense,
                 using=_DENSE_VECTOR,
-                limit=cfg.max_clusters,
+                limit=cfg.max_clusters + 1,  # one extra detects 'there are more'
                 query_filter=q_filter,
                 score_threshold=cfg.min_relevance,
                 with_payload=True,
@@ -134,22 +161,26 @@ def search_clusters(query: str, kind: str = "") -> dict[str, Any]:
         return {"error": {"error_code": code, "message": str(exc), "retryable": True}}
 
     hits = [p for p in points if float(p.score) >= cfg.min_relevance]
-    hits = hits[: cfg.max_clusters]
     clusters = []
     for p in hits:
         payload = dict(p.payload or {})
-        payload["members"] = _select_members(
+        payload["members"], payload["hidden_count"] = _select_members(
             payload.get("members", []), query, cfg.summary_size, cfg.max_extra_members
         )
         payload["score"] = float(p.score)
         clusters.append(payload)
     clusters = [c for c in clusters if c["members"]]
+    more = len(clusters) > cfg.max_clusters
+    clusters = clusters[: cfg.max_clusters]
 
     if not clusters:
         return {"no_results": True, "formatted": NO_RESULTS_MESSAGE}
     return {
         "clusters": clusters,
-        "formatted": "\n\n".join(_format_cluster(c, c["members"]) for c in clusters),
+        "formatted": "\n\n".join(_format_cluster(c, c["members"]) for c in clusters)
+        + "\n\n"
+        + (MORE_SUGGESTIONS_NOTE + "\n" if more else "")
+        + AVAILABILITY_REMINDER,
         "top_score": max(c["score"] for c in clusters),
     }
 
