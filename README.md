@@ -33,7 +33,7 @@ flowchart LR
 - **Backend**: FastAPI (`api/src/habitantes/infrastructure/api/`)
 - **Vector store**: Qdrant, two independent collections.
   - Q&A (`habitantes_qa_chat_kb`): hybrid search — dense (OpenAI `text-embedding-3-small`, 1536‑d) + sparse (`Qdrant/bm25` via `fastembed`), fused with a weighted RRF, then date-decay + anchor rerank + thread-level dedup.
-  - Suggestions (`habitantes_suggestions_kb`, `suggestions.collection_name`): one point per Cluster; `search_suggestions` runs a dense query against it with its own relevance floor (`suggestions.min_relevance`). The sparse (keyword) vector is stored at ingestion but not used by the tool today.
+  - Suggestions (`habitantes_suggestions_kb`, `suggestions.collection_name`): one point per Cluster; `search_suggestions` runs a hybrid query (dense with its own relevance floor `suggestions.min_relevance`, plus the sparse keyword vector, fused with RRF).
 - **Channels**:
   - **Telegram** (`app/telegram_bot.py`) — a separate long-polling process, calls the API over HTTP.
   - **WhatsApp** (official Meta Cloud API) — **not** a separate bot process. It's a webhook handled inside the FastAPI process itself (`infrastructure/whatsapp/{client,processor,guards}.py`, wired via `routers/webhooks.py`), fronted by a `cloudflared` container that gives the homelab a public HTTPS endpoint for Meta to POST to. See [docs/WHATSAPP_CLOUD_SETUP.md](docs/WHATSAPP_CLOUD_SETUP.md) for the manual Meta-panel setup.

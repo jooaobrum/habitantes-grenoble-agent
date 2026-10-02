@@ -223,7 +223,7 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    Q([query + optional kind]) --> Emb["embed query (OpenAI, dense only)"]
+    Q([query + optional kind]) --> Emb["embed query (OpenAI dense + BM25 sparse, RRF)"]
     Emb --> Qd["Qdrant query_points on the Suggestions collection<br>optional Kind filter, score_threshold = suggestions.min_relevance,<br>limit = max_clusters + 1"]
     Qd --> Pick["per Cluster: members with net 👍-👎 > 0, best first (ties: most recent),<br>top summary_size + up to max_extra_members long-tail members<br>whose name or Items match the query"]
     Pick --> Out["formatted block: label, Kind, totals, last date,<br>members with 👍/👎, last date, Items, Community Business label,<br>'+K outras', availability reminder"]
@@ -231,7 +231,7 @@ flowchart TD
 ```
 
 - Returns at most `max_clusters` (3) Clusters; if a further one would have cleared the floor, a note says more suggestions exist. Output size is bounded (names and Items are clipped, at most 3 Items per member).
-- Own relevance floor (`suggestions.min_relevance`, 0.55 dense cosine), independent of the Q&A gate (`search.min_relevance`); the Q&A gate operates only on `search_knowledge_base` results. Only the dense vector is queried; the stored sparse vector is currently unused by the tool.
+- Own relevance floor (`suggestions.min_relevance`, 0.55 dense cosine), independent of the Q&A gate (`search.min_relevance`); the Q&A gate operates only on `search_knowledge_base` results. The dense branch keeps the floor; the sparse (keyword) branch has none, so a place named for a specific item is still found. Both are fused with RRF, and the long-tail budget (`max_extra_members`) is shared across all returned Clusters.
 - A member with more 👎 than 👍 (net <= 0) is never returned, so it is never offered. Looking a place up by name only works if it is a member of some Cluster; a place not retrievable falls through to web search.
 - Errors (embedding, Qdrant) come back as the same structured error shape as the KB tool.
 
