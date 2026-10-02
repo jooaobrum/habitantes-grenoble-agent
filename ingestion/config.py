@@ -43,6 +43,16 @@ class JevConfig(BaseModel):
     retry_base_sleep_s: float = 1.5
 
 
+class MentionExtractionConfig(BaseModel):
+    """LLM that turns a pseudonymised window into Mentions."""
+
+    model: str = "google/gemini-2.5-flash-lite"
+    base_url: str = "https://openrouter.ai/api/v1"
+    temperature: float = 0.0
+    max_retries: int = 4
+    retry_base_sleep_s: float = 1.5
+
+
 class LoadConfig(BaseModel):
     collection_name: str = "habitantes_qa_chat_kb"
     dense_batch_size: int = 64

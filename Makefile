@@ -30,6 +30,9 @@ run-bot:
 ingest:
 	uv run env PYTHONPATH=$(CURDIR):$(CURDIR)/api/src python ingestion/pipeline.py
 
+mentions:
+	uv run env PYTHONPATH=$(CURDIR):$(CURDIR)/api/src python ingestion/suggestions/pipeline.py
+
 load-only:
 	uv run env PYTHONPATH=$(CURDIR):$(CURDIR)/api/src python ingestion/load_only.py $(if $(INPUT_FILE),--input_file $(INPUT_FILE),)
 # ── Quality & Linting ────────────────────────────────────────────────────────
@@ -62,6 +65,7 @@ help:
 	@echo "  make run-api     Run FastAPI service with reload"
 	@echo "  make run-bot     Run Telegram bot"
 	@echo "  make ingest      Run the data ingestion pipeline"
+	@echo "  make mentions    Extract author-free Suggestion Mentions from the chat"
 	@echo ""
 	@echo "Quality:"
 	@echo "  make test         Run pytest suite"
