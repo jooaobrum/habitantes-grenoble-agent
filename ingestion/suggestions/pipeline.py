@@ -6,6 +6,7 @@ Q&A pairing, synthesis or load steps.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import logging
 from pathlib import Path
@@ -14,7 +15,8 @@ from dotenv import load_dotenv
 
 from ingestion.config import settings
 from ingestion.extract.whatsapp import run_parser
-from ingestion.suggestions.mentions import run_mentions_builder
+from ingestion.suggestions.build import run_suggestions_builder
+from ingestion.suggestions.mentions import MENTIONS_FILENAME, run_mentions_builder
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s"
@@ -48,5 +50,29 @@ async def run_mentions_pipeline() -> Path | None:
     )
 
 
+async def run_suggestions_pipeline() -> int:
+    """Mentions file -> Suggestions file -> Clusters -> Suggestions collection."""
+    root_dir = Path(__file__).parents[1].parent
+    load_dotenv(root_dir / ".env")
+    chat_dir = root_dir / settings.artifacts_dir / Path(settings.input_file).stem
+    return await run_suggestions_builder(
+        mentions_path=chat_dir / MENTIONS_FILENAME,
+        output_dir=chat_dir,
+        suggestions=settings.suggestions,
+        llm_cfg=settings.suggestion_llm,
+    )
+
+
+async def _main(stage: str) -> None:
+    if stage in ("mentions", "all"):
+        await run_mentions_pipeline()
+    if stage in ("suggestions", "all"):
+        await run_suggestions_pipeline()
+
+
 if __name__ == "__main__":
-    asyncio.run(run_mentions_pipeline())
+    ap = argparse.ArgumentParser()
+    ap.add_argument(
+        "--stage", choices=["mentions", "suggestions", "all"], default="mentions"
+    )
+    asyncio.run(_main(ap.parse_args().stage))

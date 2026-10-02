@@ -33,6 +33,15 @@ ingest:
 mentions:
 	uv run env PYTHONPATH=$(CURDIR):$(CURDIR)/api/src python ingestion/suggestions/pipeline.py
 
+labelling-sample:
+	uv run env PYTHONPATH=$(CURDIR):$(CURDIR)/api/src python ingestion/suggestions/labelling.py
+
+labelling-measure:
+	uv run env PYTHONPATH=$(CURDIR):$(CURDIR)/api/src python ingestion/suggestions/measure.py --details
+
+suggestions:
+	uv run env PYTHONPATH=$(CURDIR):$(CURDIR)/api/src python ingestion/suggestions/pipeline.py --stage suggestions
+
 load-only:
 	uv run env PYTHONPATH=$(CURDIR):$(CURDIR)/api/src python ingestion/load_only.py $(if $(INPUT_FILE),--input_file $(INPUT_FILE),)
 # ── Quality & Linting ────────────────────────────────────────────────────────
@@ -65,6 +74,7 @@ help:
 	@echo "  make run-api     Run FastAPI service with reload"
 	@echo "  make run-bot     Run Telegram bot"
 	@echo "  make ingest      Run the data ingestion pipeline"
+	@echo "  make suggestions Merge, rank, cluster Mentions and load the Suggestions collection"
 	@echo "  make mentions    Extract author-free Suggestion Mentions from the chat"
 	@echo ""
 	@echo "Quality:"

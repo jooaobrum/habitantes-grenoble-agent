@@ -78,6 +78,8 @@ class IngestionSettings(BaseSettings):
     jev: JevConfig = JevConfig()
     load: LoadConfig = LoadConfig()
     suggestions: SuggestionsConfig = SuggestionsConfig()
+    mention_extraction: MentionExtractionConfig = MentionExtractionConfig()
+    suggestion_llm: MentionExtractionConfig = MentionExtractionConfig()  # merge + label
 
 
 def load_ingestion_settings() -> IngestionSettings:
