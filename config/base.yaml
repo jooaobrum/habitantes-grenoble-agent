@@ -102,7 +102,8 @@ search:
   # chunk to be kept. If no chunk clears this floor the agent returns the no-results
   # fallback without an LLM synthesis call. This is a *backstop* — clearly off-topic
   # queries are already rejected upstream by intent classification (out_of_scope),
-  # so this floor only guards qa-intent questions with weak retrieval.
+  # so this floor only guards qa/both-intent questions with weak retrieval (the
+  # Suggestions collection has its own floor: suggestions.min_relevance).
   # Tuned for OpenAI text-embedding-3-small: on the 38-case golden set the lowest
   # true-positive top dense = 0.6504 (with category filter). 0.55 leaves ~0.10 margin
   # so the agent's query rephrasing can't gate real matches, while still dropping
@@ -116,7 +117,7 @@ ranking:
   min_token_length: 4
 
 # ── Web search (Tavily) — lower-priority, Grenoble-scoped secondary source ────
-# Preferred source is always the Qdrant KB; web is used for factual/current/
+# Preferred sources are the Qdrant collections (Q&A and Suggestions); web is used for factual/current/
 # generalist Grenoble info or to confirm possibly-outdated facts. TAVILY_API_KEY
 # is env-only (see .env.example); a missing key disables the tool (no crash).
 web_search:
@@ -142,6 +143,14 @@ cache:
   ttl_seconds: 3600
 
 # ── Suggestions (community recommendations; shared by ingestion + agent) ─────
+# Parallel to the Q&A pipeline: `make mentions` (windows -> Jev -> extraction) then
+# `make suggestions` (merge -> opt-out -> Clusters -> rebuild this collection).
+# The agent reads it through `search_suggestions` (intent `recommendation`/`both`).
+# Businesses that opt out go in config/suggestion_exclusions.txt, not here.
+# The merge/label/extraction LLM defaults (google/gemini-2.5-flash-lite) live in
+# ingestion/config.py (`mention_extraction`, `suggestion_llm`); override them by adding
+# those keys under `ingestion:` below. Window sizes and jev_cutoff are untuned until the
+# labelled sample is measured (docs/SUGGESTIONS_EVAL.md).
 suggestions:
   collection_name: "habitantes_suggestions_kb" # new collection, independent of the Q&A one
   window_before: 5 # messages before a trigger message
@@ -256,6 +265,7 @@ ingestion:
   input_file: "chat-21022026-18072026.txt"
   # Raw export + intermediate artifacts still carry names/numbers; deleted
   # this many days after a successful load into Qdrant (see docs/PRIVACIDADE.md).
+  # Also covers the author-free mentions.jsonl / suggestions.jsonl.
   artifacts_retention_days: 90
   parser:
     timestamp_format: "%d/%m/%y, %H:%M:%S"

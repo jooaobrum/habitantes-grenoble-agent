@@ -39,7 +39,7 @@ flowchart TD
     J -- Yes, real behavior change --> K
 
     subgraph VALIDATE["Validation (expensive, run once at the end)"]
-        K["6. Full 67-case run<br/>run_eval.py --dataset golden_dataset_v2.json"]
+        K["6. Full 105-case run<br/>run_eval.py --dataset golden_dataset_v2.json"]
         K --> L["Compare by_bucket vs baseline"]
         L --> M["Spot-check flipped cases' actual<br/>answer text, not just PASS flag"]
         M --> N{Metric false positive?<br/>paraphrase dodged a<br/>substring check, etc.}
@@ -95,8 +95,8 @@ mis-specified, but only reach for that after ≥2 genuine prompt attempts, and c
 
 | Tool | Use for |
 |---|---|
-| `python tests/eval/run_eval.py --dataset tests/eval/golden_dataset_v2.json` | Full 67-case run. Writes `report_v2.json`. Slow (real LLM + judge calls) — run only at the start (baseline) and end (final validation) of a round, not per-edit. |
-| `python tests/eval/checkpoints/run_isolated.py <id> [<id> ...]` | Runs specific case IDs from `golden_dataset_v2.json` through the same grading logic (`run_case_v2`), without the 67-case cost. This is your fast iteration loop. |
+| `python tests/eval/run_eval.py --dataset tests/eval/golden_dataset_v2.json` | Full 105-case run (67 original + 2 privacy + 36 Suggestions cases). Writes `report_v2.json`. Slow (real LLM + judge calls) — run only at the start (baseline) and end (final validation) of a round, not per-edit. |
+| `python tests/eval/checkpoints/run_isolated.py <id> [<id> ...]` | Runs specific case IDs from `golden_dataset_v2.json` through the same grading logic (`run_case_v2`), without the full-run cost. This is your fast iteration loop. |
 | `python tests/eval/checkpoints/debug_single_question.py "question"` | Runs one arbitrary question (not necessarily a dataset case) through the full agent and dumps intent, answer, sources, and raw KB chunks. Use this to root-cause *why* a case fails before touching the prompt. |
 | `python tests/eval/checkpoints/probe_generalization.py` | Held-out generalization check — see step 5. Edit `PROBES` before running for a new round. |
 
@@ -155,7 +155,7 @@ being "random."
 After a fix lands, **also re-run a guard sample** of currently-passing cases spanning
 categories/buckets you didn't target, to catch collateral regressions before paying
 for a full run. A reasonable guard sample: one `kb` case per category (~19 cases),
-plus all `none` cases (~10) — cheap relative to the full 67, and catches most
+plus all `none` cases (~10) — cheap relative to the full 105, and catches most
 collateral damage. Example:
 ```
 python tests/eval/checkpoints/run_isolated.py bank-basic-01 daily-basic-01 docs-basic-01 \
@@ -258,6 +258,14 @@ Shows the Suggestions feature helps without hurting Q&A. Two tagged suites live 
 | `recommendation` | 21 (`rec-*`) | `expected_source: "suggestions"`, `test_type: capability`. Graded with the usual keyword rule plus the answer must show 👍 counts (see README_v2.md). |
 | `v1_regression` | 15 (`v1reg-*`) | Procedural Q&A lifted from the v1 set, `expected_source: "kb"`, `test_type: regression`. Same per-case pass rule as every other `kb` case. |
 
+**Status: pending.** The golden cases, `--suite`/`--report-out` flags and
+`compare_reports.py` are shipped and unit-tested, but the baseline and feature runs
+(real LLM and judge calls, built Suggestions collection) have not been executed, so
+no pass rates are recorded. Likewise the hand-labelled Thread sample that measures
+extraction quality (window coverage, recall, wrong extractions) is not yet produced;
+its procedure is in [docs/SUGGESTIONS_EVAL.md](../../docs/SUGGESTIONS_EVAL.md)
+(`make labelling-sample`, `make labelling-measure`). Both are maintainer steps.
+
 The per-case rule is unchanged: `case_passed` in each report case. Success is recorded
 as: recommendation pass rate improves AND regression pass rate does not drop.
 
@@ -323,6 +331,10 @@ the long v1 keyword lists (coverage >= 0.5 is demanding), so their absolute pass
 is low by design; only the baseline-to-feature change matters. They are tagged
 `regression`, so they also feed the regression gate in a full `run_eval.py` run.
 
+Extraction-level evaluation (does the pipeline find the real Suggestions in the
+chat?) is separate from this answer-level comparison and is documented in
+`docs/SUGGESTIONS_EVAL.md`.
+
 ## Adding new questions to the dataset
 
 Follow the schema in `tests/eval/README_v2.md` (`id`, `category`, `question`,
@@ -349,7 +361,7 @@ Follow the schema in `tests/eval/README_v2.md` (`id`, `category`, `question`,
 - [ ] Guard sample (1/category `kb` + all `none`) shows no regressions
 - [ ] Held-out probes written and compared before/after — real generalization, not
       memorization; distractors confirm no harmful over-triggering
-- [ ] Full 67-case run — compared bucket-by-bucket against baseline
+- [ ] Full 105-case run — compared bucket-by-bucket against baseline
 - [ ] At least one flipped case's actual answer text spot-checked (not just the
       pass/fail flag) — metrics can produce false positives
 - [ ] `pytest tests/ -v` — any failures confirmed pre-existing via `git stash`

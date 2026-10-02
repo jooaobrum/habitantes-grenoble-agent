@@ -7,6 +7,10 @@ hand-labelled random sample of Threads.
 > exist, so no results or tuned values are recorded yet (see the placeholders
 > at the end).
 
+This measures **extraction** (are the real Suggestions in the chat found?). The
+answer-level comparison (golden `rec-*` cases vs baseline, v1 regression) is in
+`tests/eval/EVAL_GUIDE.md`, also pending a real run.
+
 ## 1. Draw the sample
 
 ```bash
