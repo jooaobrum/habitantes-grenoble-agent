@@ -61,3 +61,11 @@ def reset_settings_cache():
     yield
     load_settings.cache_clear()
     categories_module._categories_cache = None
+
+
+@pytest.fixture
+def seeded_clusters():
+    """Fresh list of seeded ClusterEntry objects (Markets, Dentists, Salons)."""
+    from suggestion_clusters_seed import build_seeded_clusters
+
+    return build_seeded_clusters()

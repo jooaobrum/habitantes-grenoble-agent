@@ -141,6 +141,20 @@ cache:
   max_size: 256
   ttl_seconds: 3600
 
+# ── Suggestions (community recommendations; shared by ingestion + agent) ─────
+suggestions:
+  collection_name: "habitantes_suggestions_kb" # new collection, independent of the Q&A one
+  window_before: 5 # messages before a trigger message
+  window_after_request: 15 # messages after a request ("quem indica...") trigger
+  window_after_other: 5 # messages after any other trigger
+  jev_cutoff: 0.5 # min P(yes) from Jev for a window to be extracted
+  similarity_cutoff: 0.75 # min Item/Context similarity for Mentions to share a Cluster
+  ranking_half_life_years: 2.0 # Mentions older than this count half
+  summary_size: 5 # top members named in a Cluster summary ("+K outras" for the rest)
+  max_clusters: 3 # Clusters returned by search_suggestions
+  max_extra_members: 3 # extra query-matching members returned beyond the top ones
+  min_relevance: 0.55 # dense cosine floor for search_suggestions hits
+
 # ── Observability ───────────────────────────────────────────────────────────
 logging:
   interaction_path: "logs/interactions.jsonl"

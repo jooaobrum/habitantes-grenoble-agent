@@ -5,6 +5,8 @@ import yaml
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from habitantes.config import SuggestionsConfig
+
 
 class ParserConfig(BaseModel):
     timestamp_format: str = "%d/%m/%y, %H:%M:%S"
@@ -65,6 +67,7 @@ class IngestionSettings(BaseSettings):
     synthesis: SynthesisConfig = SynthesisConfig()
     jev: JevConfig = JevConfig()
     load: LoadConfig = LoadConfig()
+    suggestions: SuggestionsConfig = SuggestionsConfig()
 
 
 def load_ingestion_settings() -> IngestionSettings:
@@ -103,6 +106,10 @@ def load_ingestion_settings() -> IngestionSettings:
             ingestion_data[k].update(v)
         else:
             ingestion_data[k] = v
+
+    # `suggestions` is a top-level section shared with the API (habitantes.config).
+    if "suggestions" in config_data:
+        ingestion_data["suggestions"] = config_data["suggestions"]
 
     return IngestionSettings(**ingestion_data)
 
