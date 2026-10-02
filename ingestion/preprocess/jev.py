@@ -213,21 +213,28 @@ async def classify_qa(
     return result
 
 
-async def classify_window(
+WINDOW_QUESTION = (
+    "In this group chat excerpt, does any member name a specific business, "
+    "place, professional or product as a recommendation, a place they used, "
+    "or something to avoid?"
+)  # calibrated with ingestion/suggestions/calibrate_jev.py (see docs/SUGGESTIONS_EVAL.md)
+
+
+async def score_window(
     client: httpx.AsyncClient,
     text: str,
     api_key: Optional[str] = None,
     model: str = DEFAULT_MODEL,
     base_url: str = DEFAULT_BASE_URL,
-    cutoff: float = 0.5,
+    question: str = WINDOW_QUESTION,
     max_retries: int = 4,
     retry_base_sleep_s: float = 1.5,
     timeout_s: float = 30.0,
-) -> Optional[bool]:
-    """One yes/no question: does this chat window contain a Suggestion?
+) -> Optional[float]:
+    """P(yes) from Jev for "does this chat window contain a Suggestion?".
 
     Same endpoint and retry convention as `classify_qa`. Jev does not assign the
-    Kind. Returns None on failure (the window is then not extracted).
+    Kind. Returns None on failure.
     """
     key = api_key or os.environ.get("OPENROUTER_API_KEY")
     if not key:
@@ -236,18 +243,7 @@ async def classify_window(
     payload = {
         "model": model,
         "state": {"window": text},
-        "questions": {
-            "has_suggestion": {
-                "type": "noul",
-                "instructions": (
-                    "Does this excerpt of a group chat contain a Suggestion: a "
-                    "member giving a positive or negative opinion about a specific "
-                    "business, place or product (a shop, restaurant, doctor, "
-                    "service...)? Questions alone, banks, phone operators, apps "
-                    "and public services do not count."
-                ),
-            }
-        },
+        "questions": {"has_suggestion": {"type": "noul", "instructions": question}},
     }
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     for attempt in range(max_retries):
@@ -259,7 +255,7 @@ async def classify_window(
             data = resp.json()
             if "error" in data:
                 raise RuntimeError(data["error"])
-            return float(data["answers"]["has_suggestion"]["noul"]) >= cutoff
+            return float(data["answers"]["has_suggestion"]["noul"])
         except Exception as e:
             permanent = (
                 isinstance(e, httpx.HTTPStatusError)
@@ -275,3 +271,14 @@ async def classify_window(
                 else 0
             )
     return None
+
+
+async def classify_window(
+    client: httpx.AsyncClient,
+    text: str,
+    cutoff: float = 0.5,
+    **kwargs,
+) -> Optional[bool]:
+    """Does this chat window contain a Suggestion? None on failure (not extracted)."""
+    score = await score_window(client, text, **kwargs)
+    return None if score is None else score >= cutoff

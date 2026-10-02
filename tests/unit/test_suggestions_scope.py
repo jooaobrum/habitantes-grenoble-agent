@@ -67,7 +67,7 @@ def _extract(tmp_path, *mentions):
     sent = []
 
     def jev(request):
-        return httpx.Response(200, json={"answers": {"has_suggestion": {"noul": 0.9}}})
+        return httpx.Response(200, json={"answers": {"has_suggestion": {"noul": 0.99}}})
 
     def llm(request):
         sent.append(json.loads(request.content))

@@ -104,7 +104,7 @@ def _merge_llm(request):
 
 
 def _jev(request):
-    return httpx.Response(200, json={"answers": {"has_suggestion": {"noul": 0.9}}})
+    return httpx.Response(200, json={"answers": {"has_suggestion": {"noul": 0.99}}})
 
 
 def _chat(tmp_path: Path):

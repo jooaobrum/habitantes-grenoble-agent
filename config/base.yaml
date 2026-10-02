@@ -149,14 +149,14 @@ cache:
 # Businesses that opt out go in config/suggestion_exclusions.txt, not here.
 # The merge/label/extraction LLM defaults (google/gemini-2.5-flash-lite) live in
 # ingestion/config.py (`mention_extraction`, `suggestion_llm`); override them by adding
-# those keys under `ingestion:` below. Window sizes and jev_cutoff are untuned until the
+# those keys under `ingestion:` below. Window sizes are untuned until the
 # labelled sample is measured (docs/SUGGESTIONS_EVAL.md).
 suggestions:
   collection_name: "habitantes_suggestions_kb" # new collection, independent of the Q&A one
   window_before: 5 # messages before a trigger message
   window_after_request: 15 # messages after a request ("quem indica...") trigger
   window_after_other: 5 # messages after any other trigger
-  jev_cutoff: 0.5 # min P(yes) from Jev for a window to be extracted
+  jev_cutoff: 0.92 # min P(yes) from Jev for a window; calibrated on proxy labels (docs/SUGGESTIONS_EVAL.md)
   similarity_cutoff: 0.75 # min Item/Context similarity for Mentions to share a Cluster
   ranking_half_life_years: 2.0 # Mentions older than this count half
   summary_size: 5 # top members named in a Cluster summary ("+K outras" for the rest)

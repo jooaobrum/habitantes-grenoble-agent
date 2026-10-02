@@ -88,10 +88,21 @@ Logic is unit-tested with a fake extractor on a tiny fixture:
 | `window_before` | 5 | pending |
 | `window_after_request` | 15 | pending |
 | `window_after_other` | 5 | pending |
-| `jev_cutoff` | 0.5 | pending |
+| `jev_cutoff` | 0.92 | 0.92 (calibrated on proxy labels, see below; not hand-labelled) |
 | Lexicon changes | none | pending |
 
 Baseline results (sample size, seed, per-Kind coverage/recall/wrong): pending.
+
+### Jev gate calibration (proxy labels)
+
+`ingestion/suggestions/calibrate_jev.py` compares Jev's P(yes) with yes/no labels from a stronger LLM (`google/gemini-2.5-flash`) on seeded samples of windows (half request-opened, half other; 2021-2026 chat). These are model labels, not hand labels. The original wording and 0.5 cutoff dropped 36 of 60 request windows, most of which still held places (recall 0.69, precision 0.76 vs the proxy). The wording is now the "answer-focused" question in `ingestion/preprocess/jev.py` with cutoff 0.92:
+
+| Sample | Windows | Recall | Precision | Windows passed |
+|---|---|---|---|---|
+| tuning (seed 42) | 150 | 0.91 | 0.86 | 53% |
+| holdout (seed 7) | 120 | 0.94 | 0.86 | 62% |
+
+Re-run the script after the hand-labelled sample exists and prefer those labels.
 
 ## 5. Fall back to scanning every message? (PENDING)
 

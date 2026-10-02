@@ -198,7 +198,7 @@ The `suggestions:` section of [config/base.yaml](config/base.yaml) is read by bo
 | `window_before` | 5 | Messages before a trigger message |
 | `window_after_request` | 15 | Messages after a request trigger |
 | `window_after_other` | 5 | Messages after any other trigger |
-| `jev_cutoff` | 0.5 | Minimum Jev P(yes) for a window to be extracted |
+| `jev_cutoff` | 0.92 | Minimum Jev P(yes) for a window to be extracted |
 | `similarity_cutoff` | 0.75 | Minimum Item/Context similarity for Mentions to share a Cluster |
 | `ranking_half_life_years` | 2.0 | Mentions older than this count half |
 | `summary_size` | 5 | Members named in a Cluster summary |

@@ -155,7 +155,7 @@ class SuggestionsConfig(BaseModel):
     window_after_request: int = 15
     window_after_other: int = 5
     # Jev yes/no filter: min P(yes) for a window to be extracted.
-    jev_cutoff: float = 0.5
+    jev_cutoff: float = 0.92
     # Mention clustering: min similarity of Items+Context to join a Cluster.
     similarity_cutoff: float = 0.75
     # Ranking: Mentions older than this count half (+1 per thumbs-up, -1 per down).

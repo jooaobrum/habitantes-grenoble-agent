@@ -95,7 +95,7 @@ def _run(tmp_path, jev_handler, llm_handler, cfg=None):
 
 
 def _jev_yes(request):
-    return httpx.Response(200, json={"answers": {"has_suggestion": {"noul": 0.9}}})
+    return httpx.Response(200, json={"answers": {"has_suggestion": {"noul": 0.99}}})
 
 
 def _llm_ok(seen):
