@@ -248,6 +248,81 @@ everything. See `tests/eval/CHECKPOINT.md` from this round as a template — it'
 as a worked example rather than reset, so you can see the actual before/after
 reasoning trail.
 
+## Suggestions evaluation: baseline vs feature (issue #59)
+
+Shows the Suggestions feature helps without hurting Q&A. Two tagged suites live in
+`golden_dataset_v2.json` (field `suite`):
+
+| Suite | Cases | What it is |
+|---|---|---|
+| `recommendation` | 21 (`rec-*`) | `expected_source: "suggestions"`, `test_type: capability`. Graded with the usual keyword rule plus the answer must show 👍 counts (see README_v2.md). |
+| `v1_regression` | 15 (`v1reg-*`) | Procedural Q&A lifted from the v1 set, `expected_source: "kb"`, `test_type: regression`. Same per-case pass rule as every other `kb` case. |
+
+The per-case rule is unchanged: `case_passed` in each report case. Success is recorded
+as: recommendation pass rate improves AND regression pass rate does not drop.
+
+Every `rec-*` case carries `expected_suggestions` with `verification:
+needs_corpus_verification`. The Kind, Topic and Item terms are grounded in the chat
+export (term counts in `grounded_in`); specific business names are only listed where
+the export itself shows the name (Grand Frais, Decathlon) and still need confirming
+against the built Clusters. Maintainer: after the Clusters are built, fill `names` from
+the top members of the matching Cluster and set `verification` to
+`verified_against_clusters`. Case ids (not the Q&A thread ids) are what the comparison
+joins on, so editing expected fields does not break past reports.
+
+### 1. Capture the baseline (bot before the feature, commit `c0a5d79`)
+
+The old checkpoint `checkpoints/report_v2.v0.baseline.json` predates these cases, so it
+cannot serve alone (the comparison only counts cases present in both reports). Run the
+two suites against the pre-feature code in a throwaway worktree, with the new dataset
+and runner copied in:
+
+```
+git worktree add /tmp/habitantes-baseline c0a5d79
+cp tests/eval/golden_dataset_v2.json tests/eval/run_eval.py /tmp/habitantes-baseline/tests/eval/
+cd /tmp/habitantes-baseline      # needs the same .env/keys and Qdrant (Q&A collection)
+uv run python tests/eval/run_eval.py --dataset tests/eval/golden_dataset_v2.json \
+    --suite recommendation --suite v1_regression \
+    --report-out /path/to/repo/tests/eval/checkpoints/report_v2.suggestions.baseline.json
+cd -; git worktree remove /tmp/habitantes-baseline
+```
+The pre-feature bot has no `search_suggestions`, so it is expected to fail most
+`recommendation` cases (no 👍 counts); that is the baseline. Keep the report in
+`checkpoints/`.
+
+### 2. Run the feature evaluation
+
+On this branch, with the Suggestions collection built and loaded (ingestion) and the
+usual keys:
+
+```
+uv run python tests/eval/run_eval.py --dataset tests/eval/golden_dataset_v2.json \
+    --suite recommendation --suite v1_regression \
+    --report-out tests/eval/checkpoints/report_v2.suggestions.feature.json
+```
+The report gains a `by_suite` table. The category filter flag per case is seeded by
+case position, so run baseline and feature with the same `--suite` arguments (or pass
+`--force-category` to both) to keep it identical. Both runs need real LLM and judge
+calls, so they cost money and are not part of CI.
+
+### 3. Compare
+
+```
+uv run python tests/eval/compare_reports.py \
+    tests/eval/checkpoints/report_v2.suggestions.baseline.json \
+    tests/eval/checkpoints/report_v2.suggestions.feature.json
+```
+Prints both pass rates, the cases fixed and broken, and `SUCCESS`/`FAILURE`; writes
+`tests/eval/suggestions_comparison.json` (including a `success` field and
+`failure_reasons`); exits 0 on success, 1 otherwise. Unit tests:
+`tests/unit/test_eval_compare_reports.py`.
+
+Caveats: with only 21 and 15 cases a single flipped case moves a rate by 5-7 points,
+so read the `fixed`/`broken` lists, not just the rates. The `v1_regression` cases reuse
+the long v1 keyword lists (coverage >= 0.5 is demanding), so their absolute pass rate
+is low by design; only the baseline-to-feature change matters. They are tagged
+`regression`, so they also feed the regression gate in a full `run_eval.py` run.
+
 ## Adding new questions to the dataset
 
 Follow the schema in `tests/eval/README_v2.md` (`id`, `category`, `question`,

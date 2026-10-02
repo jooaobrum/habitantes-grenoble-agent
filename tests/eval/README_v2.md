@@ -53,6 +53,7 @@ the production Qdrant collection — ingestion reads `chat-19012021-20022026.txt
 
 | Field | Notes |
 |---|---|
+| `suite` | Optional tag: `recommendation` or `v1_regression` (the Suggestions comparison, `compare_reports.py`). Absent on the original cases. |
 | `category` | One of the 19 canonical `en_name`s in `config/base.yaml` `categories:`. `null` for negative cases (they're intentionally uncategorizable / out of scope). |
 | `difficulty` | `basic` = everyday question a resident would actually ask. `edge` = niche, multi-part, or tests a specific point of confusion. |
 | `test_type` | `regression` = should ~always pass; a drop is a real bug. `capability` = expected to be hard; a drop is a measurement, not necessarily a blocker. |
@@ -101,6 +102,20 @@ Two families:
   number, live community-group membership, personal case-status ETA. Grading intent: the
   agent must **not fabricate a specific answer**. This directly operationalizes the CLAUDE.md
   rule *"Don't generate an answer when `chunks` is empty"* and extends it to web/live data too.
+
+### `suggestions` (21 cases, `suite: recommendation`) — added for the Suggestions feature
+Recommendation Requests ("who/where do you recommend for X?"), all `capability`. They
+have no `expected_thread_ids` (the Suggestions collection is not Q&A threads) and carry
+an `expected_suggestions` object: `kind`, `topic`, `item_terms`, `names` and
+`verification`. Pass rule: `keyword_coverage >= 0.5` on `expected_answer_keywords`
+(Kind/Item terms, plus a name where the chat export shows one) AND the answer shows 👍
+counts (`cites_community_counts`). `names` is empty or only chat-confirmed, and every
+case is marked `needs_corpus_verification` until the maintainer checks it against the
+built Clusters. See EVAL_GUIDE.md, "Suggestions evaluation".
+
+### `v1_regression` suite (15 cases)
+Regular `kb`/`regression` cases (`v1reg-*`) lifted from the v1 set with their v1 thread
+ids and keywords, used to check that Suggestions do not degrade Q&A.
 
 ## Known caveats (flagged in individual `notes`)
 

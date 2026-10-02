@@ -1406,5 +1406,999 @@
     "grounded_in": "constructed negative (privacy guardrail)",
     "notes": "Tests GUARDRAIL 6 in synthesis.py — must not expose personal contact info of a named community member. Must not be confused with legitimate official/business contacts (CAF, Préfecture, recommended professionals), which the guardrail explicitly allows.",
     "stale_fact_markers": []
+  },
+  {
+    "id": "rec-food-01",
+    "category": "Food & Restaurants",
+    "question": "Onde eu compro massa de pastel em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "massa",
+      "pastel"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 16 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Long-tail item query (user story 9). Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Markets & Groceries",
+      "topic": "Food & Restaurants",
+      "item_terms": [
+        "massa de pastel"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-food-02",
+    "category": "Food & Restaurants",
+    "question": "Alguém indica onde achar polvilho ou farinha de mandioca por aqui?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "polvilho",
+      "mandioca"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 35 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Item-name query: a place named once for the item must still be found (user story 9). Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Markets & Groceries",
+      "topic": "Food & Restaurants",
+      "item_terms": [
+        "polvilho",
+        "farinha de mandioca"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-food-03",
+    "category": "Food & Restaurants",
+    "question": "Qual mercado vocês recomendam pra comprar frutas e legumes bons em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "fruta",
+      "Grand Frais"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 24 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Grand Frais is praised for fruit in the chat export (24 mentions of the name) and is the expected KB answer of v1 question 30 (threads 1570, 1525); counts/recency still need the Suggestions collection. Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Markets & Groceries",
+      "topic": "Food & Restaurants",
+      "item_terms": [
+        "frutas",
+        "legumes"
+      ],
+      "names": [
+        "Grand Frais"
+      ],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "Names above are only confirmed as present in the chat export; the maintainer must confirm they appear in the built Cluster for this Kind with positive net score."
+    }
+  },
+  {
+    "id": "rec-food-04",
+    "category": "Food & Restaurants",
+    "question": "Vocês conhecem algum restaurante brasileiro em Grenoble pra eu ir com amigos?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "restaurante"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 34 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Restaurants & Bars",
+      "topic": "Food & Restaurants",
+      "item_terms": [
+        "restaurante brasileiro"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-food-05",
+    "category": "Food & Restaurants",
+    "question": "Onde posso comprar pão de queijo e guaraná em Grenoble?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "pão de queijo",
+      "guaraná"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 41 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Two items in one request; checks Cluster match on Items rather than a single shop type. Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Markets & Groceries",
+      "topic": "Food & Restaurants",
+      "item_terms": [
+        "pão de queijo",
+        "guaraná"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-health-01",
+    "category": "Health & Insurance",
+    "question": "Pode me indicar um dentista em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "dentista"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 196 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Story 2: several options expected. Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Dentists",
+      "topic": "Health & Insurance",
+      "item_terms": [
+        "consulta",
+        "limpeza dental"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-health-02",
+    "category": "Health & Insurance",
+    "question": "Alguém recomenda um oftalmologista em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "oftalmo"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 74 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Doctors",
+      "topic": "Health & Insurance",
+      "item_terms": [
+        "consulta"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-health-03",
+    "category": "Health & Insurance",
+    "question": "Indicação de dermatologista aqui na região, por favor?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "dermato"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 45 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Doctors",
+      "topic": "Health & Insurance",
+      "item_terms": [
+        "consulta"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-health-04",
+    "category": "Health & Insurance",
+    "question": "Vocês têm indicação de ginecologista em Grenoble que atenda bem?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "ginecolog"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 19 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Doctors",
+      "topic": "Health & Insurance",
+      "item_terms": [
+        "consulta"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-health-05",
+    "category": "Health & Insurance",
+    "question": "Preciso de um psicólogo em Grenoble, quem vocês indicam?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "psicólog"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 55 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Kind may be Doctors or Other depending on extraction; keyword grading is Kind-agnostic. Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Doctors",
+      "topic": "Health & Insurance",
+      "item_terms": [
+        "terapia"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-health-06",
+    "category": "Health & Insurance",
+    "question": "Alguém conhece um bom fisioterapeuta em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "fisioterap"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 37 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Doctors",
+      "topic": "Health & Insurance",
+      "item_terms": [
+        "fisioterapia"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-hair-01",
+    "category": "Hair & Beauty",
+    "question": "Alguém sabe de um cabeleireiro bom pra cabelo cacheado em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "cabel"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 45 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Item example from CONTEXT.md (corte de cabelo cacheado). Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Salons & Beauty",
+      "topic": "Hair & Beauty",
+      "item_terms": [
+        "corte de cabelo cacheado"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-hair-02",
+    "category": "Hair & Beauty",
+    "question": "Onde vocês cortam o cabelo? Preciso de um barbeiro em Grenoble.",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "barbeiro"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 25 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Salons & Beauty",
+      "topic": "Hair & Beauty",
+      "item_terms": [
+        "corte masculino"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-hair-03",
+    "category": "Hair & Beauty",
+    "question": "Indicam alguma manicure ou lugar pra fazer sobrancelha em Grenoble?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "manicure",
+      "sobrancelha"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 25 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Two Items; either may be covered by a different Cluster. Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Salons & Beauty",
+      "topic": "Hair & Beauty",
+      "item_terms": [
+        "manicure",
+        "sobrancelha"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-docs-01",
+    "category": "Documents & Bureaucracy",
+    "question": "Tem indicação de tradutor juramentado em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "tradutor"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 202 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Overlaps v1 question 18 (threads 2414, 2202) which is a Q&A-style version; here the recommendation list is what is graded. Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Translators",
+      "topic": "Documents & Bureaucracy",
+      "item_terms": [
+        "tradução juramentada"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-docs-02",
+    "category": "Documents & Bureaucracy",
+    "question": "Como faço pra traduzir meu diploma do Brasil pra usar na França e qual tradutor vocês recomendam?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "juramentad",
+      "tradutor"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 202 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Both a procedural question and a Recommendation Request (user story 13): the answer needs the how-to and the community picks. Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Translators",
+      "topic": "Documents & Bureaucracy",
+      "item_terms": [
+        "diploma",
+        "tradução juramentada"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-pets-01",
+    "category": "Pets & Animals",
+    "question": "Alguém indica um veterinário em Grenoble pro meu gato?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "veterin"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 56 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Vets & Pets",
+      "topic": "Pets & Animals",
+      "item_terms": [
+        "consulta"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-sports-01",
+    "category": "Sports & Activities",
+    "question": "Qual academia vocês recomendam em Grenoble? Procuro algo com bom custo-benefício.",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "academia"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 114 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Gyms & Sports",
+      "topic": "Sports & Activities",
+      "item_terms": [
+        "musculação"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-daily-01",
+    "category": "Daily Life & Services",
+    "question": "Onde compro roupa de frio boa e barata em Grenoble?",
+    "difficulty": "basic",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "roupa",
+      "Decathlon"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 104 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "The chat export has 'roupa nova, em grenoble, de frio, o melhor custo beneficio é a decathlon' and similar (name appears 104 times overall); counts/recency still need the Suggestions collection. Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Shops",
+      "topic": "Daily Life & Services",
+      "item_terms": [
+        "roupa de frio"
+      ],
+      "names": [
+        "Decathlon"
+      ],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "Names above are only confirmed as present in the chat export; the maintainer must confirm they appear in the built Cluster for this Kind with positive net score."
+    }
+  },
+  {
+    "id": "rec-daily-02",
+    "category": "Daily Life & Services",
+    "question": "Vocês conhecem algum advogado em Grenoble que ajude com direito de imigração ou trabalho?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "advogad"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 195 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Professional Services Kind; advogado is frequent in the chat but many are requests, so how many are positive Mentions is unknown. Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Professional Services",
+      "topic": "Daily Life & Services",
+      "item_terms": [
+        "imigração"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "rec-daily-03",
+    "category": "Daily Life & Services",
+    "question": "Alguém indica um contador ou serviço pra declaração de imposto aqui em Grenoble?",
+    "difficulty": "edge",
+    "test_type": "capability",
+    "expected_source": "suggestions",
+    "expected_thread_ids": [],
+    "expected_answer_keywords": [
+      "contador"
+    ],
+    "ground_truth_answer": "The answer lists community-recommended places from search_suggestions (name, 👍/👎 counts, date of the latest Mention, one reworded context line), says they are community picks and not exhaustive, and reminds the user to confirm availability. Never quotes negative opinions.",
+    "grounded_in": "chat export data/chat-19012021-02102026.txt: topic terms for this request occur 47 times (grep -ic, case-insensitive). Expected Suggestions are NOT verified against the Suggestions collection.",
+    "notes": "Banks/public services are excluded from Suggestions; an accountant is a business, so it should qualify. Pass rule: keyword_coverage >= 0.5 AND the answer shows 👍 counts.",
+    "stale_fact_markers": [],
+    "suite": "recommendation",
+    "expected_suggestions": {
+      "kind": "Professional Services",
+      "topic": "Daily Life & Services",
+      "item_terms": [
+        "declaração de imposto"
+      ],
+      "names": [],
+      "verification": "needs_corpus_verification",
+      "verification_notes": "No business name asserted. Maintainer: after the Clusters are built, fill `names` from the top members of the matching Cluster and set verification to 'verified_against_clusters'."
+    }
+  },
+  {
+    "id": "v1reg-01",
+    "category": "Visa & Residency",
+    "question": "Vou enviar certidão e comprovantes do Brasil pra Ameli: eles aceitam documentos em português ou preciso fazer tradução juramentada pro francês?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      205
+    ],
+    "expected_answer_keywords": [
+      "Ameli",
+      "não aceita",
+      "português",
+      "tradução",
+      "francês",
+      "tradução juramentada"
+    ],
+    "ground_truth_answer": "Ameli não aceita português tradução francês tradução juramentada",
+    "grounded_in": "golden_dataset.json (v1) index 0; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-02",
+    "category": "Banking & Finance",
+    "question": "Quero usar só banco online na França (tipo Boursorama/N26). Isso costuma dar problema no dia a dia ou em caso de fraude/uso indevido do cartão? Eles reembolsam fácil?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1664,
+      655
+    ],
+    "expected_answer_keywords": [
+      "banco online",
+      "Boursorama",
+      "fraude",
+      "uso indevido",
+      "cartão",
+      "reembolso",
+      "segurança",
+      "estorno"
+    ],
+    "ground_truth_answer": "banco online Boursorama fraude uso indevido cartão reembolso segurança estorno",
+    "grounded_in": "golden_dataset.json (v1) index 3; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-03",
+    "category": "Banking & Finance",
+    "question": "Preciso colocar dinheiro em espécie na conta: tem como depositar cash no N26 ou no Boursorama na França? Como normalmente o pessoal faz?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      830,
+      1664,
+      1207
+    ],
+    "expected_answer_keywords": [
+      "depósito em espécie",
+      "dinheiro",
+      "N26",
+      "não é possível",
+      "Boursorama",
+      "correio",
+      "banco parceiro",
+      "transferência"
+    ],
+    "ground_truth_answer": "depósito em espécie dinheiro N26 não é possível Boursorama correio banco parceiro transferência",
+    "grounded_in": "golden_dataset.json (v1) index 4; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-04",
+    "category": "Housing & CAF",
+    "question": "Estou procurando apartamento em Grenoble e o “dono” quer que eu pague a reserva adiantada via cupom PCS/Neosurf. Isso é golpe? Como o pessoal identifica e evita esse tipo de fraude de aluguel?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      320,
+      1250,
+      1327
+    ],
+    "expected_answer_keywords": [
+      "golpe",
+      "aluguel",
+      "pagamento adiantado",
+      "cupom",
+      "PCS",
+      "Neosurf",
+      "brouteurs",
+      "denunciar",
+      "cuidado"
+    ],
+    "ground_truth_answer": "golpe aluguel pagamento adiantado cupom PCS Neosurf brouteurs denunciar cuidado",
+    "grounded_in": "golden_dataset.json (v1) index 5; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-05",
+    "category": "Housing & CAF",
+    "question": "Na CAF, consigo declarar online que estou temporariamente fora do endereço e que volto em julho? Preciso anexar algum documento provando o retorno e atualizar o endereço depois?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2495,
+      446,
+      1095
+    ],
+    "expected_answer_keywords": [
+      "CAF",
+      "declaração online",
+      "não reside",
+      "retornará",
+      "julho",
+      "justificativa",
+      "documentos comprobatórios",
+      "atualizar endereço",
+      "contato CAF"
+    ],
+    "ground_truth_answer": "CAF declaração online não reside retornará julho justificativa documentos comprobatórios atualizar endereço contato CAF",
+    "grounded_in": "golden_dataset.json (v1) index 6; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-06",
+    "category": "Housing & CAF",
+    "question": "Não tenho fiador francês para alugar apartamento. O Visale realmente funciona como garant? É comum pedir para o chefe/orientador ser fiador na França?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1994,
+      226
+    ],
+    "expected_answer_keywords": [
+      "Visale",
+      "Action Logement",
+      "garantia",
+      "fiador",
+      "garant",
+      "aluguel",
+      "chefe",
+      "orientador",
+      "estrangeiros"
+    ],
+    "ground_truth_answer": "Visale Action Logement garantia fiador garant aluguel chefe orientador estrangeiros",
+    "grounded_in": "golden_dataset.json (v1) index 7; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-07",
+    "category": "Health & Insurance",
+    "question": "Ainda não recebi meu número definitivo da Sécurité Sociale. Enquanto isso, preciso pagar as consultas do próprio bolso e pedir reembolso depois? Estou coberto de alguma forma?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2410,
+      1146
+    ],
+    "expected_answer_keywords": [
+      "Sécurité Sociale",
+      "número provisório",
+      "número definitivo",
+      "pagar antecipado",
+      "reembolso",
+      "cobertura",
+      "Ameli"
+    ],
+    "ground_truth_answer": "Sécurité Sociale número provisório número definitivo pagar antecipado reembolso cobertura Ameli",
+    "grounded_in": "golden_dataset.json (v1) index 8; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-08",
+    "category": "Health & Insurance",
+    "question": "Preciso fazer exame de sangue em Grenoble: sem mutuelle vou ter que pagar tudo? A mutuelle ou o CROUS costumam cobrir esse tipo de exame?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      264,
+      497
+    ],
+    "expected_answer_keywords": [
+      "exame de sangue",
+      "mutuelle",
+      "reembolso",
+      "CROUS",
+      "pagamento",
+      "seguro complementar"
+    ],
+    "ground_truth_answer": "exame de sangue mutuelle reembolso CROUS pagamento seguro complementar",
+    "grounded_in": "golden_dataset.json (v1) index 9; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-09",
+    "category": "University & Studies",
+    "question": "Depois da entrevista do Campus France e de enviar o dossiê pra ENSAG, normalmente ainda tem entrevista direto com a escola? E o nível de francês exigido pesa mais na escrita (mémoire) do que na parte oral?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      595,
+      1861
+    ],
+    "expected_answer_keywords": [
+      "Campus France",
+      "ENSAG",
+      "entrevista",
+      "dossiê",
+      "nível de francês",
+      "B2",
+      "mémoire",
+      "M1",
+      "trabalhos escritos"
+    ],
+    "ground_truth_answer": "Campus France ENSAG entrevista dossiê nível de francês B2 mémoire M1 trabalhos escritos",
+    "grounded_in": "golden_dataset.json (v1) index 11; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-10",
+    "category": "University & Studies",
+    "question": "Sou da Polytech Grenoble: eu sou automaticamente aluna da UGA também? Tem alguma exceção tipo GEM?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1574
+    ],
+    "expected_answer_keywords": [
+      "Polytech Grenoble",
+      "UGA",
+      "Université Grenoble Alpes",
+      "faz parte",
+      "GEM",
+      "Grenoble École de Management",
+      "exceção"
+    ],
+    "ground_truth_answer": "Polytech Grenoble UGA Université Grenoble Alpes faz parte GEM Grenoble École de Management exceção",
+    "grounded_in": "golden_dataset.json (v1) index 12; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-11",
+    "category": "Work & Internship",
+    "question": "Se eu perder o emprego na França, eu só consigo pedir o seguro-desemprego (chômage) se meu visto estiver válido e vinculado ao Pôle Emploi? Como funciona esse vínculo?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1745,
+      463
+    ],
+    "expected_answer_keywords": [
+      "Pôle Emploi",
+      "visto válido",
+      "vínculo",
+      "chômage",
+      "seguro-desemprego",
+      "direito",
+      "trabalho"
+    ],
+    "ground_truth_answer": "Pôle Emploi visto válido vínculo chômage seguro-desemprego direito trabalho",
+    "grounded_in": "golden_dataset.json (v1) index 14; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-12",
+    "category": "Documents & Bureaucracy",
+    "question": "Perdi meus documentos brasileiros aqui na França (RG/CNH). Preciso fazer BO no Brasil e também declarar na polícia francesa antes de pedir segunda via/novo documento no consulado ou na ANEF?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      1644,
+      2438,
+      2409
+    ],
+    "expected_answer_keywords": [
+      "perda",
+      "furto",
+      "roubo",
+      "boletim de ocorrência",
+      "delegacia",
+      "polícia",
+      "consulado",
+      "Embaixada",
+      "ANEF",
+      "segunda via"
+    ],
+    "ground_truth_answer": "perda furto roubo boletim de ocorrência delegacia polícia consulado Embaixada ANEF segunda via",
+    "grounded_in": "golden_dataset.json (v1) index 16; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-13",
+    "category": "Documents & Bureaucracy",
+    "question": "Para dirigir e/ou comprar carro na França, a PID (permissão internacional) já basta ou também pedem tradução juramentada da CNH? Isso muda se eu comprar em concessionária versus particular?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2409,
+      609,
+      2414
+    ],
+    "expected_answer_keywords": [
+      "PID",
+      "permissão internacional",
+      "dirigir",
+      "tradução juramentada",
+      "CNH",
+      "concessionária",
+      "particular",
+      "transferência do veículo"
+    ],
+    "ground_truth_answer": "PID permissão internacional dirigir tradução juramentada CNH concessionária particular transferência do veículo",
+    "grounded_in": "golden_dataset.json (v1) index 17; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-14",
+    "category": "Documents & Bureaucracy",
+    "question": "Para fazer PACS, existe tempo mínimo morando junto no mesmo endereço? Que tipos de comprovantes de residência conjunta costumam valer (contrato, contas) e o consulado entra em algo tipo certificado de coutume?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2321,
+      2496,
+      1993
+    ],
+    "expected_answer_keywords": [
+      "PACS",
+      "tempo mínimo",
+      "vida em comum",
+      "comprovante de residência",
+      "contrato de aluguel",
+      "contas",
+      "prefeitura",
+      "certificat de coutume",
+      "consulado"
+    ],
+    "ground_truth_answer": "PACS tempo mínimo vida em comum comprovante de residência contrato de aluguel contas prefeitura certificat de coutume consulado",
+    "grounded_in": "golden_dataset.json (v1) index 19; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
+  },
+  {
+    "id": "v1reg-15",
+    "category": "Daily Life & Services",
+    "question": "Moro num estúdio pequeno (tipo 12m²) em Grenoble e queria ter noção de gastos: quanto costuma vir de energia (gás + eletricidade) por mês e o que mais influencia (consumo, classe energética do imóvel)?",
+    "difficulty": "basic",
+    "test_type": "regression",
+    "expected_source": "kb",
+    "expected_thread_ids": [
+      2631,
+      1132
+    ],
+    "expected_answer_keywords": [
+      "conta de energia",
+      "12m²",
+      "50 a 70 euros",
+      "mês",
+      "gás",
+      "eletricidade",
+      "consumo",
+      "classificação energética",
+      "contrato"
+    ],
+    "ground_truth_answer": "conta de energia 12m² 50 a 70 euros mês gás eletricidade consumo classificação energética contrato",
+    "grounded_in": "golden_dataset.json (v1) index 20; expected_thread_ids from v1.",
+    "notes": "Procedural Q&A lifted from v1 as a regression guard for the Suggestions feature (must not get worse). ground_truth_answer is the v1 keywords joined, as v1 used for semantic_similarity.",
+    "stale_fact_markers": [],
+    "suite": "v1_regression"
   }
 ]
