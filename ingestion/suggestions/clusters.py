@@ -1,17 +1,17 @@
 """Suggestions -> Cluster entries: grouping seam, ranking, label + summary.
 
-`cluster_mentions` is the seam issue #55 replaces with similarity clustering.
-Everything else (member lines, ranking, summary) works on whatever groups it
-returns.
+`cluster_mentions` groups Mentions by similarity; member lines, ranking and
+summary work per group.
 """
 
 from __future__ import annotations
 
 import logging
 from datetime import date, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import httpx
+import numpy as np
 
 from habitantes.domain.suggestions import ClusterEntry, ClusterMember, Kind
 from ingestion.suggestions.extract import Mention
@@ -22,11 +22,49 @@ from ingestion.suggestions.suggestions import Suggestion
 logger = logging.getLogger(__name__)
 
 
-def cluster_mentions(kind: Kind, mentions: List[Mention]) -> List[List[Mention]]:
-    """Group the counted Mentions of one Kind into Clusters (one group per Kind for
-    now; #55 swaps in Item/Context similarity, where a Mention may sit in one
-    group only but a Suggestion may appear in several)."""
-    return [mentions] if mentions else []
+MIN_MENTIONS_TO_SPLIT = 4  # fewer Mentions than this always form one Cluster
+
+
+def _mention_text(m: Mention) -> str:
+    return " ".join([*m.items, m.context or ""]).strip() or m.name
+
+
+def cluster_mentions(
+    kind: Kind,
+    mentions: List[Mention],
+    embed: Optional[Callable[[List[str]], List[List[float]]]] = None,
+    cutoff: float = 0.75,
+) -> List[List[Mention]]:
+    """Group the counted Mentions of one Kind by similarity of Items + Context.
+
+    Greedy leader clustering on cosine similarity: a Mention joins the Cluster whose
+    centroid is most similar if that is >= `cutoff`, else starts a new Cluster. No
+    fixed number of groups. A Mention sits in one group only; a Suggestion may
+    therefore appear in several groups.
+    """
+    if not mentions:
+        return []
+    if len(mentions) < MIN_MENTIONS_TO_SPLIT:
+        return [mentions]
+    if embed is None:
+        from ingestion.load.suggestions import _embed_texts as embed
+    vecs = np.asarray(embed([_mention_text(m) for m in mentions]), dtype="float64")
+    vecs = vecs / np.maximum(np.linalg.norm(vecs, axis=1, keepdims=True), 1e-12)
+    groups: List[List[int]] = []
+    sums: List[np.ndarray] = []
+    for i, v in enumerate(vecs):
+        best, best_sim = -1, -1.0
+        for g, total in enumerate(sums):
+            sim = float(v @ total) / max(float(np.linalg.norm(total)), 1e-12)
+            if sim > best_sim:
+                best, best_sim = g, sim
+        if best >= 0 and best_sim >= cutoff:
+            groups[best].append(i)
+            sums[best] = sums[best] + v
+        else:
+            groups.append([i])
+            sums.append(v.copy())
+    return [[mentions[i] for i in g] for g in groups]
 
 
 def mention_weight(m: Mention, today: date, half_life_years: float) -> float:
@@ -130,6 +168,7 @@ async def build_clusters(
     llm_cfg: Any,
     client: httpx.AsyncClient,
     today: Optional[date] = None,
+    dense_embed: Optional[Callable[[List[str]], List[List[float]]]] = None,
 ) -> List[ClusterEntry]:
     """One or more Cluster entries per Kind from the stored Suggestions."""
     today = today or date.today()
@@ -140,10 +179,18 @@ async def build_clusters(
         community = frozenset(
             normalise_name(s.name) for s in kind_sugg if s.community_business
         )
-        for group in cluster_mentions(kind, counted):
-            entries.append(
-                await build_cluster_entry(
-                    kind, group, cfg, llm_cfg, client, today, community
-                )
+        taken: set = set()
+        for group in cluster_mentions(
+            kind, counted, dense_embed, cfg.similarity_cutoff
+        ):
+            entry = await build_cluster_entry(
+                kind, group, cfg, llm_cfg, client, today, community
             )
+            # point id = md5(kind|label): labels must be unique per Kind
+            base, n = entry.label, 2
+            while entry.label in taken:
+                entry.label = f"{base} ({n})"
+                n += 1
+            taken.add(entry.label)
+            entries.append(entry)
     return entries

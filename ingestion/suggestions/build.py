@@ -16,6 +16,11 @@ from qdrant_client import QdrantClient
 
 from ingestion.load.suggestions import DenseEmbed, SparseEmbed, load_clusters
 from ingestion.suggestions.clusters import build_clusters
+from ingestion.suggestions.exclusions import (
+    exclude_mentions,
+    exclude_suggestions,
+    load_exclusions,
+)
 from ingestion.suggestions.mentions import read_mentions
 from ingestion.suggestions.merge import merge_variants
 from ingestion.suggestions.suggestions import (
@@ -39,28 +44,38 @@ async def run_suggestions_builder(
     sparse_embed: Optional[SparseEmbed] = None,
     today: Optional[date] = None,
     from_suggestions_file: bool = False,
+    exclusions_path: Optional[Path] = None,
 ) -> int:
     """Return the number of Cluster entries loaded.
 
     `from_suggestions_file=True` rebuilds from the stored suggestions file
     (skips merge) so a rebuild never needs the chat or the Mentions file.
+    The opt-out list (`exclusions_path`, default config/suggestion_exclusions.txt)
+    is applied on every rebuild, before counting and clustering.
     """
     if not from_suggestions_file and not mentions_path.exists():
         logger.error("Mentions file not found: %s (run `make mentions`)", mentions_path)
         return 0
     own = llm_client is None
     client = llm_client or httpx.AsyncClient()
+    excluded = load_exclusions(exclusions_path)
     try:
         sugg_path = output_dir / SUGGESTIONS_FILENAME
         if from_suggestions_file:
-            stored = read_suggestions(sugg_path)
+            stored = exclude_suggestions(read_suggestions(sugg_path), excluded)
         else:
-            merged = await merge_variants(read_mentions(mentions_path), llm_cfg, client)
-            stored = aggregate(merged)
+            merged = await merge_variants(
+                exclude_mentions(read_mentions(mentions_path), excluded),
+                llm_cfg,
+                client,
+            )
+            stored = aggregate(exclude_mentions(merged, excluded))
             output_dir.mkdir(parents=True, exist_ok=True)
             write_suggestions(sugg_path, stored)
             logger.info("Saved %d suggestions to %s", len(stored), sugg_path)
-        clusters = await build_clusters(stored, suggestions, llm_cfg, client, today)
+        clusters = await build_clusters(
+            stored, suggestions, llm_cfg, client, today, dense_embed
+        )
     finally:
         if own:
             await client.aclose()
@@ -69,6 +84,9 @@ async def run_suggestions_builder(
         url=os.getenv("QDRANT_URL", "http://localhost:6333"),
         api_key=os.getenv("QDRANT_API_KEY"),
     )
+    if not clusters and qclient.collection_exists(suggestions.collection_name):
+        # nothing left (e.g. everything opted out): never keep stale points
+        qclient.delete_collection(suggestions.collection_name)
     return load_clusters(
         clusters,
         qclient,

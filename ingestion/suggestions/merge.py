@@ -32,6 +32,48 @@ def normalise_name(name: str) -> str:
     return " ".join(kept or words)
 
 
+# Entities that are never Suggestions (banks, phone operators, apps, public
+# services...). Matched on the normalised name (whole name or leading words).
+EXCLUDED_NAMES = frozenset(
+    normalise_name(n)
+    for n in (
+        "BNP Paribas",
+        "Crédit Agricole",
+        "Société Générale",
+        "Caisse d'Epargne",
+        "LCL",
+        "Crédit Mutuel",
+        "La Banque Postale",
+        "Boursorama",
+        "Revolut",
+        "N26",
+        "SFR",
+        "Bouygues Telecom",
+        "Free Mobile",
+        "Lebara",
+        "Sosh",
+        "WhatsApp",
+        "Uber",
+        "Doctolib",
+        "Airbnb",
+        "Instagram",
+        "CAF",
+        "CPAM",
+        "Pôle Emploi",
+        "France Travail",
+        "Préfecture",
+        "Mairie",
+        "Ameli",
+        "Impots",
+    )
+)
+
+
+def is_excluded(name: str) -> bool:
+    key = normalise_name(name)
+    return any(key == e or key.startswith(e + " ") for e in EXCLUDED_NAMES)
+
+
 MERGE_PROMPT = """Abaixo estão nomes de negócios do tipo "{kind}" citados num grupo de WhatsApp (podem ter erros de grafia, acentos diferentes ou ser filiais de uma mesma rede).
 Agrupe os nomes que se referem ao MESMO negócio; filiais de uma rede são o mesmo negócio (use o nome da rede). Escolha um nome canônico por grupo. Só inclua grupos com 2 ou mais variantes.
 Responda em JSON: {{"groups": [{{"canonical": "...", "variants": ["...", "..."]}}]}}.
@@ -47,6 +89,7 @@ async def merge_variants(
     client: httpx.AsyncClient,
 ) -> List[Mention]:
     """Return Mentions renamed to their canonical name (same order, same fields)."""
+    mentions = [m for m in mentions if not is_excluded(m.name)]
     by_kind: Dict[Kind, List[Mention]] = defaultdict(list)
     for m in mentions:
         by_kind[m.kind].append(m)

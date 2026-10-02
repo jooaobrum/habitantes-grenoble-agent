@@ -42,6 +42,20 @@ class Mention(BaseModel):
     community_business: bool = False
 
 
+EXCLUDED_ENTITY_TYPES = frozenset(
+    {
+        "private_individual",
+        "bank",
+        "phone_operator",
+        "app",
+        "association",
+        "public_service",
+        "one_off_event",
+    }
+)
+ENTITY_TYPES = ["business", "place", "product", *sorted(EXCLUDED_ENTITY_TYPES)]
+
+
 class _RawMention(BaseModel):
     """LLM output shape (unknown keys such as an author are ignored)."""
 
@@ -52,6 +66,8 @@ class _RawMention(BaseModel):
     context: str = ""
     date: Optional[str] = None
     community_business: bool = False
+    business_identity: bool = False
+    entity_type: str = "business"
 
 
 class _RawMentions(BaseModel):
@@ -89,8 +105,10 @@ Regras:
 - items: produtos/serviços específicos pelos quais foi citado (ex.: massa de pastel, limpeza dental).
 - context: UMA frase reescrita (o que é bom/ruim e por quê). Nunca copie a mensagem; nunca cite M1, M2 nem telefones.
 - date: data (AAAA-MM-DD) da mensagem da Menção.
-- community_business: true se a pessoa divulga o próprio negócio.
-Ignore pessoas físicas, bancos, operadoras de telefone, aplicativos, associações e serviços públicos. Sem Menções, devolva lista vazia.
+- entity_type: business, place ou product para o que entra; para o que NÃO entra use private_individual (pessoa física), bank, phone_operator, app, association, public_service ou one_off_event (evento pontual).
+- community_business: true se a pessoa divulga o próprio negócio (post de divulgação própria).
+- business_identity: só relevante quando community_business é true; true APENAS se o texto mostra identidade de negócio além do nome ou telefone pessoal: nome comercial MAIS perfil profissional em rede social, site ou página de reservas. Nome da pessoa, telefone pessoal ou apenas ser membro do grupo NÃO bastam (false).
+Ignore pessoas físicas, bancos, operadoras de telefone, aplicativos, associações, serviços públicos e eventos pontuais. Sem Menções, devolva lista vazia.
 Responda em JSON: {{"mentions": [...]}}.
 
 Trecho:
@@ -120,6 +138,8 @@ def _schema() -> Dict[str, Any]:
                             "context",
                             "date",
                             "community_business",
+                            "business_identity",
+                            "entity_type",
                         ],
                         "properties": {
                             "name": {"type": "string"},
@@ -132,6 +152,8 @@ def _schema() -> Dict[str, Any]:
                             "context": {"type": "string"},
                             "date": {"type": "string"},
                             "community_business": {"type": "boolean"},
+                            "business_identity": {"type": "boolean"},
+                            "entity_type": {"type": "string", "enum": ENTITY_TYPES},
                         },
                     },
                 }
@@ -141,6 +163,11 @@ def _schema() -> Dict[str, Any]:
 
 
 def _to_mention(raw: _RawMention, fallback: date) -> Optional[Mention]:
+    if raw.entity_type in EXCLUDED_ENTITY_TYPES:
+        return None
+    if raw.community_business and not raw.business_identity:
+        # own-business post without a business identity: not a Community Business
+        return None
     try:
         when = datetime.strptime((raw.date or "")[:10], "%Y-%m-%d").date()
     except ValueError:

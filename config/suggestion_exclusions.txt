@@ -1,0 +1,5 @@
+# Opt-out list: businesses that asked not to appear as Suggestions.
+# One business name per line; blank lines and lines starting with # are ignored.
+# Matching ignores case, accents, punctuation and generic words (le, la, de, ...),
+# so "Padaria Brasil", "padaria  BRASIL!" and "La Padaria Brasil" are the same entry.
+# Applied on every Suggestions rebuild (`make suggestions`), before counting and clustering.

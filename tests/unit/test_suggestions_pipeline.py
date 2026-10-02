@@ -199,7 +199,9 @@ def test_community_business_needs_a_mention_from_another_member(tmp_path):
 
 def test_items_and_names_reach_embedded_text(tmp_path):
     _, _, emb = _run(tmp_path)
-    market_text = next(t for t in emb.dense_texts if "polvilho" in t)
+    market_text = next(
+        t for t in emb.dense_texts if "polvilho" in t and "massa de pastel" in t
+    )
     for item in ("farinha de mandioca", "massa de pastel", "frutas", "carne"):
         assert item in market_text
     assert "bom para frutas" in market_text  # LLM-written summary line is embedded
@@ -303,10 +305,72 @@ def test_llm_failure_falls_back_to_normalised_names_and_kind_label(tmp_path):
     assert sum("ropical" in m["name"] for m in market["members"]) == 1
 
 
-def test_cluster_seam_currently_returns_one_group_per_kind():
+def _purpose_embed(texts):
+    vocab = ["brasil", "mala", "viagem"]
+    out = []
+    for t in texts:
+        v = np.array([t.lower().count(w) for w in vocab] + [0.01], dtype="float32")
+        out.append((v / np.linalg.norm(v)).tolist())
+    return out
+
+
+def test_few_mentions_yield_a_single_cluster_and_none_yield_nothing():
     ms = [m for m in MENTIONS if m.kind == Kind.DENTISTS]
-    assert cluster_mentions(Kind.DENTISTS, ms) == [ms]
-    assert cluster_mentions(Kind.DENTISTS, []) == []
+    assert cluster_mentions(Kind.DENTISTS, ms, _purpose_embed, 0.75) == [ms]
+    assert cluster_mentions(Kind.DENTISTS, [], _purpose_embed, 0.75) == []
+
+
+def test_mentions_group_by_purpose_not_by_shop():
+    ms = [
+        M("Casa X", "2026-01-01", items=["produtos brasil"], ctx="brasil"),
+        M("Loja Y", "2026-01-02", items=["produtos brasil"], ctx="brasil"),
+        M("Casa X", "2026-01-03", items=["mala viagem"], ctx="mala"),
+        M("Loja Z", "2026-01-04", items=["mala viagem"], ctx="viagem"),
+    ]
+    groups = cluster_mentions(Kind.MARKETS_AND_GROCERIES, ms, _purpose_embed, 0.75)
+    assert len(groups) == 2
+    assert sorted(len(g) for g in groups) == [2, 2]
+    assert all(len({m.items[0] for m in g}) == 1 for g in groups)
+
+
+def test_shop_recommended_for_two_purposes_is_found_through_either(
+    tmp_path, monkeypatch
+):
+    suggestions_module = pytest.importorskip("habitantes.domain.tools.suggestions")
+    import habitantes.domain.tools.search as search_module
+
+    ms = [
+        M("Casa X", "2026-01-01", items=["produtos brasil"], ctx="brasil"),
+        M("Loja Y", "2026-01-02", items=["produtos brasil"], ctx="brasil"),
+        M("Casa X", "2026-01-03", items=["mala viagem"], ctx="mala"),
+        M("Loja Z", "2026-01-04", items=["mala viagem"], ctx="viagem"),
+    ]
+    vocab = ["brasil", "mala", "viagem"]
+
+    def embed(text):
+        v = np.array([text.lower().count(w) for w in vocab] + [0.01], dtype="float32")
+        return (v / np.linalg.norm(v)).tolist()
+
+    emb = Emb()
+    emb.dense = lambda texts: [embed(t) for t in texts]
+    client = QdrantClient(":memory:")
+    _run(tmp_path, mentions=ms, client=client, emb=emb)
+    pts, _ = client.scroll(COLLECTION, limit=50, with_payload=True)
+    assert len(pts) == 2
+    assert len({p.payload["label"] for p in pts}) == 2  # unique per Kind
+    for p in pts:
+        names = [m["name"] for m in p.payload["members"]]
+        assert names.count("Casa X") == 1  # repeated Mentions collapse per Cluster
+
+    monkeypatch.setattr(search_module, "_get_qdrant_client", lambda: client)
+    monkeypatch.setattr(suggestions_module, "_embed_query", embed)
+    monkeypatch.setattr(
+        suggestions_module, "_collection_name", lambda: COLLECTION, raising=False
+    )
+    for query in ("produtos brasil", "mala viagem"):
+        out = suggestions_module.search_clusters(query)
+        assert "Casa X" in out["formatted"]
+        assert "Casa X" in [m["name"] for m in out["clusters"][0]["members"]]
 
 
 def test_agent_search_over_the_loaded_collection(tmp_path, monkeypatch):
@@ -322,7 +386,12 @@ def test_agent_search_over_the_loaded_collection(tmp_path, monkeypatch):
     client = QdrantClient(":memory:")
     emb = Emb()
     emb.dense = lambda texts: [embed(t) for t in texts]
-    _run(tmp_path, client=client, emb=emb)
+    _run(
+        tmp_path,
+        client=client,
+        emb=emb,
+        cfg=SuggestionsConfig(collection_name=COLLECTION, similarity_cutoff=-1.0),
+    )
     monkeypatch.setattr(search_module, "_get_qdrant_client", lambda: client)
     monkeypatch.setattr(suggestions_module, "_embed_query", embed)
     monkeypatch.setattr(
