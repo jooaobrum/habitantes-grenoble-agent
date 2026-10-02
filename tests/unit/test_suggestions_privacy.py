@@ -327,3 +327,20 @@ def test_pii_check_detects_names_tags_and_phones():
     leaks = find_pii_leaks(f"fala com {AUTHOR_A}, M3 disse, ligue {PHONE}", [AUTHOR_A])
     assert len(leaks) == 3
     assert find_pii_leaks("Grand Frais tem ótimas frutas", [AUTHOR_A]) == []
+
+
+def test_suggestions_pipeline_runs_retention_cleanup(monkeypatch):
+    import asyncio
+
+    import ingestion.suggestions.pipeline as pl
+
+    calls = []
+
+    async def fake_builder(**_):
+        return 7
+
+    monkeypatch.setattr(pl, "run_suggestions_builder", fake_builder)
+    monkeypatch.setattr(pl, "cleanup_expired_artifacts", lambda **kw: calls.append(kw))
+    assert asyncio.run(pl.run_suggestions_pipeline()) == 7
+    assert len(calls) == 1
+    assert calls[0]["retention_days"] == pl.settings.artifacts_retention_days

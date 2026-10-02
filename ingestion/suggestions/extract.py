@@ -7,11 +7,7 @@ scrubbed from input and output. The extraction LLM is called over HTTP
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
-import os
-import random
 import re
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
@@ -20,6 +16,8 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from habitantes.domain.suggestions import Kind
+from ingestion.config import MentionExtractionConfig
+from ingestion.suggestions.llm import chat_json
 from ingestion.suggestions.windows import Window
 
 logger = logging.getLogger(__name__)
@@ -190,65 +188,26 @@ def _to_mention(raw: _RawMention, fallback: date) -> Optional[Mention]:
 async def extract_mentions(
     client: httpx.AsyncClient,
     window: Window,
-    api_key: Optional[str] = None,
-    model: str = "google/gemini-2.5-flash-lite",
-    base_url: str = "https://openrouter.ai/api/v1",
-    temperature: float = 0.0,
-    max_retries: int = 4,
-    retry_base_sleep_s: float = 1.5,
+    cfg: MentionExtractionConfig,
     timeout_s: float = 60.0,
 ) -> Optional[List[Mention]]:
     """Mentions of one window, or None when the call failed (never raises)."""
-    key = api_key or os.environ.get("OPENROUTER_API_KEY")
-    if not key:
-        logger.error("OPENROUTER_API_KEY not set; window not extracted")
-        return None
     text, _ = pseudonymise(window)
-    payload = {
-        "model": model,
-        "temperature": temperature,
-        "messages": [
-            {
-                "role": "user",
-                "content": EXTRACTION_PROMPT.format(
-                    kinds=", ".join(k.value for k in Kind), text=text
-                ),
-            }
-        ],
-        "response_format": {"type": "json_schema", "json_schema": _schema()},
-    }
-    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    prompt = EXTRACTION_PROMPT.format(kinds=", ".join(k.value for k in Kind), text=text)
+    data = await chat_json(client, prompt, cfg, schema=_schema(), timeout_s=timeout_s)
+    if data is None:
+        logger.error("Final extraction failure for thread %s", window.thread_id)
+        return None
+    try:
+        raw = _RawMentions.model_validate(data)
+    except ValidationError as e:
+        logger.error(
+            "Malformed extraction output for thread %s: %s", window.thread_id, e
+        )
+        return None
     fallback = _first_date(window)
-    for attempt in range(max_retries):
-        try:
-            resp = await client.post(
-                f"{base_url.rstrip('/')}/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=timeout_s,
-            )
-            resp.raise_for_status()
-            content = resp.json()["choices"][0]["message"]["content"]
-            raw = _RawMentions.model_validate(json.loads(content))
-            found = [_to_mention(r, fallback) for r in raw.mentions]
-            return [m for m in found if m]
-        except Exception as e:
-            permanent = (
-                isinstance(e, httpx.HTTPStatusError)
-                and 400 <= e.response.status_code < 500
-                and e.response.status_code not in (408, 429)
-            )
-            if permanent or attempt == max_retries - 1:
-                logger.error(
-                    "Final extraction failure for thread %s: %s", window.thread_id, e
-                )
-                return None
-            await asyncio.sleep(
-                (retry_base_sleep_s**attempt) + random.uniform(0, 0.5)
-                if retry_base_sleep_s
-                else 0
-            )
-    return None
+    found = [_to_mention(r, fallback) for r in raw.mentions]
+    return [m for m in found if m]
 
 
 def _first_date(window: Window) -> date:

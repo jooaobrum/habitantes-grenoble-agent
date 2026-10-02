@@ -1,8 +1,10 @@
 """search_suggestions: query the Suggestions collection (one point per Cluster).
 
-Dense search with its own relevance threshold (`settings.suggestions.min_relevance`,
-independent of the Q&A gate). Returns up to `max_clusters` Clusters, each with its
-top members; an explicit `no_results` signal when nothing clears the threshold.
+Hybrid search: a dense branch with its own relevance floor
+(`settings.suggestions.min_relevance`, independent of the Q&A gate) and a sparse
+(BM25 keyword) branch so an item name ("polvilho") finds the place that sells it;
+the two are fused with RRF. Returns up to `max_clusters` Clusters, each with its
+top members; an explicit `no_results` signal when nothing matches.
 """
 
 import logging
@@ -11,8 +13,8 @@ from typing import Any
 from qdrant_client.http import models as qmodels
 
 from . import search as _search
-from ._embedding import _DENSE_VECTOR, _embed_query
-from ._ranking import strip_accents
+from ._embedding import _DENSE_VECTOR, _SPARSE_VECTOR, _embed_query, _embed_sparse_query
+from ._ranking import _FR_STOPWORDS, _PT_STOPWORDS, enrich_bm25_input, strip_accents
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +62,10 @@ def _clip(text: str, n: int = _MAX_TEXT) -> str:
     return text if len(text) <= n else text[: n - 1] + "…"
 
 
+_RRF_K = 60
+_STOPWORDS = {strip_accents(w).lower() for w in _PT_STOPWORDS | _FR_STOPWORDS}
+
+
 def _tokens(text: str) -> set[str]:
     return set(strip_accents(text).lower().split())
 
@@ -76,7 +82,7 @@ def _select_members(
         reverse=True,
     )
     top, rest = ranked[:summary_size], ranked[summary_size:]
-    words = {w for w in strip_accents(query).lower().split() if len(w) > 3}
+    words = set(strip_accents(query).lower().split()) - _STOPWORDS
     extras = [
         m
         for m in rest
@@ -142,36 +148,78 @@ def search_clusters(query: str, kind: str = "") -> dict[str, Any]:
     )
 
     try:
-        points = (
-            _search._get_qdrant_client()
-            .query_points(
+        q_sparse = _embed_sparse_query(enrich_bm25_input(strip_accents(query)))
+    except Exception as exc:  # keyword branch is optional: fail open to dense only
+        logger.warning("Sparse embedding failure, dense only: %s", exc)
+        q_sparse = None
+
+    limit = cfg.max_clusters + 1  # one extra detects 'there are more'
+    try:
+        client = _search._get_qdrant_client()
+        # Dense branch keeps the semantic floor; the sparse branch is keyword
+        # evidence (any BM25 match) and needs no cosine threshold.
+        dense_pts = client.query_points(
+            collection_name=_collection_name(),
+            query=q_dense,
+            using=_DENSE_VECTOR,
+            limit=limit,
+            query_filter=q_filter,
+            score_threshold=cfg.min_relevance,
+            with_payload=True,
+        ).points
+        sparse_pts = (
+            client.query_points(
                 collection_name=_collection_name(),
-                query=q_dense,
-                using=_DENSE_VECTOR,
-                limit=cfg.max_clusters + 1,  # one extra detects 'there are more'
+                query=q_sparse,
+                using=_SPARSE_VECTOR,
+                limit=limit,
                 query_filter=q_filter,
-                score_threshold=cfg.min_relevance,
                 with_payload=True,
-            )
-            .points
+            ).points
+            if q_sparse is not None
+            else []
         )
     except Exception as exc:
         code = _search._classify_qdrant_error(exc)
         logger.error("Qdrant %s: %s", code, exc)
         return {"error": {"error_code": code, "message": str(exc), "retryable": True}}
 
-    hits = [p for p in points if float(p.score) >= cfg.min_relevance]
-    clusters = []
-    for p in hits:
-        payload = dict(p.payload or {})
-        payload["members"], payload["hidden_count"] = _select_members(
-            payload.get("members", []), query, cfg.summary_size, cfg.max_extra_members
+    fused: dict[str, float] = {}
+    dense_score: dict[str, float] = {}
+    by_id: dict[str, Any] = {}
+    for rank, p in enumerate(dense_pts):
+        pid = str(p.id)
+        if float(p.score) < cfg.min_relevance:
+            continue
+        dense_score[pid] = float(p.score)
+        fused[pid] = fused.get(pid, 0.0) + 1.0 / (_RRF_K + rank + 1)
+        by_id[pid] = p
+    for rank, p in enumerate(sparse_pts):
+        pid = str(p.id)
+        fused[pid] = fused.get(pid, 0.0) + 1.0 / (_RRF_K + rank + 1)
+        by_id.setdefault(pid, p)
+
+    candidates = []
+    for pid in sorted(fused, key=lambda x: fused[x], reverse=True):
+        payload = dict(by_id[pid].payload or {})
+        if not any(_net(m) > 0 for m in payload.get("members", [])):
+            continue
+        payload["score"] = fused[pid]
+        payload["dense_score"] = dense_score.get(pid, 0.0)
+        candidates.append(payload)
+    more = len(candidates) > cfg.max_clusters
+    clusters = candidates[: cfg.max_clusters]
+
+    # PRD: the long-tail extras budget is global across the returned Clusters.
+    extras_left = cfg.max_extra_members
+    for payload in clusters:
+        all_members = payload.get("members", [])
+        shown, payload["hidden_count"] = _select_members(
+            all_members, query, cfg.summary_size, extras_left
         )
-        payload["score"] = float(p.score)
-        clusters.append(payload)
-    clusters = [c for c in clusters if c["members"]]
-    more = len(clusters) > cfg.max_clusters
-    clusters = clusters[: cfg.max_clusters]
+        payload["members"] = shown
+        n_top = min(cfg.summary_size, sum(1 for m in all_members if _net(m) > 0))
+        extras_left -= len(shown) - n_top
 
     if not clusters:
         return {"no_results": True, "formatted": NO_RESULTS_MESSAGE}

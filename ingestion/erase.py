@@ -353,11 +353,9 @@ def main() -> None:
     args = parser.parse_args()
 
     def rebuild() -> None:
-        import asyncio
+        from ingestion.suggestions.pipeline import rebuild_all
 
-        from ingestion.suggestions.pipeline import _main
-
-        asyncio.run(_main("all"))
+        rebuild_all()
 
     report = erase_user_data(
         rebuild_suggestions=None if args.skip_rebuild else rebuild,

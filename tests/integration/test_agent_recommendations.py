@@ -34,6 +34,12 @@ def _fake_sparse(texts):
     return [qmodels.SparseVector(indices=[0], values=[1.0]) for _ in texts]
 
 
+def _fake_sparse_query(query: str) -> qmodels.SparseVector:
+    # stored vectors all use index 0; a query mentioning "polvilho" hits it
+    idx = 0 if "polvilho" in query.lower() else 999
+    return qmodels.SparseVector(indices=[idx], values=[1.0])
+
+
 class ScriptedLLM:
     """Returns scripted responses in order; records bound tools and every prompt."""
 
@@ -101,6 +107,9 @@ def qdrant(monkeypatch, seeded_clusters):
     name = "test_suggestions"
     monkeypatch.setattr(search_module, "_get_qdrant_client", lambda: client)
     monkeypatch.setattr(suggestions_module, "_embed_query", _fake_embed)
+    monkeypatch.setattr(
+        suggestions_module, "_embed_sparse_query", lambda q: _fake_sparse_query(q)
+    )
     monkeypatch.setattr(
         suggestions_module, "_collection_name", lambda: name, raising=False
     )
@@ -241,8 +250,78 @@ def test_results_capped_at_three_clusters_with_five_members_each(monkeypatch, qd
     (tool_msg,) = llm.tool_messages()
     assert tool_msg.count("Grupo:") == 3
     # 5 top members per cluster; the long tail only appears when its Items
-    # match the query (here every member's Items do, capped at 3 extras).
-    assert tool_msg.count("- Cabinet") == 3 * 8
+    # match the query (here every member's Items do) and the 3 extras are a
+    # global budget across clusters, not per cluster.
+    assert tool_msg.count("- Cabinet") == 3 * 5 + 3
+
+
+def test_short_query_word_matches_long_tail_member(monkeypatch, qdrant):
+    members = [
+        ClusterMember(
+            name=f"Boulangerie {j}",
+            thumbs_up=10 - j,
+            last_date=date(2026, 1, 1),
+            items=["pão de queijo"] if j == 7 else ["baguette"],
+        )
+        for j in range(8)
+    ]
+    _seed(
+        qdrant,
+        [
+            ClusterEntry(
+                kind=Kind.MARKETS_AND_GROCERIES,
+                label="Padarias",
+                thumbs_up=20,
+                thumbs_down=0,
+                last_date=date(2026, 1, 1),
+                members=members,
+                summary="dent padarias",
+            )
+        ],
+    )
+    llm = _script(
+        monkeypatch,
+        "recommendation",
+        _call("search_suggestions", {"query": "dent pão"}),
+        "ok",
+    )
+    _run("onde tem pão")
+    (tool_msg,) = llm.tool_messages()
+    assert "Boulangerie 7" in tool_msg
+
+
+def test_keyword_branch_finds_cluster_below_dense_floor(monkeypatch, qdrant):
+    # dense query is orthogonal to the cluster (below min_relevance) but the
+    # sparse branch matches the item name, so hybrid retrieval still finds it.
+    client, name = qdrant
+    members = [
+        ClusterMember(
+            name="Loja X", thumbs_up=3, last_date=date(2026, 1, 1), items=["polvilho"]
+        )
+    ]
+    _seed(
+        qdrant,
+        [
+            ClusterEntry(
+                kind=Kind.SHOPS,
+                label="Loja",
+                thumbs_up=3,
+                thumbs_down=0,
+                last_date=date(2026, 1, 1),
+                members=members,
+                summary="dent",
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        suggestions_module, "_embed_query", lambda q: _fake_embed("cabelo cacheado")
+    )
+    res = suggestions_module.search_clusters("polvilho")
+    assert res["clusters"][0]["label"] == "Loja"
+    monkeypatch.setattr(
+        suggestions_module, "_embed_sparse_query", lambda q: _fake_sparse_query("x")
+    )
+    assert suggestions_module.search_clusters("xyz").get("no_results")
 
 
 def test_no_results_signals_and_falls_back_to_web(monkeypatch, qdrant, seeded_clusters):

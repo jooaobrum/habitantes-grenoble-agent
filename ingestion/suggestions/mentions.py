@@ -60,11 +60,7 @@ async def extract_all_mentions(
             found = await extract_mentions(
                 llm_client,
                 w,
-                model=extraction.model,
-                base_url=extraction.base_url,
-                temperature=extraction.temperature,
-                max_retries=extraction.max_retries,
-                retry_base_sleep_s=extraction.retry_base_sleep_s,
+                extraction,
             )
             return found or []
 

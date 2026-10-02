@@ -203,11 +203,7 @@ def make_real_extractor() -> Extractor:  # pragma: no cover - needs network
         found = await extract_mentions(
             client,
             window,
-            model=ext.model,
-            base_url=ext.base_url,
-            temperature=ext.temperature,
-            max_retries=ext.max_retries,
-            retry_base_sleep_s=ext.retry_base_sleep_s,
+            ext,
         )
         return found or []
 
