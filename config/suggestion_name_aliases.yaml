@@ -5,7 +5,7 @@
 # same:     names (or regex on the normalised name: lower case, no accents) that are ONE business.
 #           A name matched here is never dropped as generic.
 # separate: pairs that are different businesses even if their spellings are close.
-keep: ["Snack Brasil", "Pizza 51", "O'Tacos", "Thai Express", "C&A", "BK"]
+keep: ["Snack Brasil", "Pizza 51", "O'Tacos", "Thai Express", "C&A", "BK", "U", "U (supermercado)"]
 same:
   - canonical: "Kabuki Canton"
     names: ["Kabuki", "Kabuki Canton"]
@@ -13,6 +13,8 @@ same:
     names: ["Bombay", "Bombay Talkies"]
   - canonical: "O'Callaghan"
     names: ["O'Callaghan", "O'Callaghan Irish Pub"]
+  - canonical: "Médecins 7/7"
+    names: ["Médecins 7/7", "Medecin 7/7", "médecin 7/7", "7/7"]
   - canonical: "Casa Barriolatino"      # all these spellings are one business
     names: ["Casa Barriolatino", "Barrio Latino", "Barril Latino", "Bairro Latino"]
   - canonical: "CROUS (restaurantes universitários)"

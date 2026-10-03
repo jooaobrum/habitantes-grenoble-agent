@@ -47,6 +47,15 @@ GENERIC_WORDS = TYPE_WORDS | {
     "churrascaria", "pizzaria", "universitario", "universitaire", "bar",
     "grenoble", "lyon", "paris", "echirolles", "centre", "centro", "grill", "express",
     "do", "da", "de", "du", "des", "the", "and", "e", "et", "ou", "no", "na", "em",
+    "mercado", "supermercado", "mercearia", "acougue", "otica", "optique", "farmacia",
+    "pharmacie", "dentista", "dentiste", "medico", "medecin", "ginecologista", "comida",
+    "hotel", "hospital", "clinica", "cabeleireiro", "barbeiro", "salao", "academia",
+    "escola", "universidade", "banco", "igreja", "aeroporto", "estacao", "gare",
+    "advogado", "advogada", "avocat", "contador", "contadora", "psicologo", "psicologa",
+    "fisioterapeuta", "dermatologista", "pediatra", "oftalmologista", "ortopedista",
+    "cardiologista", "nutricionista", "eletricista", "encanador", "mecanico", "pedreiro",
+    "costureira", "manicure", "tradutor", "tradutora", "professor", "professora",
+    "hostel", "albergue", "camping",
 }  # fmt: skip
 FUZZY_MIN_LEN = 8
 FUZZY_RATIO = 0.82
@@ -111,6 +120,22 @@ def distinctive(name: str) -> frozenset:
     return frozenset(long_words or (words if len(words) == len(_words(name)) else []))
 
 
+def qualifiers(name: str) -> frozenset:
+    """Generic words that qualify a name but are not mere type words: cities,
+    nationalities, cuisines ("Consulado de Paris" vs "Consulado Italiano de Grenoble")."""
+    return frozenset(
+        w
+        for w in _words(name)
+        if w in GENERIC_WORDS and w not in TYPE_WORDS and len(w) > 2
+    )
+
+
+def distinctive_key(name: str) -> str:
+    """Distinctive words joined without spaces; the base for spelling-similarity."""
+    words = [w for w in _words(name) if w in distinctive(name)]
+    return "".join(words)
+
+
 def is_generic(name: str) -> bool:
     """No distinctive word ("Restaurante brasileiro", "Pizzeria", "bar") or only digits ("168")."""
     d = distinctive(name)
@@ -129,6 +154,12 @@ class _UnionFind:
 
     def union(self, a: str, b: str) -> None:
         self.parent[self.find(a)] = self.find(b)
+
+
+def _conflict(a: str, b: str) -> bool:
+    """Both names carry a qualifier and they differ: different branches/places."""
+    qa, qb = qualifiers(a), qualifiers(b)
+    return bool(qa and qb and qa != qb)
 
 
 MIN_SHORT_MENTIONS = 3  # a name of <= 2 letters ("B&M", "H&M") needs this many Mentions
@@ -192,15 +223,20 @@ def group_names(
     for group in by_key.values():  # rule 1
         for other in group[1:]:
             union(group[0], other)
-    keys = [k for k in by_key if len(k) >= FUZZY_MIN_LEN]
-    for i, a in enumerate(keys):  # rule 2
-        for b in keys[i + 1 :]:
+    by_dkey: Dict[str, List[str]] = defaultdict(list)
+    for n in named:
+        by_dkey[distinctive_key(n)].append(n)
+    dkeys = [k for k in by_dkey if len(k) >= FUZZY_MIN_LEN]
+    for i, a in enumerate(
+        dkeys
+    ):  # rule 2 (on distinctive words: "Grenoble" never counts)
+        for b in dkeys[i + 1 :]:
             if difflib.SequenceMatcher(None, a, b).ratio() >= FUZZY_RATIO:
-                union(by_key[a][0], by_key[b][0])
+                union(by_dkey[a][0], by_dkey[b][0])
     dist = {n: distinctive(n) for n in named}
     for i, a in enumerate(named):  # rule 3
         for b in named[i + 1 :]:
-            if dist[a] == dist[b]:
+            if dist[a] and dist[a] == dist[b] and not _conflict(a, b):
                 union(a, b)
     suggestions: List[Tuple[str, str]] = []
     for a in named:

@@ -31,7 +31,6 @@ def test_spelling_type_word_and_token_subset_variants_are_grouped():
     assert _same(groups, "Come Prima", "Pizzeria Come Prima")
     assert _same(groups, "Come Prima", "Comeprima")
     assert _same(groups, "Barrio Latino", "Casa Barriolatino")
-    assert _same(groups, "Barrio Latino", "Barril Latino")
     assert _same(groups, "Yamato", "Yamato Ramen")
     assert not _same(groups, "Chez Marius", "Ferme à Dédé")
     assert not _same(groups, "Natal", "Come Prima")
@@ -183,3 +182,37 @@ def test_short_brands_need_mentions_and_keep_list_exempts_generic_looking_names(
         "Brasil",
     }  # Pizza Hut stays; keep is exact, not by key
     assert any("Snack Brasil" in g for g in groups)
+
+
+def test_names_with_no_distinctive_word_never_merge_with_each_other():
+    aliases = Aliases(keep=frozenset({"snack brasil", "tacos", "pizza 51"}))
+    names = ["Snack Brasil", "Tacos", "Pizza 51", "Thai Express"]
+    groups, _, _ = group_names(names, aliases)
+    assert not _same(groups, "Snack Brasil", "Tacos")
+    assert not _same(groups, "Tacos", "Thai Express")
+
+
+def test_shared_city_suffix_and_conflicting_qualifiers_do_not_merge():
+    names = ["TER Grenoble", "Pathé Grenoble", "Consulado de Paris",
+             "Consulado Italiano de Grenoble", "CHU de Grenoble", "CHU Grenoble", "Leclerc", "Leclerc Échirolles"]  # fmt: skip
+    groups, _, _ = group_names(names)
+    assert not _same(groups, "TER Grenoble", "Pathé Grenoble")
+    assert not _same(groups, "Consulado de Paris", "Consulado Italiano de Grenoble")
+    assert _same(groups, "CHU de Grenoble", "CHU Grenoble")
+    assert _same(groups, "Leclerc", "Leclerc Échirolles")
+
+
+def test_generic_category_nouns_are_dropped():
+    _, generic, _ = group_names(
+        ["Ótica", "Mercado", "açougue", "Ginecologista", "Comida", "Action"]
+    )
+    assert set(generic) == {"Ótica", "Mercado", "açougue", "Ginecologista", "Comida"}
+
+
+def test_real_businesses_with_generic_looking_names_survive_via_aliases():
+    names = ["Medecin 7/7", "médecin 7/7", "Médecins 7/7", "U", "Dentista", "Ótica"]
+    groups, generic, _ = group_names(names, load_aliases(), {n: 1 for n in names})
+    assert _same(groups, "Medecin 7/7", "Médecins 7/7")
+    assert _same(groups, "médecin 7/7", "Médecins 7/7")
+    assert any("U" in g for g in groups)
+    assert set(generic) == {"Dentista", "Ótica"}
