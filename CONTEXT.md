@@ -26,6 +26,10 @@ _Avoid_: Recommendation, indicação
 What sort of thing a Suggestion is — Restaurants & Bars, Markets & Groceries, Shops, Products, Salons & Beauty, Gyms & Sports, Doctors, Dentists, Translators, Professional Services, Courses & Teachers, Vets & Pets, Places & Outings, Transport, Housing, or Other; every Kind sits under one fixed Topic, so a Suggestion's Topic is derived from its Kind, never extracted (a known simplification: a lawyer is a Professional Service under Daily Life & Services).
 _Avoid_: Suggestion category, type, subcategory
 
+**Subcategory**:
+A finer split of a Kind (Restaurants & Bars -> Comida Brasileira, Internacionais, Franceses, Bares e Pubs, ...), defined once in `habitantes.domain.suggestions` with a one-line definition each; a business has one primary Subcategory, and Housing has none. It lets a long list be narrowed by a word the user already used ("japonês", "pediatra").
+_Avoid_: Tag, category, facet
+
 **Community Business**:
 A Suggestion run by a member of the group, typically known from that member advertising it; it qualifies only with a business identity beyond the member's own name or personal number, is offered only once at least one other member has also mentioned it (the advertiser's own post is stored but not counted), and is always disclosed as such.
 _Avoid_: Entrepreneur, self-promotion (as a Kind)

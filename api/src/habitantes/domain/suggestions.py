@@ -217,6 +217,247 @@ KIND_KEYWORDS_PT: dict[Kind, tuple[str, ...]] = {
 }
 
 
+# Subcategories per Kind, defined by the maintainer after studying the real groups
+# (docs/SUGGESTIONS_QUALITY_DIAGNOSIS.md). One primary subcategory per business; the
+# one-line definitions are shown to the extraction LLM so it can tell them apart.
+# Kinds absent here (Housing) have no subcategories.
+SUBCATEGORY_GUIDE: dict[Kind, tuple[tuple[str, str], ...]] = {
+    Kind.RESTAURANTS_AND_BARS: (
+        (
+            "Comida Brasileira",
+            "restaurantes, lanchonetes e pratos de culinária brasileira (rodízio, feijoada, açaí, coxinha)",
+        ),
+        (
+            "Internacionais",
+            "cozinhas que não são brasileira nem francesa: japonesa e asiática, italiana e pizza, mexicana, indiana, libanesa, tacos, kebab",
+        ),
+        (
+            "Franceses",
+            "restaurantes franceses e regionais: brasserie, bouillon, fondue, raclette, crêperie",
+        ),
+        ("Bares e Pubs", "bares, pubs e cervejarias onde se vai beber"),
+        (
+            "Cafés e Lanchonetes",
+            "cafés, padarias, doceria, fast food e lanchonetes (também onde se trabalha tomando café)",
+        ),
+        (
+            "Casas Noturnas e Eventos",
+            "baladas, casas de show, música ao vivo, festas e eventos",
+        ),
+        ("Outros", "restaurante universitário (CROUS/RU) e o que não cabe nas outras"),
+    ),
+    Kind.SHOPS: (
+        (
+            "Casa e Decoração",
+            "móveis, utilidades, decoração, loja de 2 euros (Ikea, Action, Gifi, Hema)",
+        ),
+        (
+            "Eletrônicos",
+            "eletrônicos, informática, celulares e assistência técnica de aparelhos (Fnac, Boulanger, LDLC, Back Market)",
+        ),
+        (
+            "Vestuário e Usados",
+            "roupas, calçados, malas e acessórios; brechós e lojas de segunda mão (H&M, Primark, La Remise)",
+        ),
+        (
+            "Esporte e Lazer",
+            "artigos esportivos, instrumentos musicais, livros e lazer (Decathlon, Go Sport)",
+        ),
+        (
+            "Saúde e Beleza",
+            "perfumaria, cosméticos, ótica e produtos de saúde (Sephora, Krys)",
+        ),
+        (
+            "Bricolagem",
+            "materiais de construção, ferramentas, jardinagem (Leroy Merlin, Bricorama)",
+        ),
+        (
+            "Serviços e Impressão",
+            "impressão, cópias, encadernação, papelaria, chaveiro, lavanderia, envio de encomendas",
+        ),
+        ("Outros", "o que não cabe nas outras"),
+    ),
+    Kind.PRODUCTS: (
+        (
+            "Alimentos e Bebidas",
+            "alimentos, bebidas e marcas de mercearia (Yoki, guaraná, queijos, cachaça)",
+        ),
+        (
+            "Saúde e Beleza",
+            "medicamentos, suplementos, cosméticos, higiene (Doliprane, whey, Natura)",
+        ),
+        (
+            "Eletrônicos e Tecnologia",
+            "aparelhos, software e serviços digitais de marca",
+        ),
+        (
+            "Casa, Vestuário e Esporte",
+            "utensílios, roupas, calçados, equipamentos esportivos de marca (Tefal, Havaianas, Rossignol)",
+        ),
+        ("Outros", "livros, música, veículos e o que não cabe nas outras"),
+    ),
+    Kind.PLACES_AND_OUTINGS: (
+        (
+            "Montanhas e Natureza",
+            "estações de esqui, montanhas, lagos, parques, trilhas, passeios ao ar livre",
+        ),
+        (
+            "Cultura e Lazer",
+            "cinema, museus, eventos, festivais, shows e atrações de lazer",
+        ),
+        (
+            "Bairros e Moradia",
+            "bairros, ruas e residências de Grenoble (onde morar, como é a vizinhança)",
+        ),
+        (
+            "Cidades Vizinhas e Viagens",
+            "cidades e comunas vizinhas de Grenoble (Meylan, Échirolles, Saint-Martin-d'Hères) e destinos de viagem (Lyon, Annecy, Genebra, países)",
+        ),
+        (
+            "Outros",
+            "comércio e centros comerciais (Grand Place), instituições (bibliotecas, universidades, prefeitura) e o que não cabe nas outras",
+        ),
+    ),
+    Kind.PROFESSIONAL_SERVICES: (
+        (
+            "Documentos e Imigração",
+            "advogados, prefeitura, consulado, visto, tradução de documentos, cartório",
+        ),
+        ("Financeiros e Seguros", "seguros, bancos, câmbio, remessas, contabilidade"),
+        (
+            "Emprego e Carreira",
+            "empresas, vagas, agências de emprego, estágio, plataformas de trabalho",
+        ),
+        (
+            "Serviços Residenciais",
+            "limpeza, reparos, mudança, eletricista, encanador, correios e entregas",
+        ),
+        ("Outros", "fotografia, informática, serviços diversos"),
+    ),
+    Kind.OTHER: (
+        (
+            "Contas e Utilidades",
+            "bancos, seguros, energia, água, telecom, operadoras, internet",
+        ),
+        (
+            "Governo e Administrativo",
+            "serviços públicos, consulados, administração, associações",
+        ),
+        (
+            "Mídia e Compras Online",
+            "canais de TV, jornais, streaming, sites e apps de compra",
+        ),
+        ("Outros", "o que não cabe nas outras"),
+    ),
+    Kind.DOCTORS: (
+        (
+            "Hospitais e Urgência",
+            "hospitais, CHU, clínicas, pronto atendimento e médico de plantão 24h (SOS Médecins, Médecins 7/7)",
+        ),
+        (
+            "Consultórios e Especialistas",
+            "médico generalista e especialistas em consultório: pediatra, ginecologista, dermatologista, oftalmologista, psicólogo, fisioterapeuta, osteopata",
+        ),
+        ("Exames e Farmácias", "laboratórios, exames, testes e farmácias"),
+        (
+            "Plataformas e Outros",
+            "plataformas de consulta online, ótica e o que não cabe nas outras",
+        ),
+    ),
+    Kind.MARKETS_AND_GROCERIES: (
+        (
+            "Supermercados",
+            "grandes redes de supermercado (Carrefour, Lidl, Auchan, Leclerc, Géant Casino)",
+        ),
+        (
+            "Mercados Especializados",
+            "lojas latinas, africanas, asiáticas, portuguesas, orgânicas/bio, de conveniência e congelados (Nosso, Tienda Latina, Biocoop, Picard)",
+        ),
+        (
+            "Feiras e Açougues",
+            "feiras e mercados abertos, açougues, peixarias, padarias de bairro",
+        ),
+        ("Outros", "o que não cabe nas outras"),
+    ),
+    Kind.COURSES_AND_TEACHERS: (
+        ("Idiomas", "cursos e professores de francês e de outros idiomas"),
+        (
+            "Universidades e Formação",
+            "universidades, escolas, formações profissionais e cursos acadêmicos",
+        ),
+        ("Aulas Práticas e Hobbies", "dança, música, autoescola, esporte, artes"),
+    ),
+    Kind.GYMS_AND_SPORTS: (
+        ("Academias", "academias de musculação e ginástica, fitness"),
+        (
+            "Esportes Individuais e Outdoor",
+            "natação, escalada, crossfit, corrida, tênis, ioga, esqui",
+        ),
+        (
+            "Esportes Coletivos e Combate",
+            "futebol, basquete, vôlei, artes marciais, luta",
+        ),
+    ),
+    Kind.SALONS_AND_BEAUTY: (
+        ("Cabelo", "cabeleireiro, coiffure, barbearia, coloração, corte"),
+        (
+            "Estética",
+            "unhas, depilação, cílios, sobrancelha, limpeza de pele, massagem",
+        ),
+        ("Tatuagem e Piercing", "estúdios de tatuagem e piercing"),
+    ),
+    Kind.DENTISTS: (
+        ("Clínica Geral", "dentista generalista, limpeza, consultas de rotina"),
+        (
+            "Especialidades e Urgência",
+            "ortodontia, cirurgia oral, odontopediatria, urgência odontológica",
+        ),
+    ),
+    Kind.TRANSLATORS: (
+        ("Tradução Juramentada", "tradutores juramentados / traduction assermentée"),
+        (
+            "Outras Traduções",
+            "tradução simples, de documentos específicos ou outros idiomas",
+        ),
+    ),
+    Kind.VETS_AND_PETS: (
+        ("Clínicas Veterinárias", "veterinários e clínicas para animais"),
+        ("Adoção e Resgate", "adoção, abrigos, resgate de animais"),
+        (
+            "Cuidado e Adestramento",
+            "tosa, creche, hotel para pets, adestramento, pet shop",
+        ),
+    ),
+    Kind.TRANSPORT: (
+        (
+            "Aéreo",
+            "companhias aéreas e voos (Air France, TAP, LATAM, Gol, Azul, Iberia, KLM, Lufthansa, Ryanair, easyJet, Volotea)",
+        ),
+        (
+            "Trem e Ônibus",
+            "trens e ônibus de longa distância (SNCF, TGV, TER, Ouigo, FlixBus, blablabus, Transaltitude)",
+        ),
+        (
+            "Local, Aluguel e Carona",
+            "transporte urbano (tram, ônibus urbano, TAG), aluguel de carro ou bicicleta (Getaround, Citiz, Ouicar, Metrovelo), carona e aplicativos (BlaBlaCar, Bolt)",
+        ),
+    ),
+}
+KIND_SUBCATEGORIES: dict[Kind, tuple[str, ...]] = {
+    k: tuple(name for name, _ in v) for k, v in SUBCATEGORY_GUIDE.items()
+}
+
+
+def valid_subcategory(kind: Kind | str, name: str | None) -> bool:
+    """True when `name` is one of the Kind's subcategories."""
+    return name is not None and name in KIND_SUBCATEGORIES.get(Kind(kind), ())
+
+
+def subcategory_guide_text(kind: Kind | str) -> str:
+    """Bullet list "name: definition" of a Kind's subcategories (empty for Housing)."""
+    return "\n".join(f"  - {n}: {d}" for n, d in SUBCATEGORY_GUIDE.get(Kind(kind), ()))
+
+
 def topic_for_kind(kind: Kind | str) -> Topic:
     """Fixed parent Topic of a Kind (accepts the Kind or its string value)."""
     return KIND_TOPIC[Kind(kind)]

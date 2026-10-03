@@ -15,7 +15,12 @@ from typing import Any, Dict, List, Optional
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from habitantes.domain.suggestions import Kind
+from habitantes.domain.suggestions import (
+    KIND_SUBCATEGORIES,
+    SUBCATEGORY_GUIDE,
+    Kind,
+    valid_subcategory,
+)
 from ingestion.config import MentionExtractionConfig
 from ingestion.suggestions.llm import chat_json
 from ingestion.suggestions.windows import Window
@@ -38,6 +43,7 @@ class Mention(BaseModel):
     context: str
     date: date
     community_business: bool = False
+    subcategory: Optional[str] = None  # one of KIND_SUBCATEGORIES[kind], or None
 
 
 EXCLUDED_ENTITY_TYPES = frozenset(
@@ -51,6 +57,7 @@ EXCLUDED_ENTITY_TYPES = frozenset(
         "one_off_event",
     }
 )
+ALL_SUBCATEGORIES = sorted({n for names in KIND_SUBCATEGORIES.values() for n in names})
 ENTITY_TYPES = ["business", "place", "product", *sorted(EXCLUDED_ENTITY_TYPES)]
 
 
@@ -66,6 +73,7 @@ class _RawMention(BaseModel):
     community_business: bool = False
     business_identity: bool = False
     entity_type: str = "business"
+    subcategory: Optional[str] = None
 
 
 class _RawMentions(BaseModel):
@@ -93,6 +101,11 @@ def pseudonymise(window: Window) -> tuple[str, Dict[str, str]]:
     return "\n".join(lines), pseudo
 
 
+SUBCATEGORY_PROMPT = "\n".join(
+    f"  {kind.value}:\n" + "\n".join(f"    - {n}: {d}" for n, d in guide)
+    for kind, guide in SUBCATEGORY_GUIDE.items()
+)
+
 EXTRACTION_PROMPT = """Você extrai Menções de negócios, lugares e produtos de um trecho de um grupo de WhatsApp de brasileiros em Grenoble. Os autores aparecem como M1, M2... (pseudônimos).
 
 Uma Menção é a opinião positiva ou negativa de UMA pessoa sobre UM negócio/lugar/produto. Várias mensagens seguidas da mesma pessoa sobre o mesmo lugar são UMA só Menção.
@@ -104,6 +117,8 @@ Regras:
 - polarity: "positive" ou "negative".
 - items: produtos/serviços específicos pelos quais foi citado (ex.: massa de pastel, limpeza dental).
 - context: UMA frase reescrita (o que é bom/ruim e por quê). Nunca copie a mensagem; nunca cite M1, M2 nem telefones.
+- subcategory: UMA subcategoria do kind escolhido, exatamente como na lista abaixo; "" se o kind não tem subcategorias (Housing, Translators ou kind sem lista).
+{subcategories}
 - date: data (AAAA-MM-DD) da mensagem da Menção.
 - entity_type: business, place ou product para o que entra; para o que NÃO entra use private_individual (pessoa física), bank, phone_operator, app, association, public_service ou one_off_event (evento pontual).
 - community_business: true se a pessoa divulga o próprio negócio (post de divulgação própria).
@@ -140,6 +155,7 @@ def _schema() -> Dict[str, Any]:
                             "community_business",
                             "business_identity",
                             "entity_type",
+                            "subcategory",
                         ],
                         "properties": {
                             "name": {"type": "string"},
@@ -154,6 +170,10 @@ def _schema() -> Dict[str, Any]:
                             "community_business": {"type": "boolean"},
                             "business_identity": {"type": "boolean"},
                             "entity_type": {"type": "string", "enum": ENTITY_TYPES},
+                            "subcategory": {
+                                "type": "string",
+                                "enum": ALL_SUBCATEGORIES + [""],
+                            },
                         },
                     },
                 }
@@ -173,14 +193,18 @@ def _to_mention(raw: _RawMention, fallback: date) -> Optional[Mention]:
     except ValueError:
         when = fallback
     try:
+        kind = Kind(raw.kind)
         return Mention(
             name=scrub_phones(raw.name).strip(),
-            kind=Kind(raw.kind),
+            kind=kind,
             polarity=raw.polarity,
             items=[scrub_phones(i).strip() for i in raw.items if i.strip()],
             context=scrub_phones(raw.context).strip(),
             date=when,
             community_business=raw.community_business,
+            subcategory=raw.subcategory
+            if valid_subcategory(kind, raw.subcategory)
+            else None,
         )
     except (ValidationError, ValueError) as e:
         logger.warning("Dropping malformed Mention %r: %s", raw.name, e)
@@ -195,7 +219,11 @@ async def extract_mentions(
 ) -> Optional[List[Mention]]:
     """Mentions of one window, or None when the call failed (never raises)."""
     text, _ = pseudonymise(window)
-    prompt = EXTRACTION_PROMPT.format(kinds=", ".join(k.value for k in Kind), text=text)
+    prompt = EXTRACTION_PROMPT.format(
+        kinds=", ".join(k.value for k in Kind),
+        subcategories=SUBCATEGORY_PROMPT,
+        text=text,
+    )
     data = await chat_json(client, prompt, cfg, schema=_schema(), timeout_s=timeout_s)
     if data is None:
         logger.error("Final extraction failure for thread %s", window.thread_id)
