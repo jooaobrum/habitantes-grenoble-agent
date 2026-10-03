@@ -76,6 +76,13 @@ class Aliases:
     )
     separate: List[Tuple[str, str]] = field(default_factory=list)  # compact keys
     keep: frozenset = frozenset()  # normalised names exempt from the generic-name drop
+    kinds: Dict[str, Kind] = field(default_factory=dict)  # compact key -> Kind to use
+    community: frozenset = frozenset()  # compact keys of Community Businesses
+    # index in `same` -> (rules, default canonical); a rule is
+    # (canonical, Kind or None, patterns on name + items + context)
+    splits: Dict[
+        int, Tuple[List[Tuple[str, Optional[Kind], List[re.Pattern]]], str]
+    ] = field(default_factory=dict)
 
     def same_index(self, name: str) -> Optional[int]:
         key, norm = compact_key(name), normalise_name(name)
@@ -92,7 +99,17 @@ def load_aliases(path: Optional[Path] = None) -> Aliases:
         return Aliases()
     raw: Dict[str, Any] = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     out = Aliases()
-    for e in raw.get("same", []):
+    for i, e in enumerate(raw.get("same", [])):
+        if e.get("split"):
+            rules = [
+                (
+                    str(r["canonical"]),
+                    Kind(r["kind"]) if r.get("kind") else None,
+                    [re.compile(p) for p in r.get("context_match", [])],
+                )
+                for r in e["split"]
+            ]
+            out.splits[i] = (rules, str(e.get("default", rules[-1][0])))
         out.same.append(
             (
                 str(e["canonical"]),
@@ -104,6 +121,10 @@ def load_aliases(path: Optional[Path] = None) -> Aliases:
     for a, b in raw.get("separate", []):
         out.separate.append((compact_key(a), compact_key(b)))
     out.keep = frozenset(normalise_name(n) for n in raw.get("keep", []))
+    for kind, names in (raw.get("kinds") or {}).items():
+        for n in names:
+            out.kinds[compact_key(n)] = Kind(kind)
+    out.community = frozenset(compact_key(n) for n in raw.get("community", []))
     return out
 
 
@@ -263,6 +284,7 @@ class GroupedMention(Mention):
 
     group: str
     group_kind: Kind
+    group_community_business: bool = False
 
 
 def group_mentions(
@@ -312,6 +334,27 @@ def group_mentions(
             for n in sorted(gen, key=lambda n: -freq[n])
         ]
 
+    # One name that is really several businesses (CROUS: restaurant vs housing):
+    # re-assigned by what the Mention says about it.
+    split_by_canon = {aliases.same[i][0]: spl for i, spl in aliases.splits.items()}
+    fixed: Dict[str, Kind] = {
+        compact_key(a[0]): a[3] for a in aliases.same if a[3] is not None
+    }
+    for rules, _default in aliases.splits.values():
+        fixed.update({compact_key(c): k for c, k, _ in rules if k is not None})
+    resplit: List[Tuple[Mention, str]] = []
+    for m, canon in kept:
+        spl = split_by_canon.get(canon)
+        if spl:
+            text = normalise_name(" ".join([m.name, *m.items, m.context]))
+            rules, default = spl
+            canon = next(
+                (c for c, _k, pats in rules if any(p.search(text) for p in pats)),
+                default,
+            )
+        resplit.append((m, canon))
+    kept = resplit
+
     # Same business under several Kinds: the Kind with the most Mentions wins.
     votes: Dict[str, Counter] = defaultdict(Counter)  # business key -> Kind counts
     shown_by: Dict[Tuple[str, Kind], Counter] = defaultdict(Counter)
@@ -319,7 +362,16 @@ def group_mentions(
         votes[compact_key(canon)][m.kind] += 1
         shown_by[(compact_key(canon), m.kind)][canon] += 1
     winner: Dict[str, Tuple[Kind, str]] = {}
-    fixed = {compact_key(a[0]): a[3] for a in aliases.same if a[3] is not None}
+    for m, canon in kept:  # kinds named in the alias file apply to the business
+        key = compact_key(canon)
+        forced = aliases.kinds.get(key) or aliases.kinds.get(compact_key(m.name))
+        if forced is not None:
+            fixed.setdefault(key, forced)
+    community = {
+        compact_key(canon)
+        for m, canon in kept
+        if m.community_business or compact_key(canon) in aliases.community
+    }
     for key, c in votes.items():
         kind = (
             fixed.get(key)
@@ -342,6 +394,7 @@ def group_mentions(
                 **m.model_dump(),
                 "group": winner[compact_key(canon)][1],
                 "group_kind": winner[compact_key(canon)][0],
+                "group_community_business": compact_key(canon) in community,
             }
         )
         for m, canon in kept

@@ -29,12 +29,14 @@ EXPECTED_TOPICS = {
     "Courses & Teachers": "Integration & Language",
     "Vets & Pets": "Pets & Animals",
     "Places & Outings": "Ski & Trekking",
+    "Transport": "Travel & Transport",
+    "Housing": "Housing & CAF",
 }
 
 
 # ── Kinds / Topics ───────────────────────────────────────────────────────────
-def test_fourteen_kinds_each_with_their_fixed_topic():
-    assert len(Kind) == 14
+def test_sixteen_kinds_each_with_their_fixed_topic():
+    assert len(Kind) == 16
     for kind, topic in EXPECTED_TOPICS.items():
         assert topic_for_kind(kind).value == topic
         assert KIND_TOPIC[Kind(kind)].value == topic

@@ -324,7 +324,8 @@ def _make_search_suggestions_tool():
             kind: Optional Kind filter: Restaurants & Bars, Markets & Groceries,
                   Shops, Products, Salons & Beauty, Gyms & Sports, Doctors,
                   Dentists, Translators, Professional Services, Courses &
-                  Teachers, Vets & Pets, Places & Outings, Other. Leave empty
+                  Teachers, Vets & Pets, Places & Outings, Transport, Housing, Other.
+                  Leave empty
                   when unsure.
         """
         return search_clusters(query, kind)

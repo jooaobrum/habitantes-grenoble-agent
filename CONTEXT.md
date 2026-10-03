@@ -23,7 +23,7 @@ A real-world business, place or product the community has opinions about, consol
 _Avoid_: Recommendation, indicação
 
 **Kind**:
-What sort of thing a Suggestion is — Restaurants & Bars, Markets & Groceries, Shops, Products, Salons & Beauty, Gyms & Sports, Doctors, Dentists, Translators, Professional Services, Courses & Teachers, Vets & Pets, Places & Outings, or Other; every Kind sits under one fixed Topic, so a Suggestion's Topic is derived from its Kind, never extracted (a known simplification: a lawyer is a Professional Service under Daily Life & Services).
+What sort of thing a Suggestion is — Restaurants & Bars, Markets & Groceries, Shops, Products, Salons & Beauty, Gyms & Sports, Doctors, Dentists, Translators, Professional Services, Courses & Teachers, Vets & Pets, Places & Outings, Transport, Housing, or Other; every Kind sits under one fixed Topic, so a Suggestion's Topic is derived from its Kind, never extracted (a known simplification: a lawyer is a Professional Service under Daily Life & Services).
 _Avoid_: Suggestion category, type, subcategory
 
 **Community Business**:

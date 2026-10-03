@@ -252,3 +252,56 @@ def test_kind_ties_prefer_specific_kinds_and_alias_can_fix_the_kind():
     assert {g.group_kind.value for g in grouped} == {
         "Restaurants & Bars"
     }  # alias kind wins
+
+
+def test_kinds_community_and_split_decisions_from_config():
+    ms = [
+        _m("FlixBus", kind="Other"),
+        _m("Chez Pamella", kind="Other"),
+        _m("TER Grenoble", kind="Places & Outings"),
+        _m("TER", kind="Other"),
+        _m("CHU de Grenoble", kind="Doctors"),
+        _m("CHU Sud", kind="Doctors"),
+        _m("Hôpital Sud", kind="Doctors"),
+        _m("La Tronche", kind="Doctors"),
+    ]
+    grouped, _ = group_mentions(ms, load_aliases())
+    by = {g.name: g for g in grouped}
+    assert (
+        by["FlixBus"].group_kind.value == "Transport"
+        and by["FlixBus"].kind.value == "Other"
+    )
+    assert by["Chez Pamella"].group_kind.value == "Restaurants & Bars"
+    assert by["Chez Pamella"].group_community_business is True
+    assert by["FlixBus"].group_community_business is False
+    assert by["TER Grenoble"].group == by["TER"].group == "TER"
+    assert by["TER Grenoble"].group_kind.value == "Transport"
+    assert {
+        by[n].group for n in ("CHU de Grenoble", "CHU Sud", "Hôpital Sud", "La Tronche")
+    } == {"CHU Grenoble Alpes"}
+
+
+def _c(name, items, context, kind="Professional Services"):
+    return Mention(
+        name=name, kind=kind, polarity="positive", items=items, context=context,
+        date=date(2025, 1, 1), community_business=False,
+    )  # fmt: skip
+
+
+def test_crous_is_split_into_restaurant_and_housing_by_what_the_mention_says():
+    ms = [
+        _c("CROUS", ["almoço"], "O almoço no CROUS custou 7 euros."),
+        _c("Crous", ["alojamento estudantil"], "O alojamento estudantil nacional é bom."),
+        _c("RU Minatec", [], "Servia opção vegetariana."),
+        _c("Diderot", [], "Restaurante ótimo."),
+        _c("CROUS", [], "Cuidado com os prazos do CROUS.", kind="Professional Services"),
+    ]  # fmt: skip
+    grouped, _ = group_mentions(ms, load_aliases())
+    got = [(g.group, g.group_kind.value) for g in grouped]
+    assert got[0] == ("CROUS (restaurante universitário)", "Restaurants & Bars")
+    assert got[1] == ("CROUS (alojamento)", "Housing")
+    assert got[2][1] == got[3][1] == "Restaurants & Bars"
+    assert got[4] == (
+        "CROUS (restaurante universitário)",
+        "Restaurants & Bars",
+    )  # default

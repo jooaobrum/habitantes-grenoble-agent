@@ -1,6 +1,6 @@
 """Suggestion vocabulary shared by ingestion and the agent — no I/O.
 
-Defines the 14 Kinds, their fixed parent Topics, and the Cluster entry (the unit
+Defines the 16 Kinds, their fixed parent Topics, and the Cluster entry (the unit
 stored in the Suggestions Qdrant collection). Cluster entries deliberately carry
 no author, member-name or phone field: models forbid unknown fields, so such data
 cannot be smuggled into the collection.
@@ -26,6 +26,8 @@ class Topic(str, Enum):
     INTEGRATION_AND_LANGUAGE = "Integration & Language"
     PETS_AND_ANIMALS = "Pets & Animals"
     SKI_AND_TREKKING = "Ski & Trekking"
+    TRAVEL_AND_TRANSPORT = "Travel & Transport"
+    HOUSING_AND_CAF = "Housing & CAF"
 
 
 class Kind(str, Enum):
@@ -42,6 +44,8 @@ class Kind(str, Enum):
     COURSES_AND_TEACHERS = "Courses & Teachers"
     VETS_AND_PETS = "Vets & Pets"
     PLACES_AND_OUTINGS = "Places & Outings"
+    TRANSPORT = "Transport"  # airlines, trains, coaches, carpooling, car/bike rental
+    HOUSING = "Housing"  # student residences, housing platforms, flatshare listings
     OTHER = "Other"
 
 
@@ -60,6 +64,8 @@ KIND_TOPIC: dict[Kind, Topic] = {
     Kind.COURSES_AND_TEACHERS: Topic.INTEGRATION_AND_LANGUAGE,
     Kind.VETS_AND_PETS: Topic.PETS_AND_ANIMALS,
     Kind.PLACES_AND_OUTINGS: Topic.SKI_AND_TREKKING,
+    Kind.TRANSPORT: Topic.TRAVEL_AND_TRANSPORT,
+    Kind.HOUSING: Topic.HOUSING_AND_CAF,
 }
 
 
@@ -185,6 +191,27 @@ KIND_KEYWORDS_PT: dict[Kind, tuple[str, ...]] = {
         "viagem",
         "parque",
         "esqui",
+    ),
+    Kind.TRANSPORT: (
+        "transporte",
+        "passagem",
+        "voo",
+        "avião",
+        "trem",
+        "ônibus",
+        "carona",
+        "aluguel de carro",
+        "bicicleta",
+        "tram",
+    ),
+    Kind.HOUSING: (
+        "moradia",
+        "alojamento",
+        "residência",
+        "apartamento",
+        "aluguel",
+        "colocation",
+        "estúdio",
     ),
     Kind.OTHER: (),
 }
