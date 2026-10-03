@@ -446,15 +446,18 @@ RECOMMENDATION_AVAILABILITY_NOTICE = (
 )
 
 
-def _ensure_recommendation_notice(answer: str) -> str:
+def _ensure_recommendation_notice(answer: str, *, strip_sources: bool = True) -> str:
     """Guarantee the two notices every community-picks answer must carry.
 
     The model usually writes them, but a small model drops them often; they are a
     product rule (picks are a summary; availability must be confirmed), so the agent
     adds whichever is missing. The generic "Fontes mencionadas" block (a Q&A
-    convention that would just repeat the picks) is removed.
+    convention that would just repeat the picks) is removed, unless `strip_sources` is
+    False (intent `both`, where that block belongs to the Q&A part).
     """
-    answer = _SOURCES_BLOCK_RE.sub("", answer).rstrip()
+    answer = answer.rstrip()
+    if strip_sources:
+        answer = _SOURCES_BLOCK_RE.sub("", answer).rstrip()
     notices = []
     if not _SUMMARY_NOTICE_RE.search(answer):
         notices.append(RECOMMENDATION_SUMMARY_NOTICE)
@@ -477,6 +480,40 @@ def _name_key(text: str) -> str:
     )
 
 
+_NEGATION_RE = re.compile(
+    r"\bnenhum[a]?\b|\bnao (encontrei|ha|houve|indicou|indicaram|recomendou|recomendaram"
+    r"|tem|temos|achei)\b|\bsem (indicac|sugest|recomendac)"
+)
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+|\n+")
+# Category words that are not a business name by themselves; a "member" with only
+# these words (e.g. "Livro", "comida") is retrieval junk, never a pick.
+_GENERIC_NAME_WORDS = frozenset(
+    "livro livros comida comidas bar bares restaurante restaurantes loja lojas "
+    "mercado mercados padaria padarias cafe cafes dentista dentistas medico medicos "
+    "medica salao cabelo cabeleireiro farmacia produto produtos servico servicos "
+    "lugar lugares supermercado supermercados aulas curso cursos academia veterinario "
+    "tradutor tradutores seguro seguros carro carros outro outros".split()
+)
+_MIN_NAME_LEN = 4
+
+
+def _without_disclaimers(answer: str) -> str:
+    """Drop sentences that deny or disclaim ("nenhum...", "não encontrei...")."""
+    kept = [
+        sent
+        for sent in _SENTENCE_SPLIT_RE.split(answer)
+        if not _NEGATION_RE.search(_name_key(sent))
+    ]
+    return "\n".join(kept)
+
+
+def _usable_name_key(key: str) -> bool:
+    words = key.split()
+    if not words or len(key.strip()) < _MIN_NAME_LEN:
+        return False
+    return not all(w in _GENERIC_NAME_WORDS for w in words)
+
+
 def _render_recommendation(answer: str, clusters: list[dict]) -> str | None:
     """Rebuild a recommendation answer's list in the canonical format, in code.
 
@@ -490,19 +527,27 @@ def _render_recommendation(answer: str, clusters: list[dict]) -> str | None:
     """
     from habitantes.domain.tools.suggestions import format_member_line
 
-    text = _name_key(answer)
-    picked: list[tuple[int, dict]] = []
+    text = _name_key(_without_disclaimers(answer))
+    candidates: list[tuple[int, str, dict]] = []
     seen: set[str] = set()
     for cluster in clusters:
         for m in cluster.get("members", []):
             key = _name_key(m.get("name", ""))
-            pos = text.find(key) if key.strip() else -1
-            if pos < 0 or key in seen:
+            if not _usable_name_key(key) or key in seen:
+                continue
+            pos = text.find(key)
+            if pos < 0:
                 continue
             if int(m.get("thumbs_up", 0)) <= int(m.get("thumbs_down", 0)):
                 continue
             seen.add(key)
-            picked.append((pos, m))
+            candidates.append((pos, key, m))
+    # "Bar" next to "Bar Le X": the shorter name is just a piece of the longer one.
+    picked = [
+        (pos, m)
+        for pos, key, m in candidates
+        if not any(other != key and key in other for _, other, _ in candidates)
+    ]
     if not picked:
         return None
     picked.sort(key=lambda p: p[0])
@@ -1008,7 +1053,7 @@ def _run_react_loop(state: AgentState) -> dict:
     if suggestion_clusters and intent == "recommendation" and not web_used:
         answer = _render_recommendation(answer, suggestion_clusters) or answer
     if suggestion_clusters and "\U0001f44d" in answer:
-        answer = _ensure_recommendation_notice(answer)
+        answer = _ensure_recommendation_notice(answer, strip_sources=intent != "both")
     elif (
         intent == "recommendation"
         and web_used

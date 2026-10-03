@@ -62,12 +62,28 @@ all other cells are a single run.
 | hit and no hallucination (ignores format) | 0.318 | 0.705 |
 
 Reading this honestly:
-- v1 pass rate is 0 by construction: it has no counts/dates/notices, so the PRD format cannot be met.
-  The fairer cross-version signals are "hit and no hallucination" (holdout 0.32 -> 0.71), answer
-  length (about 236 -> 119 words) and flagged names (64 -> 10).
+- Lead with the cross-version signals: "hit and no hallucination" (holdout 0.32 -> 0.71; tune
+  0.60 -> 0.72 / 0.52), coverage (holdout 0.390 -> 0.415; tune 0.463 -> 0.380 / 0.346) and answer
+  length (about 236 -> 119 words, holdout), with flagged names 64 -> 10.
+- "Pass rate" is a format gate that v1 cannot pass by construction: it has no counts, dates or
+  notices, so the PRD format cannot be met. Do not read 0.00 -> 0.66 as a quality gain.
 - On tune, v1's hit rate is higher (0.92 vs 0.56-0.72): v1 dumps long, name-heavy KB/web prose, and
   v2 deliberately shows at most 7 relevant picks. On holdout hit rates are level (0.75 vs 0.77).
 - Mean coverage is low for both because expected lists are partial and often long.
+
+Caveats:
+- v2 was evaluated from a working tree, not a tagged commit (commit pending).
+- The evaluator was edited between loops 0-3 and later loops, so early iteration rows are not
+  strictly comparable to later ones.
+- Run-to-run noise is large (about +-0.2 on tune); holdout is a single run per version.
+- Pseudo-golden circularity: expected names derive from the same Mentions the collection is built
+  from.
+- Some dataset rows are out of PRD scope (job sites and public services: Apec, Indeed, LinkedIn,
+  Pôle emploi).
+- 6/44 holdout rows were routed to `qa` and count as failures.
+- Retrieval and answer work share the same seeded split, so the holdout is not independent of
+  retrieval tuning.
+- The Jev cutoff was tuned on LLM proxy labels, not hand labels.
 
 ### Distractors / anti-overfitting probes (my own questions; final v2 code)
 

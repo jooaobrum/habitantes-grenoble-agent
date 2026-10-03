@@ -43,7 +43,7 @@ A specific product or service a Mention names the Suggestion for — massa de pa
 _Avoid_: Key term, tag, need
 
 **Cluster**:
-Mentions of one Kind that people make for a similar purpose (similar Items and Context), collapsed to one line per Suggestion and summarised with its top Suggestions; it is the unit stored in the Suggestions collection and what a Recommendation Request is matched against. Grouping is by Mention, so one Suggestion can appear in two Clusters. The summary lists only the top members (ranked by 👍 minus 👎, Mentions older than two years counting half; scores of 0 or less left out), but every member stays stored.
+Mentions of one Kind that people make for a similar purpose (similar Items and Context), collapsed to one line per Suggestion and summarised with its top Suggestions; it is the unit stored in the Suggestions collection and what a Recommendation Request is matched against. Grouping is by Mention, so one Suggestion can appear in two Clusters. The summary lists only the top members (ranked by 👍 minus 👎, Mentions older than two years counting half; scores of 0 or less left out), but every member stays stored. At query time members are pooled across Clusters, deduped by name and ranked by raw 👍 minus 👎 (the two-year weighting is not applied there; see ADR 0002).
 _Avoid_: Group, bucket
 
 **Opt-out list**:

@@ -263,6 +263,72 @@ def test_render_caps_picks_and_skips_net_negative():
     assert out.count("- **") == 7 and "Ruim" not in out
 
 
+def test_render_ignores_junk_name_inside_disclaimer():
+    from habitantes.domain.agent import _render_recommendation
+
+    clusters = [_cl(_mem("Livro", 4), _mem("Casa Verde", 4), _mem("Loja Azul", 3))]
+    answer = (
+        "Não encontrei nenhuma indicação de Livro, Casa Verde ou Loja Azul. "
+        "Sem indicações específicas da comunidade."
+    )
+    assert _render_recommendation(answer, clusters) is None
+    # generic category word is never a pick, even outside a disclaimer
+    out = _render_recommendation("Indico o Livro e a Loja Azul.", clusters)
+    assert "Livro" not in out and "- **Loja Azul**" in out
+
+
+def test_render_disclaimer_sentence_does_not_hide_other_sentences():
+    from habitantes.domain.agent import _render_recommendation
+
+    out = _render_recommendation(
+        "Não há nada sobre Casa Verde. Indico a Loja Azul.",
+        [_cl(_mem("Casa Verde", 4), _mem("Loja Azul", 3))],
+    )
+    assert "Loja Azul" in out and "Casa Verde" not in out
+
+
+def test_render_prefers_longer_name_over_contained_one():
+    from habitantes.domain.agent import _render_recommendation
+
+    clusters = [_cl(_mem("Casa", 9), _mem("Casa Bella", 4))]
+    out = _render_recommendation("Vá à Casa Bella, é ótima.", clusters)
+    assert "- **Casa Bella**" in out and "- **Casa** " not in out
+    # the short name alone, when it is what the model wrote, still counts
+    out = _render_recommendation("Vá à Casa, é ótima.", clusters)
+    assert "- **Casa** " in out and "Casa Bella" not in out
+
+
+def test_render_word_boundary_accent_and_case_insensitive():
+    from habitantes.domain.agent import _render_recommendation
+
+    clusters = [_cl(_mem("Café Müller", 4), _mem("Pizza", 5))]
+    assert "Pizzaria" not in (
+        _render_recommendation("Experimente a Pizzaria do bairro.", clusters) or ""
+    )
+    assert _render_recommendation("Experimente a Pizzaria do bairro.", clusters) is None
+    out = _render_recommendation("Recomendo o CAFE MULLER.", clusters)
+    assert "- **Café Müller**" in out
+
+
+def test_render_ignores_short_names():
+    from habitantes.domain.agent import _render_recommendation
+
+    clusters = [_cl(_mem("Bar", 8), _mem("Ok", 8), _mem("Zé", 8))]
+    assert _render_recommendation("Vá ao Bar do Zé, ok?", clusters) is None
+
+
+def test_both_intent_keeps_qa_sources_block():
+    from habitantes.domain.agent import _ensure_recommendation_notice
+
+    ans = (
+        "Procedimento X.\n- **A** — 3👍/0👎\n\n"
+        "Fontes mencionadas no contexto:\n- Fonte 1"
+    )
+    both = _ensure_recommendation_notice(ans, strip_sources=False)
+    assert "Fontes mencionadas no contexto:\n- Fonte 1" in both
+    assert "Fontes mencionadas" not in _ensure_recommendation_notice(ans)
+
+
 def test_no_picks_web_nudge_restates_question():
     from habitantes.domain.agent import _NO_PICKS_WEB_NUDGE
 

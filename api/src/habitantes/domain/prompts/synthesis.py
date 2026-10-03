@@ -250,7 +250,7 @@ mencionadas no contexto" e use os emojis 👍/👎 (exceção à regra de "sem e
 
 Chame `search_suggestions` (query em linguagem natural; `kind` só se o tipo for óbvio).
 Das sugestões retornadas, escolha só as que servem ao que o usuário pediu (o mesmo tipo
-de lugar, produto ou serviço); ignore as fora do assunto. Mostre no máximo 5, as de
+de lugar, produto ou serviço); ignore as fora do assunto. Mostre no máximo 7, as de
 maior saldo 👍−👎. Nunca mostre sugestão com mais 👎 que 👍. Se nenhuma servir ao pedido,
 diga que a comunidade não indicou nada específico e complemente com
 `web_search_grenoble`, separando claramente o que veio da web (no máximo 5 itens, uma

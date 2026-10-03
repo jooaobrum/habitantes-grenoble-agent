@@ -230,7 +230,7 @@ flowchart TD
     Qd -->|nothing clears the floor| None["no_results -> tell the user,<br>fall back to web_search_grenoble"]
 ```
 
-- Shows at most `max_members` (20) members under at most `max_clusters` (6) Clusters; if more qualified, a note says more suggestions exist. Output size is bounded (names and Items are clipped, at most 3 Items per member).
+- Shows at most `max_members` (20) members under at most `max_clusters` (6) Clusters; if more qualified, a note says more suggestions exist. Output size is bounded (names and Items are clipped, at most 3 Items per member). The final answer lists at most 7 picks (`_MAX_RENDERED_PICKS`, same number as the prompt), rendered in code from the tool data for the members the model named; see [ADR 0002](adr/0002-recommendation-retrieval-and-rendering.md).
 - Own relevance floor (`suggestions.min_relevance`, 0.55 dense cosine), independent of the Q&A gate (`search.min_relevance`); the Q&A gate operates only on `search_knowledge_base` results. The dense branch keeps the floor; the sparse (keyword) branch has none, so a place named for a specific item is still found. All lists are fused with RRF; when no `kind` is passed, Kinds are inferred from Portuguese category keywords (`KIND_KEYWORDS_PT`) and add Kind-filtered lists to the fusion. The same keywords are embedded with each Cluster at ingestion.
 - A member with more 👎 than 👍 (net <= 0) is never returned, so it is never offered. Looking a place up by name only works if it is a member of some Cluster; a place not retrievable falls through to web search.
 - Errors (embedding, Qdrant) come back as the same structured error shape as the KB tool.
