@@ -220,30 +220,31 @@ WINDOW_QUESTION = (
 )  # calibrated with ingestion/suggestions/calibrate_jev.py (see docs/SUGGESTIONS_EVAL.md)
 
 
-async def score_window(
+async def score_questions(
     client: httpx.AsyncClient,
-    text: str,
+    state: Dict[str, Any],
+    questions: Dict[str, str],
     api_key: Optional[str] = None,
     model: str = DEFAULT_MODEL,
     base_url: str = DEFAULT_BASE_URL,
-    question: str = WINDOW_QUESTION,
     max_retries: int = 4,
     retry_base_sleep_s: float = 1.5,
     timeout_s: float = 30.0,
-) -> Optional[float]:
-    """P(yes) from Jev for "does this chat window contain a Suggestion?".
+) -> Optional[Dict[str, float]]:
+    """P(yes) from Jev for several yes/no questions about one `state`, in one call.
 
-    Same endpoint and retry convention as `classify_qa`. Jev does not assign the
-    Kind. Returns None on failure.
+    Same endpoint and retry convention as `classify_qa`. Returns None on failure.
     """
     key = api_key or os.environ.get("OPENROUTER_API_KEY")
     if not key:
-        logger.error("OPENROUTER_API_KEY not set; window not classified")
+        logger.error("OPENROUTER_API_KEY not set; not classified")
         return None
     payload = {
         "model": model,
-        "state": {"window": text},
-        "questions": {"has_suggestion": {"type": "noul", "instructions": question}},
+        "state": state,
+        "questions": {
+            name: {"type": "noul", "instructions": q} for name, q in questions.items()
+        },
     }
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     for attempt in range(max_retries):
@@ -255,7 +256,7 @@ async def score_window(
             data = resp.json()
             if "error" in data:
                 raise RuntimeError(data["error"])
-            return float(data["answers"]["has_suggestion"]["noul"])
+            return {name: float(data["answers"][name]["noul"]) for name in questions}
         except Exception as e:
             permanent = (
                 isinstance(e, httpx.HTTPStatusError)
@@ -263,7 +264,7 @@ async def score_window(
                 and e.response.status_code not in (408, 429)
             )
             if permanent or attempt == max_retries - 1:
-                logger.error("Final Jev window failure: %s", e)
+                logger.error("Final Jev failure: %s", e)
                 return None
             await asyncio.sleep(
                 (retry_base_sleep_s**attempt) + random.uniform(0, 0.5)
@@ -271,6 +272,22 @@ async def score_window(
                 else 0
             )
     return None
+
+
+async def score_window(
+    client: httpx.AsyncClient,
+    text: str,
+    question: str = WINDOW_QUESTION,
+    **kwargs: Any,
+) -> Optional[float]:
+    """P(yes) from Jev for "does this chat window contain a Suggestion?".
+
+    Jev does not assign the Kind. Returns None on failure.
+    """
+    out = await score_questions(
+        client, {"window": text}, {"has_suggestion": question}, **kwargs
+    )
+    return None if out is None else out["has_suggestion"]
 
 
 async def classify_window(

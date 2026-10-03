@@ -86,3 +86,23 @@ gate (15 procedural cases) still green.
 - The proxy judge and the labels are LLM output; re-check on a hand-labelled sample (issue #58).
 - The tune split is 25 questions (88 names), so single percentages move a lot with 1-2 questions.
 - Several proposals reuse the same pseudo-golden data that produced the diagnosis. Expect optimism.
+
+
+## Result of the first quality gate (group level, Jev)
+
+Measured on the full 2021-2026 export (2,638 groups after name grouping). All labels are LLM proxy
+labels (`gemini-2.5-flash`), not hand labels; samples of 150-200 groups, so +-4 points.
+
+| | Before gate | After gate |
+|---|---|---|
+| Groups | 2,638 | 1,574 (60%) |
+| Mentions | 6,605 | 4,784 (72%) |
+| Non-business share (fresh sample, n=200) | 29% | 5% |
+| Non-business share on calibration samples at cutoff 0.4 | 31-39% | 10% (tune), 12-15% (holdout) |
+| Real businesses kept (recall) | | 0.87-0.91 |
+
+What it dropped: 76% of the dropped sample is junk, 24% is real (mostly single-mention long tail).
+Two mistakes found by reading the per-Kind table and fixed: destinations (Les Deux Alpes, Vizille) and
+named practitioners (translators, dentists, doctors) were being rejected as "cities" and "people".
+Not yet measured: retrieval recall and member precision after rebuilding the collection from the
+filtered file (the build still reads `mentions.jsonl`).
