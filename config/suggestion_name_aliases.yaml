@@ -13,10 +13,11 @@ same:
     names: ["Bombay", "Bombay Talkies"]
   - canonical: "O'Callaghan"
     names: ["O'Callaghan", "O'Callaghan Irish Pub"]
+  - canonical: "Casa Barriolatino"      # all these spellings are one business
+    names: ["Casa Barriolatino", "Barrio Latino", "Barril Latino", "Bairro Latino"]
   - canonical: "CROUS (restaurantes universitários)"
     names: ["Diderot", "CROUS"]
     match: ["\\bcrous\\b", "\\bru\\b", "resto universitaire", "restaurante universitario", "restaurant universitaire"]
 separate:
-  - ["Bairro Latino", "Casa Barriolatino"]   # a bar and a restaurant
   - ["Come Va", "Come Prima"]
   - ["Chez Marius", "Bouillon Archers Chez Marius"]

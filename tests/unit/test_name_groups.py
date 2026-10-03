@@ -82,7 +82,7 @@ def test_manual_same_and_separate_decisions_from_config():
     names = [
         "Kabuki", "Kabuki Canton", "Bombay", "Bombay Talkies", "O'Callaghan", "O'Callaghan Irish Pub",
         "Diderot", "CROUS", "RU Intermezzo", "Resto Universitaires", "CROUS da Le Home",
-        "Bairro Latino", "Barrio Latino", "Casa Barriolatino",
+        "Bairro Latino", "Barrio Latino", "Barril Latino", "Casa Barriolatino",
         "Come Va", "Come Prima", "Chez Marius", "Bouillon Archers Chez Marius",
     ]  # fmt: skip
     groups, generic, _ = group_names(names, _aliases())
@@ -93,9 +93,10 @@ def test_manual_same_and_separate_decisions_from_config():
     assert _same(groups, "CROUS", "RU Intermezzo")
     assert _same(groups, "CROUS", "Resto Universitaires")
     assert _same(groups, "Barrio Latino", "Casa Barriolatino")
-    assert not _same(
+    assert _same(
         groups, "Bairro Latino", "Casa Barriolatino"
-    )  # a bar, not the restaurant
+    )  # all spellings: one business
+    assert _same(groups, "Barril Latino", "Casa Barriolatino")
     assert not _same(groups, "Come Va", "Come Prima")
     assert not _same(groups, "Chez Marius", "Bouillon Archers Chez Marius")
     assert generic == []  # "Bairro Latino" and the RU names are valid names
