@@ -33,4 +33,5 @@ class AgentState(TypedDict):
     # ── Observability ──
     timings: dict[str, float]  # {intent_ms, category_ms, search_ms, generation_ms}
     cached: bool
+    forced_web: bool  # a nudge/backstop forced a web search (answer not cached)
     error: dict | None  # {error_code, message, retryable} or None

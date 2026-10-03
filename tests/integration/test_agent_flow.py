@@ -8,12 +8,14 @@ from unittest.mock import MagicMock
 
 import httpx
 import pytest
+from langchain_core.messages import HumanMessage
 from openai import APIConnectionError, AuthenticationError, RateLimitError
 
 import habitantes.domain.agent as agent_module
 import habitantes.domain.categories as categories_module
 import habitantes.domain.tools.search as tools_module
 from habitantes.config import CategoryEntry
+from habitantes.domain.cache import get_cache
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -439,6 +441,171 @@ def test_free_text_query_derives_category_from_sources(monkeypatch):
     result = _run("Como abrir conta bancária?", chat_id="chat-no-category")
 
     assert result["category"] == "Banking & Finance"
+
+
+# ── Verify-on-web nudge ──────────────────────────────────────────────────────
+
+
+def _tool_call(name: str, query: str, call_id: str) -> MagicMock:
+    return _ai_response(
+        "", tool_calls=[{"name": name, "args": {"query": query}, "id": call_id}]
+    )
+
+
+def _kb_chunk(thread_id: int, category: str, text: str) -> dict:
+    return {
+        "text": text,
+        "question": "Q",
+        "answer": text,
+        "source": category,
+        "thread_id": thread_id,
+        "date": "2024-05-01",
+        "category": category,
+        "score": 0.9,
+        "dense_score": 0.9,
+    }
+
+
+def _enable_web(monkeypatch, web_result) -> MagicMock:
+    """Offer web_search_grenoble to the agent; its .invoke() returns `web_result`."""
+    monkeypatch.setenv("TAVILY_API_KEY", "tvly-test")
+    web_tool = MagicMock()
+    web_tool.name = "web_search_grenoble"
+    web_tool.invoke.return_value = web_result
+    monkeypatch.setattr(agent_module, "get_web_search_tool", lambda: web_tool)
+    return web_tool
+
+
+_WEB_RESULT = {
+    "results": [
+        {
+            "title": "Droit au compte",
+            "url": "https://www.service-public.fr/particuliers/vosdroits/F2347",
+            "published_date": "",
+        }
+    ],
+    "formatted": "[1] Droit au compte — tout résident peut ouvrir un compte.",
+}
+_BANK_QUESTION = "Como abrir conta no banco sendo estrangeiro?"
+_BANK_DRAFT = (
+    "A comunidade recomenda levar passaporte e comprovante de endereço ao banco; "
+    "o Boursorama é mais fácil."
+)
+
+
+def _bank_chunks(**_) -> dict:
+    return {
+        "chunks": [
+            _kb_chunk(1, "Banking & Finance", "Levei passaporte e comprovante."),
+            _kb_chunk(2, "Banking & Finance", "Abri no Boursorama sem problema."),
+        ]
+    }
+
+
+def test_bairro_question_is_not_hijacked_by_bureaucracy_chunks(monkeypatch):
+    """Regression: "Qual melhor bairro de Grenoble?" retrieved Housing & CAF
+    chunks plus stray bureaucracy ones; gating on any() chunk fired the
+    verify-on-web nudge and the model answered about titre de séjour instead.
+    The question is about neighbourhoods: the KB answer stands, and is cached."""
+    _enable_web(monkeypatch, _WEB_RESULT)
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
+    question = "Qual melhor bairro de Grenoble?"
+    answer = "Os bairros mais citados pela comunidade são Île Verte e Championnet."
+    shared_llm = _make_llm(
+        _tool_call("search_knowledge_base", question, "call_kb"),
+        answer,
+    )
+    monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
+    monkeypatch.setattr(
+        tools_module,
+        "hybrid_search",
+        lambda **_: {
+            "chunks": [
+                _kb_chunk(1, "Housing & CAF", "Morei na Île Verte, ótimo bairro."),
+                _kb_chunk(2, "Housing & CAF", "Aluguel em Championnet é caro."),
+                _kb_chunk(3, "Neighbourhood & Safety", "Evite Villeneuve à noite."),
+                _kb_chunk(4, "Visa & Residency", "Renovei o titre de séjour na ANEF."),
+            ]
+        },
+    )
+
+    result = _run(question, chat_id="chat-bairro")
+
+    assert result["answer"] == answer
+    assert shared_llm.invoke.call_count == 2  # KB call + answer, no web pass
+    assert result["forced_web"] is False
+    assert get_cache().get("chat-bairro", question, "") is not None
+
+
+def test_bureaucracy_answer_is_verified_against_the_original_question(monkeypatch):
+    web_tool = _enable_web(monkeypatch, _WEB_RESULT)
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
+    verified = (
+        "Segundo a comunidade, leve passaporte e comprovante de endereço ao banco; "
+        "o Boursorama é mais fácil. Na web, o service-public.fr confirma o droit au "
+        "compte: https://www.service-public.fr/particuliers/vosdroits/F2347"
+    )
+    shared_llm = _make_llm(
+        _tool_call("search_knowledge_base", _BANK_QUESTION, "call_kb"),
+        _BANK_DRAFT,
+        _tool_call("web_search_grenoble", "ouvrir compte bancaire", "call_web"),
+        verified,
+    )
+    monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
+    monkeypatch.setattr(tools_module, "hybrid_search", _bank_chunks)
+
+    result = _run(_BANK_QUESTION, chat_id="chat-bank")
+
+    assert result["answer"] == verified
+    shared_llm.bind_tools.assert_any_call([web_tool], tool_choice="required")
+    # The nudge is a user-role message, so it must restate the user's question
+    # rather than read like a new one.
+    sent = shared_llm.invoke.call_args.args[0]
+    nudges = [
+        m for m in sent if isinstance(m, HumanMessage) and m.content != _BANK_QUESTION
+    ]
+    assert len(nudges) == 1
+    assert _BANK_QUESTION in nudges[0].content
+    # A forced web pass is never replayed from the cache.
+    assert result["forced_web"] is True
+    assert get_cache().get("chat-bank", _BANK_QUESTION, "") is None
+
+
+@pytest.mark.parametrize(
+    "web_result, verified",
+    [
+        pytest.param(
+            _WEB_RESULT,
+            "Os procedimentos do titre de séjour podem mudar com o tempo: o pedido é "
+            "feito na ANEF e a préfecture de l'Isère convoca para entregar os "
+            "documentos.",
+            id="drifted-off-question",
+        ),
+        pytest.param(
+            "Nenhum resultado encontrado na web.",
+            "Não consegui confirmar na web.",
+            id="web-found-nothing",
+        ),
+    ],
+)
+def test_failed_verification_keeps_the_kb_answer(monkeypatch, web_result, verified):
+    """The verification pass must not overwrite a good KB answer with one about
+    another question, or with nothing new when the web search came back empty."""
+    _enable_web(monkeypatch, web_result)
+    monkeypatch.setattr(agent_module, "_get_intent_llm", lambda: _make_intent_llm("qa"))
+    shared_llm = _make_llm(
+        _tool_call("search_knowledge_base", _BANK_QUESTION, "call_kb"),
+        _BANK_DRAFT,
+        _tool_call("web_search_grenoble", "ouvrir compte bancaire", "call_web"),
+        verified,
+    )
+    monkeypatch.setattr(agent_module, "_get_llm", lambda: shared_llm)
+    monkeypatch.setattr(tools_module, "hybrid_search", _bank_chunks)
+
+    result = _run(_BANK_QUESTION, chat_id="chat-bank-fallback")
+
+    assert result["answer"] == _BANK_DRAFT
+    assert all(s["category"] != "Web (Grenoble)" for s in result["sources"])
 
 
 # ── QA → RAG → search tool error ─────────────────────────────────────────────
