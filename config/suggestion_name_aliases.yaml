@@ -1,0 +1,22 @@
+# Manual name decisions for the Suggestions name grouping (ingestion/suggestions/name_groups.py).
+# Applied after the automatic rules, on every rebuild.
+#
+# keep:     named businesses whose words look generic ("Snack Brasil"): never dropped.
+# same:     names (or regex on the normalised name: lower case, no accents) that are ONE business.
+#           A name matched here is never dropped as generic.
+# separate: pairs that are different businesses even if their spellings are close.
+keep: ["Snack Brasil", "Pizza 51", "O'Tacos", "Thai Express", "C&A", "BK"]
+same:
+  - canonical: "Kabuki Canton"
+    names: ["Kabuki", "Kabuki Canton"]
+  - canonical: "Bombay Talkies"
+    names: ["Bombay", "Bombay Talkies"]
+  - canonical: "O'Callaghan"
+    names: ["O'Callaghan", "O'Callaghan Irish Pub"]
+  - canonical: "CROUS (restaurantes universitários)"
+    names: ["Diderot", "CROUS"]
+    match: ["\\bcrous\\b", "\\bru\\b", "resto universitaire", "restaurante universitario", "restaurant universitaire"]
+separate:
+  - ["Bairro Latino", "Casa Barriolatino"]   # a bar and a restaurant
+  - ["Come Va", "Come Prima"]
+  - ["Chez Marius", "Bouillon Archers Chez Marius"]

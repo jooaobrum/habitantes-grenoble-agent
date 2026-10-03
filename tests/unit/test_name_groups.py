@@ -1,4 +1,15 @@
-from ingestion.suggestions.name_groups import compact_key, group_names, is_generic
+from datetime import date
+
+from ingestion.suggestions.extract import Mention
+from ingestion.suggestions.name_groups import (
+    Aliases,
+    compact_key,
+    group_mentions,
+    group_names,
+    is_generic,
+    load_aliases,
+)
+from ingestion.suggestions.merge import normalise_name
 
 
 def _same(groups, a, b):
@@ -61,3 +72,113 @@ def test_short_name_inside_two_places_is_a_suggestion_not_a_bridge():
     assert not _same(groups, "Come Prima", "Come M14ma")
     assert not _same(groups, "Kabuki", "Kabuki Canton")  # reviewed, not applied
     assert ("Kabuki", "Kabuki Canton") in suggestions
+
+
+def _aliases():
+    return load_aliases()  # the real manual decisions in config/
+
+
+def test_manual_same_and_separate_decisions_from_config():
+    names = [
+        "Kabuki", "Kabuki Canton", "Bombay", "Bombay Talkies", "O'Callaghan", "O'Callaghan Irish Pub",
+        "Diderot", "CROUS", "RU Intermezzo", "Resto Universitaires", "CROUS da Le Home",
+        "Bairro Latino", "Barrio Latino", "Casa Barriolatino",
+        "Come Va", "Come Prima", "Chez Marius", "Bouillon Archers Chez Marius",
+    ]  # fmt: skip
+    groups, generic, _ = group_names(names, _aliases())
+    assert _same(groups, "Kabuki", "Kabuki Canton")
+    assert _same(groups, "Bombay", "Bombay Talkies")
+    assert _same(groups, "O'Callaghan", "O'Callaghan Irish Pub")
+    assert _same(groups, "Diderot", "CROUS")
+    assert _same(groups, "CROUS", "RU Intermezzo")
+    assert _same(groups, "CROUS", "Resto Universitaires")
+    assert _same(groups, "Barrio Latino", "Casa Barriolatino")
+    assert not _same(
+        groups, "Bairro Latino", "Casa Barriolatino"
+    )  # a bar, not the restaurant
+    assert not _same(groups, "Come Va", "Come Prima")
+    assert not _same(groups, "Chez Marius", "Bouillon Archers Chez Marius")
+    assert generic == []  # "Bairro Latino" and the RU names are valid names
+
+
+def _m(name, kind="Restaurants & Bars", polarity="positive"):
+    return Mention(
+        name=name, kind=kind, polarity=polarity, items=[], context="x",
+        date=date(2025, 1, 1), community_business=False,
+    )  # fmt: skip
+
+
+def test_group_mentions_keeps_raw_name_and_adds_group_and_drops_generic_names():
+    ms = [
+        _m("Natal"),
+        _m("Natal"),
+        _m("Restaurante Natal", polarity="negative"),
+        _m("Restaurante brasileiro"),
+        _m("Pizzeria"),
+        _m("Chez Marius"),
+    ]
+    grouped, report = group_mentions(ms, Aliases())
+    assert [g.name for g in grouped] == [
+        "Natal",
+        "Natal",
+        "Restaurante Natal",
+        "Chez Marius",
+    ]  # raw
+    assert [g.group for g in grouped] == [
+        "Natal",
+        "Natal",
+        "Natal",
+        "Chez Marius",
+    ]  # single: group = name
+    assert sum(g.polarity == "negative" for g in grouped if g.group == "Natal") == 1
+    assert {d["name"] for d in report["dropped_generic"]} == {
+        "Restaurante brasileiro",
+        "Pizzeria",
+    }
+    assert report["kinds"]["Restaurants & Bars"]["dropped_generic"] == 2
+
+
+def test_group_mentions_runs_on_every_kind():
+    ms = [
+        _m("Dr Silva", kind="Dentists"),
+        _m("Dr. Silva", kind="Dentists"),
+        _m("Action", kind="Shops"),
+    ]
+    grouped, report = group_mentions(ms, Aliases())
+    assert {g.kind.value for g in grouped} == {"Dentists", "Shops"}
+    assert set(report["kinds"]) == {"Dentists", "Shops"}
+
+
+def test_short_brands_need_mentions_and_keep_list_exempts_generic_looking_names():
+    names = [
+        "B&M",
+        "B & M",
+        "F1",
+        "Snack Brasil",
+        "Restaurante brasileiro",
+        "Natal",
+        "Pizza Hut",
+        "168",
+        "Brasil",
+    ]
+    counts = {
+        "B&M": 20,
+        "B & M": 2,
+        "F1": 1,
+        "Snack Brasil": 4,
+        "Restaurante brasileiro": 4,
+        "Natal": 9,
+        "Pizza Hut": 1,
+        "168": 2,
+        "Brasil": 3,
+    }
+    aliases = Aliases(keep=frozenset({normalise_name("Snack Brasil")}))
+    groups, generic, _ = group_names(names, aliases, counts)
+    assert _same(groups, "B&M", "B & M")
+    assert set(generic) == {
+        "F1",
+        "Restaurante brasileiro",
+        "168",
+        "Brasil",
+    }  # Pizza Hut stays; keep is exact, not by key
+    assert any("Snack Brasil" in g for g in groups)
