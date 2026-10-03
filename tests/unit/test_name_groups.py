@@ -216,3 +216,39 @@ def test_real_businesses_with_generic_looking_names_survive_via_aliases():
     assert _same(groups, "médecin 7/7", "Médecins 7/7")
     assert any("U" in g for g in groups)
     assert set(generic) == {"Dentista", "Ótica"}
+
+
+def test_business_under_several_kinds_takes_the_kind_with_most_mentions_and_keeps_raw_kind():
+    ms = [_m("Carrefour", kind="Markets & Groceries")] * 3 + [
+        _m("Carrefour", kind="Shops"),
+        _m("carrefour", kind="Shops"),
+        _m("Action", kind="Shops"),
+    ]
+    grouped, report = group_mentions(ms, Aliases())
+    carrefour = [g for g in grouped if g.name.lower() == "carrefour"]
+    assert {g.group for g in carrefour} == {"Carrefour"}
+    assert {g.group_kind.value for g in carrefour} == {"Markets & Groceries"}
+    assert {g.kind.value for g in carrefour} == {
+        "Markets & Groceries",
+        "Shops",
+    }  # raw kept
+    assert [g.group_kind.value for g in grouped if g.name == "Action"] == ["Shops"]
+    assert report["rekinded"][0]["group"] == "Carrefour"
+    assert report["rekinded"][0]["kinds"] == {"Markets & Groceries": 3, "Shops": 2}
+
+
+def test_kind_ties_prefer_specific_kinds_and_alias_can_fix_the_kind():
+    ms = [_m("Vieux Manoir", kind="Restaurants & Bars")] * 3 + [
+        _m("Vieux Manoir", kind="Places & Outings")
+    ] * 3
+    grouped, _ = group_mentions(ms, Aliases())
+    assert {g.group_kind.value for g in grouped} == {
+        "Restaurants & Bars"
+    }  # tie -> specific Kind
+    ms = [_m("CROUS", kind="Places & Outings")] * 5 + [
+        _m("CROUS", kind="Restaurants & Bars")
+    ] * 2
+    grouped, _ = group_mentions(ms, load_aliases())
+    assert {g.group_kind.value for g in grouped} == {
+        "Restaurants & Bars"
+    }  # alias kind wins

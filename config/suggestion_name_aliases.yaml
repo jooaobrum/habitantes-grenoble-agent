@@ -2,6 +2,8 @@
 # Applied after the automatic rules, on every rebuild.
 #
 # keep:     named businesses whose words look generic ("Snack Brasil"): never dropped.
+# kind:     (optional, inside a `same` entry) the Kind this business always gets, instead of
+#           the Kind where it has the most Mentions.
 # same:     names (or regex on the normalised name: lower case, no accents) that are ONE business.
 #           A name matched here is never dropped as generic.
 # separate: pairs that are different businesses even if their spellings are close.
@@ -18,6 +20,7 @@ same:
   - canonical: "Casa Barriolatino"      # all these spellings are one business
     names: ["Casa Barriolatino", "Barrio Latino", "Barril Latino", "Bairro Latino"]
   - canonical: "CROUS (restaurantes universitários)"
+    kind: "Restaurants & Bars"
     names: ["Diderot", "CROUS"]
     match: ["\\bcrous\\b", "\\bru\\b", "resto universitaire", "restaurante universitario", "restaurant universitaire"]
 separate:

@@ -30,6 +30,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import yaml
 
+from habitantes.domain.suggestions import Kind
 from ingestion.suggestions.extract import Mention
 from ingestion.suggestions.merge import normalise_name
 
@@ -70,13 +71,15 @@ DEFAULT_ALIASES_PATH = (
 class Aliases:
     """Manual decisions: `same` groups (canonical, compact keys, regexes) and `separate` pairs."""
 
-    same: List[Tuple[str, frozenset, List[re.Pattern]]] = field(default_factory=list)
+    same: List[Tuple[str, frozenset, List[re.Pattern], Optional[Kind]]] = field(
+        default_factory=list
+    )
     separate: List[Tuple[str, str]] = field(default_factory=list)  # compact keys
     keep: frozenset = frozenset()  # normalised names exempt from the generic-name drop
 
     def same_index(self, name: str) -> Optional[int]:
         key, norm = compact_key(name), normalise_name(name)
-        for i, (_, keys, patterns) in enumerate(self.same):
+        for i, (_, keys, patterns, _kind) in enumerate(self.same):
             if key in keys or any(p.search(norm) for p in patterns):
                 return i
         return None
@@ -95,6 +98,7 @@ def load_aliases(path: Optional[Path] = None) -> Aliases:
                 str(e["canonical"]),
                 frozenset(compact_key(n) for n in e.get("names", [])),
                 [re.compile(p) for p in e.get("match", [])],
+                Kind(e["kind"]) if e.get("kind") else None,
             )
         )
     for a, b in raw.get("separate", []):
@@ -252,26 +256,31 @@ def group_names(
 class GroupedMention(Mention):
     """A raw Mention, unchanged, plus `group`: the canonical name of its business.
 
-    `name` stays exactly as extracted. When a business has a single written name,
-    `group` simply repeats `name`."""
+    `name` and `kind` stay exactly as extracted. When a business has a single written
+    name, `group` simply repeats `name`. `group_kind` is the Kind where the business
+    has the most Mentions: a business named under several Kinds (Carrefour as
+    Markets & Groceries and as Shops) gets that one Kind."""
 
     group: str
+    group_kind: Kind
 
 
 def group_mentions(
     mentions: List[Mention], aliases: Optional[Aliases] = None
 ) -> Tuple[List[GroupedMention], Dict[str, Any]]:
-    """Group Mentions by business within each Kind (all Kinds); drop generic names.
+    """Group Mentions by business (all Kinds); drop generic names.
 
-    Returns (grouped Mentions, report). The report counts what each step did and lists
-    the dropped generic names, so a reviewer can check nothing real was lost.
+    Names are grouped within each Kind, then the same business found under several
+    Kinds is unified: it takes the Kind with the most Mentions (`group_kind`).
+    Returns (grouped Mentions, report); the report counts what each step did and lists
+    the dropped generic names so a reviewer can check nothing real was lost.
     """
     aliases = aliases or Aliases()
-    by_kind: Dict[str, List[Mention]] = defaultdict(list)
+    by_kind: Dict[Kind, List[Mention]] = defaultdict(list)
     for m in mentions:
-        by_kind[m.kind.value].append(m)
-    out: List[GroupedMention] = []
-    report: Dict[str, Any] = {"kinds": {}, "dropped_generic": []}
+        by_kind[m.kind].append(m)
+    kept: List[Tuple[Mention, str]] = []  # (mention, canonical within its Kind)
+    report: Dict[str, Any] = {"kinds": {}, "dropped_generic": [], "rekinded": []}
     for kind, ms in by_kind.items():
         names = sorted({m.name.strip() for m in ms})
         freq = Counter(m.name.strip() for m in ms)
@@ -279,20 +288,19 @@ def group_mentions(
         canonical: Dict[str, str] = {}
         for g in groups:
             idx = {aliases.same_index(n) for n in g} - {None}
-            if idx:
-                shown = aliases.same[min(idx)][0]
-            else:
-                shown = sorted(g, key=lambda n: (-freq[n], len(n), n))[0]
+            shown = (
+                aliases.same[min(idx)][0]
+                if idx
+                else sorted(g, key=lambda n: (-freq[n], len(n), n))[0]
+            )
             for n in g:
                 canonical[n] = shown
         gen = set(generic)
         dropped = [m for m in ms if m.name.strip() in gen]
-        for m in ms:
-            n = m.name.strip()
-            if n in gen:
-                continue
-            out.append(GroupedMention(**{**m.model_dump(), "group": canonical[n]}))
-        report["kinds"][kind] = {
+        kept += [
+            (m, canonical[m.name.strip()]) for m in ms if m.name.strip() not in gen
+        ]
+        report["kinds"][kind.value] = {
             "mentions": len(ms),
             "kept": len(ms) - len(dropped),
             "dropped_generic": len(dropped),
@@ -300,12 +308,48 @@ def group_mentions(
             "businesses": len(groups),
         }
         report["dropped_generic"] += [
-            {"kind": kind, "name": n, "mentions": freq[n]}
+            {"kind": kind.value, "name": n, "mentions": freq[n]}
             for n in sorted(gen, key=lambda n: -freq[n])
         ]
+
+    # Same business under several Kinds: the Kind with the most Mentions wins.
+    votes: Dict[str, Counter] = defaultdict(Counter)  # business key -> Kind counts
+    shown_by: Dict[Tuple[str, Kind], Counter] = defaultdict(Counter)
+    for m, canon in kept:
+        votes[compact_key(canon)][m.kind] += 1
+        shown_by[(compact_key(canon), m.kind)][canon] += 1
+    winner: Dict[str, Tuple[Kind, str]] = {}
+    fixed = {compact_key(a[0]): a[3] for a in aliases.same if a[3] is not None}
+    for key, c in votes.items():
+        kind = (
+            fixed.get(key)
+            or sorted(c, key=lambda k: (-c[k], k in VAGUE_KINDS, k.value))[0]
+        )
+        shown = shown_by[(key, kind)] or shown_by[(key, next(iter(c)))]
+        winner[key] = (kind, shown.most_common(1)[0][0])
+        if len(c) > 1:
+            report["rekinded"].append(
+                {
+                    "group": winner[key][1],
+                    "group_kind": kind.value,
+                    "kinds": {k.value: v for k, v in c.most_common()},
+                }
+            )
+    report["rekinded"].sort(key=lambda r: -sum(r["kinds"].values()))
+    out = [
+        GroupedMention(
+            **{
+                **m.model_dump(),
+                "group": winner[compact_key(canon)][1],
+                "group_kind": winner[compact_key(canon)][0],
+            }
+        )
+        for m, canon in kept
+    ]
     return out, report
 
 
+VAGUE_KINDS = frozenset({Kind.OTHER, Kind.PLACES_AND_OUTINGS, Kind.SHOPS})
 GROUPED_FILENAME = "grouped_mentions.jsonl"
 
 
