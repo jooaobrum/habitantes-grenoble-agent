@@ -189,3 +189,83 @@ def test_advertiser_post_alone_is_not_offered_but_flag_flows():
     assert only_ad[0].counted == [] and only_ad[0].thumbs_up == 0
     both = aggregate([M("Casa", cb=True), M("Casa")])
     assert both[0].community_business is True and both[0].thumbs_up == 1
+
+
+def test_recommendation_notice_added_when_missing():
+    from habitantes.domain.agent import _ensure_recommendation_notice
+
+    out = _ensure_recommendation_notice(
+        "- **A** — 3👍/0👎 · última menção 01/01/2025 — x"
+    )
+    assert "não uma lista exaustiva" in out and "Confirme a disponibilidade" in out
+
+
+def test_recommendation_notice_not_duplicated_and_sources_block_removed():
+    from habitantes.domain.agent import _ensure_recommendation_notice
+
+    ans = (
+        "Resumo das principais indicações:\n- **A** — 3👍/0👎\n"
+        "Confirme a disponibilidade e os horários.\n\n"
+        "Fontes mencionadas no contexto:\n- A"
+    )
+    out = _ensure_recommendation_notice(ans)
+    assert out.count("Confirme") == 1 and "Fontes mencionadas" not in out
+    assert "exaustiva" not in out  # "Resumo" already present: no second notice
+
+
+def _cl(*members):
+    return {"members": list(members)}
+
+
+def _mem(name, up, down=0, **kw):
+    return {
+        "name": name,
+        "thumbs_up": up,
+        "thumbs_down": down,
+        "last_date": "2025-03-12",
+        "items": ["clareamento"],
+        **kw,
+    }
+
+
+def test_render_uses_tool_counts_and_drops_invented_names():
+    from habitantes.domain.agent import _render_recommendation
+
+    clusters = [
+        _cl(_mem("Dr Martin", 5), _mem("Clinique Alpes", 3, community_business=True))
+    ]
+    out = _render_recommendation(
+        "Indico o Dr Martin e a Boulanger, e também a Clinique Alpes.", clusters
+    )
+    assert "- **Dr Martin** — 5👍/0👎 · última menção 12/03/2025" in out
+    assert "[negócio de membro do grupo — divulgação própria]" in out
+    assert "Boulanger" not in out
+    assert "Confirme a disponibilidade" in out and "resumo" in out
+
+
+def test_render_keeps_answer_when_no_returned_name_is_mentioned():
+    from habitantes.domain.agent import _render_recommendation
+
+    assert (
+        _render_recommendation(
+            "A comunidade não indicou nada.", [_cl(_mem("Dr Martin", 5))]
+        )
+        is None
+    )
+
+
+def test_render_caps_picks_and_skips_net_negative():
+    from habitantes.domain.agent import _render_recommendation
+
+    members = [_mem(f"Lugar{c}", 3) for c in "ABCDEFG"] + [_mem("Ruim", 1, 4)]
+    text = " ".join(m["name"] for m in members)
+    out = _render_recommendation(text, [_cl(*members)])
+    assert out.count("- **") == 7 and "Ruim" not in out
+
+
+def test_no_picks_web_nudge_restates_question():
+    from habitantes.domain.agent import _NO_PICKS_WEB_NUDGE
+
+    assert "web_search_grenoble" in _NO_PICKS_WEB_NUDGE
+    assert "pedido original" in _NO_PICKS_WEB_NUDGE
+    assert "oficina" in _NO_PICKS_WEB_NUDGE.format(question="onde acho oficina?")

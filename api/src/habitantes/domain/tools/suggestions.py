@@ -72,20 +72,32 @@ def _tokens(text: str) -> set[str]:
     return set(strip_accents(text).lower().split())
 
 
+def _br_date(value: Any) -> str:
+    """ISO date (yyyy-mm-dd) -> dd/mm/aaaa, the format the answer shows."""
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})", str(value))
+    return f"{m.group(3)}/{m.group(2)}/{m.group(1)}" if m else str(value)
+
+
+def format_member_line(m: dict) -> str:
+    """One member as an answer-ready list item (also used by the agent to render)."""
+    flag = f" {COMMUNITY_BUSINESS_LABEL}" if m.get("community_business") else ""
+    items = ", ".join(_clip(i) for i in m.get("items", [])[:_MAX_ITEMS])
+    return (
+        f"- **{_clip(m['name'])}**{flag} — {m['thumbs_up']}👍/{m['thumbs_down']}👎 · "
+        f"última menção {_br_date(m['last_date'])} — indicado para: "
+        f"{items or 'não especificado'}"
+    )
+
+
 def _format_cluster(cluster: dict, members: list[dict]) -> str:
+    """One Cluster as text. Member lines are already in the final answer shape, so
+    the model copies a line (picking the relevant ones) instead of composing one."""
     lines = [
         f"Grupo: {_clip(cluster['label'])} (tipo: {cluster['kind']}) | "
         f"{cluster['thumbs_up']}👍/{cluster['thumbs_down']}👎 no grupo | "
-        f"última menção: {cluster['last_date']}"
+        f"última menção: {_br_date(cluster['last_date'])}"
     ]
-    for m in members:
-        flag = f" {COMMUNITY_BUSINESS_LABEL}" if m.get("community_business") else ""
-        items = ", ".join(_clip(i) for i in m.get("items", [])[:_MAX_ITEMS])
-        lines.append(
-            f"- {_clip(m['name'])}{flag}: {m['thumbs_up']}👍/{m['thumbs_down']}👎 | "
-            f"última menção: {m['last_date']} | indicado para: "
-            f"{items or 'não especificado'}"
-        )
+    lines.extend(format_member_line(m) for m in members)
     hidden = cluster.get("hidden_count", 0)
     if hidden:
         lines.append(f"+{hidden} outras")

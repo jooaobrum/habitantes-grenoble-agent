@@ -346,6 +346,17 @@ _SEARCH_YOURSELF_NUDGE = (
     'pergunta original do usuário ("{question}"), com query em francês, em vez de '
     "pedir ao usuário para pesquisar, e responda a essa pergunta com o resultado."
 )
+_SEARCH_SUGGESTIONS_NUDGE = (
+    "Antes de responder, chame search_suggestions para o pedido original do usuário "
+    '("{question}"): a resposta deve vir das sugestões da comunidade, não de '
+    "conhecimento geral."
+)
+_NO_PICKS_WEB_NUDGE = (
+    "Nenhuma das sugestões da comunidade serve ao pedido original do usuário "
+    '("{question}"). Complemente com web_search_grenoble (query em francês sobre esse '
+    "mesmo pedido) e responda a ele, deixando claro que a indicação vem da web e que "
+    "a comunidade não indicou nada específico."
+)
 _TELLS_USER_TO_SEARCH = re.compile(
     r"\b(buscar|busque|pesquisar|pesquise|procurar|procure)\s+(na\s+)?(web|internet|google)\b"
     r"|\b(realize|fa[çc]a|fazer)\s+uma\s+(busca|pesquisa)\b",
@@ -421,6 +432,82 @@ def _drifted_from_draft(draft: str, answer: str) -> bool:
         return False
     kept = len(draft_words & _content_words(answer)) / len(draft_words)
     return kept < _MIN_VERIFIED_DRAFT_OVERLAP
+
+
+_SUMMARY_NOTICE_RE = re.compile(r"resumo|exaustiv|principais", re.IGNORECASE)
+_AVAILABILITY_NOTICE_RE = re.compile(r"confirm", re.IGNORECASE)
+_SOURCES_BLOCK_RE = re.compile(r"\n+Fontes mencionadas no contexto:.*\Z", re.DOTALL)
+RECOMMENDATION_SUMMARY_NOTICE = (
+    "Estas são as principais indicações da comunidade (um resumo, não uma lista "
+    "exaustiva)."
+)
+RECOMMENDATION_AVAILABILITY_NOTICE = (
+    "Confirme a disponibilidade e os horários antes de ir."
+)
+
+
+def _ensure_recommendation_notice(answer: str) -> str:
+    """Guarantee the two notices every community-picks answer must carry.
+
+    The model usually writes them, but a small model drops them often; they are a
+    product rule (picks are a summary; availability must be confirmed), so the agent
+    adds whichever is missing. The generic "Fontes mencionadas" block (a Q&A
+    convention that would just repeat the picks) is removed.
+    """
+    answer = _SOURCES_BLOCK_RE.sub("", answer).rstrip()
+    notices = []
+    if not _SUMMARY_NOTICE_RE.search(answer):
+        notices.append(RECOMMENDATION_SUMMARY_NOTICE)
+    if not _AVAILABILITY_NOTICE_RE.search(answer):
+        notices.append(RECOMMENDATION_AVAILABILITY_NOTICE)
+    return "\n\n".join([answer, *notices]) if notices else answer
+
+
+_MAX_RENDERED_PICKS = 7
+_RENDER_INTRO = (
+    "Principais indicações da comunidade (um resumo, não uma lista exaustiva):"
+)
+
+
+def _name_key(text: str) -> str:
+    return (
+        " "
+        + " ".join(re.sub(r"[^a-z0-9]+", " ", strip_accents(text).lower()).split())
+        + " "
+    )
+
+
+def _render_recommendation(answer: str, clusters: list[dict]) -> str | None:
+    """Rebuild a recommendation answer's list in the canonical format, in code.
+
+    The model decides WHICH of the returned suggestions are relevant (it names them in
+    its answer); the counts, last-mention date, community-business mark and the
+    notices are product rules that a small model drops or garbles, so they are
+    rendered from the tool data. Names the model mentions that the tool never
+    returned are dropped, so the list cannot contain an invented business.
+    Returns None when the answer names no returned suggestion (it is then kept as
+    written, e.g. "the community did not recommend anything for this").
+    """
+    from habitantes.domain.tools.suggestions import format_member_line
+
+    text = _name_key(answer)
+    picked: list[tuple[int, dict]] = []
+    seen: set[str] = set()
+    for cluster in clusters:
+        for m in cluster.get("members", []):
+            key = _name_key(m.get("name", ""))
+            pos = text.find(key) if key.strip() else -1
+            if pos < 0 or key in seen:
+                continue
+            if int(m.get("thumbs_up", 0)) <= int(m.get("thumbs_down", 0)):
+                continue
+            seen.add(key)
+            picked.append((pos, m))
+    if not picked:
+        return None
+    picked.sort(key=lambda p: p[0])
+    lines = [format_member_line(m) for _, m in picked[:_MAX_RENDERED_PICKS]]
+    return "\n".join([_RENDER_INTRO, *lines, RECOMMENDATION_AVAILABILITY_NOTICE])
 
 
 def _tells_user_to_search_web(text: str) -> bool:
@@ -587,6 +674,7 @@ def _run_react_loop(state: AgentState) -> dict:
     kb_searches = 0
     suggestion_clusters: list[dict] = []
     force_web = False
+    suggestions_nudged = False
     forced_web = False  # a forced web pass ran this turn (answer is not cached)
     # The answer the verify-on-web nudge was asked to check — kept if the web
     # pass comes back empty, finds nothing, or drifts off the question.
@@ -644,6 +732,24 @@ def _run_react_loop(state: AgentState) -> dict:
         # do the search.
         if not getattr(response, "tool_calls", None):
             if (
+                intent == "recommendation"
+                and suggestions_tool_name
+                and kb_searches == 0
+                and not suggestions_nudged
+                and iteration < max_iters - 2
+            ):
+                # A recommendation must come from the community's suggestions; a
+                # small model sometimes answers from general knowledge instead.
+                suggestions_nudged = True
+                msgs.append(
+                    HumanMessage(
+                        content=_SEARCH_SUGGESTIONS_NUDGE.format(
+                            question=state["message"]
+                        )
+                    )
+                )
+                continue
+            if (
                 needs_tools
                 and web_available
                 and web_calls == 0
@@ -658,8 +764,17 @@ def _run_react_loop(state: AgentState) -> dict:
                 nudge = None
                 if _tells_user_to_search_web(text):
                     nudge = _SEARCH_YOURSELF_NUDGE
+                elif intent == "recommendation":
+                    # No KB draft to verify. If the community search ran but the
+                    # reply names none of its suggestions, nothing served the
+                    # request: complement it from the web (labelled as such).
+                    if (
+                        kb_searches
+                        and _render_recommendation(text, suggestion_clusters) is None
+                    ):
+                        nudge = _NO_PICKS_WEB_NUDGE
                 elif intent not in _KB_INTENTS:
-                    pass  # recommendation-only: no KB draft to verify or gap to fill
+                    pass  # no KB draft to verify or gap to fill
                 elif topic in _VERIFY_ON_WEB_CATEGORIES:
                     nudge = _VERIFY_ON_WEB_NUDGE
                     draft_answer = text
@@ -889,6 +1004,18 @@ def _run_react_loop(state: AgentState) -> dict:
             answer = ""
         if not answer:
             answer = _NO_RESULTS_FALLBACK
+
+    if suggestion_clusters and intent == "recommendation" and not web_used:
+        answer = _render_recommendation(answer, suggestion_clusters) or answer
+    if suggestion_clusters and "\U0001f44d" in answer:
+        answer = _ensure_recommendation_notice(answer)
+    elif (
+        intent == "recommendation"
+        and web_used
+        and answer
+        and not _AVAILABILITY_NOTICE_RE.search(answer)
+    ):
+        answer = f"{answer.rstrip()}\n\n{RECOMMENDATION_AVAILABILITY_NOTICE}"
 
     if web_used and answer and "web" not in answer[:300].lower():
         answer = f"{_WEB_ORIGIN_NOTICE}\n\n{answer}"

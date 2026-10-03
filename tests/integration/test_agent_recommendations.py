@@ -166,8 +166,8 @@ def test_recommendation_binds_search_suggestions_and_feeds_cluster_to_llm(
     (tool_msg,) = llm.tool_messages()
     assert "Épicerie Tropical" in tool_msg
     assert "9👍" in tool_msg and "0👎" in tool_msg
-    assert "2026-05-20" in tool_msg
-    assert result["answer"].startswith("Épicerie Tropical")
+    assert "20/05/2026" in tool_msg
+    assert "**Épicerie Tropical** — 9👍/0👎" in result["answer"]
     assert result["error"] is None
     assert result["confidence"] > 0
 
@@ -215,7 +215,8 @@ def test_community_business_is_disclosed(monkeypatch, qdrant, seeded_clusters):
     _run("onde compro polvilho e massa de pastel?")
     (tool_msg,) = llm.tool_messages()
     assert re.search(
-        r"Sabor do Brasil \[negócio de membro do grupo — divulgação própria\]", tool_msg
+        r"Sabor do Brasil\*\* \[negócio de membro do grupo — divulgação própria\]",
+        tool_msg,
     )
 
 
@@ -250,7 +251,7 @@ def test_results_capped_at_max_members_across_clusters(monkeypatch, qdrant):
     (tool_msg,) = llm.tool_messages()
     assert tool_msg.count("Grupo:") <= 6
     # members are merged across clusters and capped globally at max_members
-    assert tool_msg.count("- Cabinet") == 20
+    assert tool_msg.count("- **Cabinet") == 20
 
 
 def test_short_query_word_matches_long_tail_member(monkeypatch, qdrant):
@@ -322,6 +323,28 @@ def test_keyword_branch_finds_cluster_below_dense_floor(monkeypatch, qdrant):
     assert suggestions_module.search_clusters("xyz").get("no_results")
 
 
+def test_reply_naming_no_suggestion_is_nudged_to_web(
+    monkeypatch, qdrant, seeded_clusters
+):
+    _seed(qdrant, seeded_clusters)
+    web = _enable_web(monkeypatch)
+    llm = _script(
+        monkeypatch,
+        "recommendation",
+        _call("search_suggestions", {"query": "polvilho massa de pastel"}),
+        "A comunidade não indicou nada para isso.",
+        _call("web_search_grenoble", {"query": "polvilho Grenoble"}, "c2"),
+        "Pela web: Loja X.",
+    )
+
+    result = _run("onde compro polvilho e massa de pastel?")
+
+    web.invoke.assert_called_once()
+    nudge = llm.prompts[2][-1].content
+    assert "serve ao pedido original" in nudge and "polvilho" in nudge
+    assert "Loja X" in result["answer"]
+
+
 def test_no_results_signals_and_falls_back_to_web(monkeypatch, qdrant, seeded_clusters):
     _seed(qdrant, seeded_clusters)
     web = _enable_web(monkeypatch)
@@ -368,7 +391,12 @@ def test_question_does_not_bind_search_suggestions(monkeypatch, qdrant):
 def test_recommendation_prompt_asks_for_name_votes_date_and_context(
     monkeypatch, qdrant
 ):
-    llm = _script(monkeypatch, "recommendation", "ok")
+    llm = _script(
+        monkeypatch,
+        "recommendation",
+        _call("search_suggestions", {"query": "dentista"}),
+        "ok",
+    )
     _run("indicação de dentista")
     system = llm.prompts[0][0].content
     assert "INTENT CLASSIFICADO: recommendation" in system
@@ -443,7 +471,7 @@ def test_community_business_label(monkeypatch, qdrant):
         qdrant,
         [_big_cluster([_m("Cabinet Dono", 5, community_business=True)])],
     )
-    assert "Cabinet Dono [negócio de membro do grupo — divulgação própria]" in out
+    assert "Cabinet Dono** [negócio de membro do grupo — divulgação própria]" in out
 
 
 def test_output_has_no_negative_text_only_counts(monkeypatch, qdrant):
@@ -514,9 +542,9 @@ def test_output_bounded_regardless_of_members_and_items(monkeypatch, qdrant):
         for j in range(200)
     ]
     out = _tool_output(monkeypatch, qdrant, [_big_cluster(members)])
-    assert out.count("- Cabinet") == 20
+    assert out.count("- **Cabinet") == 20
     assert "+180 outras" in out
-    assert len(out) < 4000
+    assert len(out) < 4200
 
 
 def test_reminder_and_more_suggestions_note(monkeypatch, qdrant):
@@ -536,3 +564,21 @@ def test_no_more_note_when_all_shown(monkeypatch, qdrant):
     out = _tool_output(monkeypatch, qdrant, [_big_cluster([_m("Cabinet A", 5)])])
     assert "confirmar disponibilidade" in out.lower()
     assert "há mais sugestões" not in out.lower()
+
+
+def test_recommendation_answered_without_searching_is_nudged_to_search(
+    monkeypatch, qdrant, seeded_clusters
+):
+    _seed(qdrant, seeded_clusters)
+    llm = _script(
+        monkeypatch,
+        "recommendation",
+        "Vá ao mercado qualquer.",
+        _call("search_suggestions", {"query": "polvilho massa de pastel"}),
+        "Épicerie Tropical é boa.",
+    )
+
+    result = _run("onde compro polvilho e massa de pastel?")
+
+    assert "chame search_suggestions" in llm.prompts[1][-1].content
+    assert "**Épicerie Tropical** — 9👍/0👎" in result["answer"]

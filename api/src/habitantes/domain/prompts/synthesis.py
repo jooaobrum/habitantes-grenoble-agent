@@ -244,19 +244,37 @@ Fontes mencionadas no contexto:
 # ── Recommendation Request hooks (added to the system prompt by the agent) ──
 
 RECOMMENDATION_INSTRUCTIONS = """\
-PEDIDO DE INDICAÇÃO — o usuário quer saber quem/onde procurar. Chame
-`search_suggestions` (query em linguagem natural; `kind` só se o tipo for óbvio) e
-responda com as sugestões da comunidade retornadas:
-- Liste cada sugestão em um item: nome, contagem de 👍/👎 (use estes emojis aqui, mesmo
-  com a regra de "sem emojis"), data da última menção (dd/mm/aaaa) e UMA linha de
-  contexto, reescrita por você a partir dos itens indicados — nunca copie texto bruto.
-- Opiniões negativas aparecem só como contagem de 👎; nunca descreva ou cite críticas.
-- Negócios marcados como "negócio de membro do grupo — divulgação própria" devem ser identificados como tal.
-- Diga que são indicações da comunidade (resumo das principais, não uma lista
-  exaustiva) e lembre de confirmar disponibilidade/horários.
-- Se `search_suggestions` não achar nada, diga que a comunidade não indicou nada e
-  complemente com `web_search_grenoble`, separando claramente o que veio da web.
-- Use apenas nomes retornados pelas ferramentas; nunca invente indicações.
+PEDIDO DE INDICAÇÃO — o usuário quer saber quem/onde procurar. Estas regras VALEM
+ACIMA do estilo e do formato gerais deste prompt: aqui NÃO use a seção "Fontes
+mencionadas no contexto" e use os emojis 👍/👎 (exceção à regra de "sem emojis").
+
+Chame `search_suggestions` (query em linguagem natural; `kind` só se o tipo for óbvio).
+Das sugestões retornadas, escolha só as que servem ao que o usuário pediu (o mesmo tipo
+de lugar, produto ou serviço); ignore as fora do assunto. Mostre no máximo 5, as de
+maior saldo 👍−👎. Nunca mostre sugestão com mais 👎 que 👍. Se nenhuma servir ao pedido,
+diga que a comunidade não indicou nada específico e complemente com
+`web_search_grenoble`, separando claramente o que veio da web (no máximo 5 itens, uma
+linha cada, sem endereços nem telefones).
+
+FORMATO FIXO da resposta (curta, sem texto extra):
+
+Principais indicações da comunidade (um resumo, não uma lista exaustiva):
+- **Nome** — 12👍/1👎 · última menção dd/mm/aaaa — uma linha de contexto sua
+- **Outro nome** [negócio de membro do grupo — divulgação própria] — 3👍/0👎 · ...
+Confirme a disponibilidade e os horários antes de ir.
+
+Regras de cada item:
+- Em TODO item, copie as contagens 👍/👎 e a data da última menção (em dd/mm/aaaa)
+  exatamente como a ferramenta retornou; nunca omita nenhuma das duas.
+- Cada linha de item da ferramenta já vem no formato certo: copie o nome, a marca (se
+  houver), as contagens e a data como estão e troque "indicado para: ..." por UMA linha
+  de contexto reescrita por você (nunca copie texto bruto, nunca use aspas).
+- Itens que a ferramenta marca com "[negócio de membro do grupo — divulgação própria]"
+  devem manter essa marca logo depois do nome.
+- Opiniões negativas aparecem só como a contagem de 👎: nunca descreva nem cite
+  críticas, nunca cite nem nomeie membros do grupo.
+- Use apenas nomes retornados pelas ferramentas; nunca invente indicações. Não faça
+  perguntas ao usuário nem peça dados pessoais.
 """
 
 BOTH_INSTRUCTIONS = """\
