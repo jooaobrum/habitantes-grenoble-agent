@@ -20,9 +20,10 @@ did not fit any of the 14 Kinds:
 Add two Kinds: **Transport** (Topic "Travel & Transport") and **Housing** (Topic "Housing & CAF").
 Both Topics already exist in the menu. The Kind→Topic mapping stays fixed and one-to-one per Kind.
 
-The extraction prompt builds its Kind list from the enum, so new extractions can use them. The
-existing 6,848 Mentions were not re-extracted: their raw `kind` is kept, and the name-grouping step
-assigns `group_kind` through `config/suggestion_name_aliases.yaml` (`kinds:` for named businesses,
+The extraction prompt builds its Kind list from the enum and now defines every Kind (including
+Transport, Housing and the rule "one Kind per business"), so new extractions get them directly. The
+existing 6,848 Mentions were not re-extracted: `mentions.jsonl` keeps the extracted Kind, and the
+name-grouping step writes the resolved Kind to `kind` in `grouped_mentions.jsonl` through `config/suggestion_name_aliases.yaml` (`kinds:` for named businesses,
 `split:` for CROUS). A business seen under several Kinds takes the Kind with most Mentions.
 
 ## Consequences

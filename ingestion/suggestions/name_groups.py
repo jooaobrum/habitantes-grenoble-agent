@@ -275,15 +275,15 @@ def group_names(
 
 
 class GroupedMention(Mention):
-    """A raw Mention, unchanged, plus `group`: the canonical name of its business.
+    """A Mention plus `group`: the canonical name of its business.
 
-    `name` and `kind` stay exactly as extracted. When a business has a single written
-    name, `group` simply repeats `name`. `group_kind` is the Kind where the business
-    has the most Mentions: a business named under several Kinds (Carrefour as
-    Markets & Groceries and as Shops) gets that one Kind."""
+    `name` stays as extracted. When a business has a single written name, `group`
+    repeats `name`. `kind` is the business's one Kind: a business named under several
+    Kinds (Carrefour as Markets & Groceries and as Shops) takes the Kind with the most
+    Mentions, unless the alias file fixes it. The extracted Kind is still in
+    `mentions.jsonl`, which this step never modifies."""
 
     group: str
-    group_kind: Kind
     group_community_business: bool = False
 
 
@@ -293,7 +293,7 @@ def group_mentions(
     """Group Mentions by business (all Kinds); drop generic names.
 
     Names are grouped within each Kind, then the same business found under several
-    Kinds is unified: it takes the Kind with the most Mentions (`group_kind`).
+    Kinds is unified: it takes the Kind with the most Mentions (written to `kind`).
     Returns (grouped Mentions, report); the report counts what each step did and lists
     the dropped generic names so a reviewer can check nothing real was lost.
     """
@@ -383,7 +383,7 @@ def group_mentions(
             report["rekinded"].append(
                 {
                     "group": winner[key][1],
-                    "group_kind": kind.value,
+                    "kind": kind.value,
                     "kinds": {k.value: v for k, v in c.most_common()},
                 }
             )
@@ -393,7 +393,7 @@ def group_mentions(
             **{
                 **m.model_dump(),
                 "group": winner[compact_key(canon)][1],
-                "group_kind": winner[compact_key(canon)][0],
+                "kind": winner[compact_key(canon)][0],
                 "group_community_business": compact_key(canon) in community,
             }
         )

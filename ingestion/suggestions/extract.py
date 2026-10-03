@@ -98,7 +98,9 @@ EXTRACTION_PROMPT = """Você extrai Menções de negócios, lugares e produtos d
 Uma Menção é a opinião positiva ou negativa de UMA pessoa sobre UM negócio/lugar/produto. Várias mensagens seguidas da mesma pessoa sobre o mesmo lugar são UMA só Menção.
 Regras:
 - name: nome do negócio (para redes, o nome da rede, não da filial).
-- kind: um de {kinds}.
+- kind: um de {kinds}. Definições:
+  Restaurants & Bars = restaurantes, bares, cafés, pubs, restaurante universitário (RU). Markets & Groceries = mercados, supermercados, feiras, açougues (Carrefour, Lidl, Auchan, Leclerc, Nosso). Shops = lojas (roupas, casa, eletrônicos, bricolagem: Action, Ikea, Fnac, Decathlon). Products = um produto ou marca específica, não uma loja. Salons & Beauty, Gyms & Sports, Doctors (médicos, clínicas, hospitais como o CHU), Dentists, Translators, Courses & Teachers, Vets & Pets. Professional Services = advogados, contadores, seguradoras, mecânicos, oficinas, obras, correios. Places & Outings = lugares, passeios, estações de esqui, parques, trilhas. Transport = companhias aéreas, trens e ônibus (SNCF, TER, TGV, TAG, FlixBus), carona e aluguel de carro ou bicicleta (BlaBlaCar, Getaround, Metrovelo). Housing = residências estudantis e alojamento (CROUS moradia), plataformas de moradia ou colocation (Seloger, Airbnb). Other = o que não cabe em nenhum.
+  Um negócio tem UM só Kind, o do que ele É, não o do que foi comprado nele (Carrefour é sempre Markets & Groceries). O CROUS que serve refeições é Restaurants & Bars; o CROUS de moradia é Housing e se chama "CROUS alojamento".
 - polarity: "positive" ou "negative".
 - items: produtos/serviços específicos pelos quais foi citado (ex.: massa de pastel, limpeza dental).
 - context: UMA frase reescrita (o que é bom/ruim e por quê). Nunca copie a mensagem; nunca cite M1, M2 nem telefones.
