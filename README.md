@@ -199,18 +199,19 @@ The `suggestions:` section of [config/base.yaml](config/base.yaml) is read by bo
 | `window_after_request` | 15 | Messages after a request trigger |
 | `window_after_other` | 5 | Messages after any other trigger |
 | `jev_cutoff` | 0.92 | Minimum Jev P(yes) for a window to be extracted |
-| `similarity_cutoff` | 0.75 | Minimum Item/Context similarity for Mentions to share a Cluster |
+| `similarity_cutoff` | 0.5 | Minimum Item/Context similarity for Mentions to share a Cluster |
 | `ranking_half_life_years` | 2.0 | Mentions older than this count half |
 | `summary_size` | 5 | Members named in a Cluster summary |
-| `max_clusters` | 3 | Clusters returned by `search_suggestions` |
-| `max_extra_members` | 3 | Extra query-matching members returned beyond the top ones |
+| `max_clusters` | 6 | Max Clusters shown by `search_suggestions` |
+| `candidate_clusters` | 10 | Clusters fetched per search branch, then merged member by member |
+| `max_members` | 20 | Total members shown across the returned Clusters (deduped by name) |
 | `min_relevance` | 0.55 | Dense cosine floor for `search_suggestions` hits (separate from `search.min_relevance`) |
 
 The merge and label LLM calls reuse the ingestion model settings (`MentionExtractionConfig` defaults in `ingestion/config.py`: `mention_extraction` and `suggestion_llm`, both `google/gemini-2.5-flash-lite` via OpenRouter); they have no yaml keys unless you add them under `ingestion:`.
 
 ### How the agent uses it
 
-`search_suggestions(query, kind="")` embeds the query and returns up to `max_clusters` Clusters, each with its top members (net 👍 minus 👎 above zero, so a Suggestion with more 👎 than 👍 is never offered) plus up to `max_extra_members` long-tail members whose name or Items match the query, and a "+K outras" count. An empty result tells the model to say so and fall back to `web_search_grenoble`. Answers show name, 👍/👎, latest Mention date and a reworded one-line context; Community Businesses are labelled "negócio de membro do grupo — divulgação própria"; negative opinions appear only as counts; messages and authors are never quoted; users are reminded to confirm availability. Only `qa` answers are response-cached; `recommendation` and `both` are not.
+`search_suggestions(query, kind="")` embeds the query and fetches `candidate_clusters` Clusters (a Kind filter is inferred from Portuguese category words in the query), merges their members by name (votes pooled, so a business split across Clusters counts once), and shows the top `max_members` (net 👍 minus 👎 above zero, so a Suggestion with more 👎 than 👍 is never offered) grouped under at most `max_clusters` Clusters, with a "+K outras" count. An empty result tells the model to say so and fall back to `web_search_grenoble`. Answers show name, 👍/👎, latest Mention date and a reworded one-line context; Community Businesses are labelled "negócio de membro do grupo — divulgação própria"; negative opinions appear only as counts; messages and authors are never quoted; users are reminded to confirm availability. Only `qa` answers are response-cached; `recommendation` and `both` are not.
 
 ### Opting out and removal
 

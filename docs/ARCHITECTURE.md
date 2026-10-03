@@ -224,14 +224,14 @@ flowchart LR
 ```mermaid
 flowchart TD
     Q([query + optional kind]) --> Emb["embed query (OpenAI dense + BM25 sparse, RRF)"]
-    Emb --> Qd["Qdrant query_points on the Suggestions collection<br>optional Kind filter, score_threshold = suggestions.min_relevance,<br>limit = max_clusters + 1"]
-    Qd --> Pick["per Cluster: members with net 👍-👎 > 0, best first (ties: most recent),<br>top summary_size + up to max_extra_members long-tail members<br>whose name or Items match the query"]
+    Emb --> Qd["Qdrant query_points on the Suggestions collection<br>optional Kind filter, score_threshold = suggestions.min_relevance,<br>limit = candidate_clusters;<br>extra Kind-filtered lists when a Kind is inferred from the query"]
+    Qd --> Pick["merge members across Clusters: dedupe by name, pool votes,<br>net 👍-👎 > 0 only, rank by Cluster rank x log net votes,<br>top max_members under at most max_clusters Clusters"]
     Pick --> Out["formatted block: label, Kind, totals, last date,<br>members with 👍/👎, last date, Items, Community Business label,<br>'+K outras', availability reminder"]
     Qd -->|nothing clears the floor| None["no_results -> tell the user,<br>fall back to web_search_grenoble"]
 ```
 
-- Returns at most `max_clusters` (3) Clusters; if a further one would have cleared the floor, a note says more suggestions exist. Output size is bounded (names and Items are clipped, at most 3 Items per member).
-- Own relevance floor (`suggestions.min_relevance`, 0.55 dense cosine), independent of the Q&A gate (`search.min_relevance`); the Q&A gate operates only on `search_knowledge_base` results. The dense branch keeps the floor; the sparse (keyword) branch has none, so a place named for a specific item is still found. Both are fused with RRF, and the long-tail budget (`max_extra_members`) is shared across all returned Clusters.
+- Shows at most `max_members` (20) members under at most `max_clusters` (6) Clusters; if more qualified, a note says more suggestions exist. Output size is bounded (names and Items are clipped, at most 3 Items per member).
+- Own relevance floor (`suggestions.min_relevance`, 0.55 dense cosine), independent of the Q&A gate (`search.min_relevance`); the Q&A gate operates only on `search_knowledge_base` results. The dense branch keeps the floor; the sparse (keyword) branch has none, so a place named for a specific item is still found. All lists are fused with RRF; when no `kind` is passed, Kinds are inferred from Portuguese category keywords (`KIND_KEYWORDS_PT`) and add Kind-filtered lists to the fusion. The same keywords are embedded with each Cluster at ingestion.
 - A member with more 👎 than 👍 (net <= 0) is never returned, so it is never offered. Looking a place up by name only works if it is a member of some Cluster; a place not retrievable falls through to web search.
 - Errors (embedding, Qdrant) come back as the same structured error shape as the KB tool.
 

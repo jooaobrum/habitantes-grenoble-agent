@@ -50,7 +50,15 @@ def test_suggestions_config_defaults_match_yaml_for_api_and_ingestion():
     defaults = SuggestionsConfig()
     assert defaults.ranking_half_life_years == 2
     assert defaults.summary_size == 5
-    assert (defaults.max_clusters, defaults.max_extra_members) == (3, 3)
+    assert (
+        defaults.max_clusters,
+        defaults.candidate_clusters,
+        defaults.max_members,
+    ) == (
+        6,
+        10,
+        20,
+    )
     assert defaults.collection_name != load_settings().vector_store.collection_name
     assert load_settings().suggestions == defaults
     assert load_ingestion_settings().suggestions == defaults

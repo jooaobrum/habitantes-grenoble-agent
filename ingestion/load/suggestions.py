@@ -15,7 +15,7 @@ from fastembed import SparseTextEmbedding
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 
-from habitantes.domain.suggestions import ClusterEntry
+from habitantes.domain.suggestions import KIND_KEYWORDS_PT, ClusterEntry
 from habitantes.domain.tools import enrich_bm25_input, strip_accents
 from habitantes.domain.tools._embedding import _embed_texts
 from ingestion.load.qdrant import ensure_collection, upsert_points
@@ -27,16 +27,20 @@ SparseEmbed = Callable[[List[str]], List[qmodels.SparseVector]]
 
 
 def build_dense_text(entry: ClusterEntry) -> str:
-    """Summary plus every member's Items (so a place named once for an item is found)."""
+    """Kind (with its Portuguese keywords), label, summary and every member's Items
+    (so a query naming the category, or an item named once, finds the Cluster)."""
     items = " ".join(i for m in entry.members for i in m.items)
-    return f"{entry.summary} {items}".strip()
+    kind = f"{entry.kind.value} ({', '.join(KIND_KEYWORDS_PT[entry.kind][:6])})"
+    return f"{kind}. {entry.label}. {entry.summary} {items}".strip()
 
 
 def build_sparse_text(entry: ClusterEntry) -> str:
     """Items plus every member name, accent-stripped and BM25-enriched."""
-    parts = [i for m in entry.members for i in m.items] + [
-        m.name for m in entry.members
-    ]
+    parts = (
+        [entry.label, *KIND_KEYWORDS_PT[entry.kind]]
+        + [i for m in entry.members for i in m.items]
+        + [m.name for m in entry.members]
+    )
     return enrich_bm25_input(strip_accents(" ".join(parts)))
 
 

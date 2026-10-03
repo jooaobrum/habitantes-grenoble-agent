@@ -6,6 +6,7 @@ summary work per group.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import date, timedelta
 from typing import Any, Callable, Dict, List, Optional
@@ -169,28 +170,39 @@ async def build_clusters(
     client: httpx.AsyncClient,
     today: Optional[date] = None,
     dense_embed: Optional[Callable[[List[str]], List[List[float]]]] = None,
+    max_concurrency: int = 16,
 ) -> List[ClusterEntry]:
     """One or more Cluster entries per Kind from the stored Suggestions."""
     today = today or date.today()
     entries: List[ClusterEntry] = []
+    sem = asyncio.Semaphore(max_concurrency)
+
+    async def entry_for(kind: Kind, group: List[Mention], community: frozenset):
+        async with sem:  # one LLM call (label + summary) per Cluster, in parallel
+            return await build_cluster_entry(
+                kind, group, cfg, llm_cfg, client, today, community
+            )
+
+    jobs = []
     for kind in Kind:
         kind_sugg = [s for s in suggestions if s.kind == kind]
         counted = [m for s in kind_sugg for m in s.counted]
         community = frozenset(
             normalise_name(s.name) for s in kind_sugg if s.community_business
         )
-        taken: set = set()
         for group in cluster_mentions(
             kind, counted, dense_embed, cfg.similarity_cutoff
         ):
-            entry = await build_cluster_entry(
-                kind, group, cfg, llm_cfg, client, today, community
-            )
-            # point id = md5(kind|label): labels must be unique per Kind
-            base, n = entry.label, 2
-            while entry.label in taken:
-                entry.label = f"{base} ({n})"
-                n += 1
-            taken.add(entry.label)
-            entries.append(entry)
+            jobs.append((kind, entry_for(kind, group, community)))
+    built = await asyncio.gather(*[j for _, j in jobs])
+    taken: Dict[Kind, set] = {}
+    for (kind, _), entry in zip(jobs, built):
+        # point id = md5(kind|label): labels must be unique per Kind
+        seen = taken.setdefault(kind, set())
+        base, n = entry.label, 2
+        while entry.label in seen:
+            entry.label = f"{base} ({n})"
+            n += 1
+        seen.add(entry.label)
+        entries.append(entry)
     return entries

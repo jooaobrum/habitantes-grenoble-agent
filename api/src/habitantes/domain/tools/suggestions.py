@@ -8,6 +8,8 @@ top members; an explicit `no_results` signal when nothing matches.
 """
 
 import logging
+import math
+import re
 from typing import Any
 
 from qdrant_client.http import models as qmodels
@@ -70,31 +72,6 @@ def _tokens(text: str) -> set[str]:
     return set(strip_accents(text).lower().split())
 
 
-def _select_members(
-    members: list[dict], query: str, summary_size: int, max_extra: int
-) -> tuple[list[dict], int]:
-    """Top members by net votes (score <= 0 dropped), plus up to `max_extra`
-    long-tail members whose name or Items match the query. Returns the shown
-    members and how many eligible members remain unshown ("+K outras")."""
-    ranked = sorted(
-        (m for m in members if _net(m) > 0),
-        key=lambda m: (_net(m), m.get("last_date", "")),
-        reverse=True,
-    )
-    top, rest = ranked[:summary_size], ranked[summary_size:]
-    words = set(strip_accents(query).lower().split()) - _STOPWORDS
-    extras = [
-        m
-        for m in rest
-        if words
-        & (
-            _tokens(m.get("name", ""))
-            | {w for i in m.get("items", []) for w in _tokens(i)}
-        )
-    ][:max_extra]
-    return top + extras, len(rest) - len(extras)
-
-
 def _format_cluster(cluster: dict, members: list[dict]) -> str:
     lines = [
         f"Grupo: {_clip(cluster['label'])} (tipo: {cluster['kind']}) | "
@@ -153,51 +130,56 @@ def search_clusters(query: str, kind: str = "") -> dict[str, Any]:
         logger.warning("Sparse embedding failure, dense only: %s", exc)
         q_sparse = None
 
-    limit = cfg.max_clusters + 1  # one extra detects 'there are more'
+    pool = cfg.candidate_clusters
+    kinds = [kind_value] if kind_value else infer_kinds(query)
+    # Unfiltered lists plus, for an inferred Kind, Kind-filtered ones: the query
+    # naming a category ("dentista") should surface that Kind's Clusters even when
+    # item-heavy Clusters of other Kinds score higher.
+    filters = [q_filter] if kind_value else [None] + [_kind_filter(k) for k in kinds]
     try:
         client = _search._get_qdrant_client()
-        # Dense branch keeps the semantic floor; the sparse branch is keyword
-        # evidence (any BM25 match) and needs no cosine threshold.
-        dense_pts = client.query_points(
-            collection_name=_collection_name(),
-            query=q_dense,
-            using=_DENSE_VECTOR,
-            limit=limit,
-            query_filter=q_filter,
-            score_threshold=cfg.min_relevance,
-            with_payload=True,
-        ).points
-        sparse_pts = (
-            client.query_points(
-                collection_name=_collection_name(),
-                query=q_sparse,
-                using=_SPARSE_VECTOR,
-                limit=limit,
-                query_filter=q_filter,
-                with_payload=True,
-            ).points
-            if q_sparse is not None
-            else []
-        )
+        ranked_lists: list[list[Any]] = []
+        for flt in filters:
+            # Dense branch keeps the semantic floor; the sparse branch is keyword
+            # evidence (any BM25 match) and needs no cosine threshold.
+            ranked_lists.append(
+                [
+                    p
+                    for p in client.query_points(
+                        collection_name=_collection_name(),
+                        query=q_dense,
+                        using=_DENSE_VECTOR,
+                        limit=pool,
+                        query_filter=flt,
+                        score_threshold=cfg.min_relevance,
+                        with_payload=True,
+                    ).points
+                    if float(p.score) >= cfg.min_relevance
+                ]
+            )
+            if q_sparse is not None:
+                ranked_lists.append(
+                    client.query_points(
+                        collection_name=_collection_name(),
+                        query=q_sparse,
+                        using=_SPARSE_VECTOR,
+                        limit=pool,
+                        query_filter=flt,
+                        with_payload=True,
+                    ).points
+                )
     except Exception as exc:
         code = _search._classify_qdrant_error(exc)
         logger.error("Qdrant %s: %s", code, exc)
         return {"error": {"error_code": code, "message": str(exc), "retryable": True}}
 
     fused: dict[str, float] = {}
-    dense_score: dict[str, float] = {}
     by_id: dict[str, Any] = {}
-    for rank, p in enumerate(dense_pts):
-        pid = str(p.id)
-        if float(p.score) < cfg.min_relevance:
-            continue
-        dense_score[pid] = float(p.score)
-        fused[pid] = fused.get(pid, 0.0) + 1.0 / (_RRF_K + rank + 1)
-        by_id[pid] = p
-    for rank, p in enumerate(sparse_pts):
-        pid = str(p.id)
-        fused[pid] = fused.get(pid, 0.0) + 1.0 / (_RRF_K + rank + 1)
-        by_id.setdefault(pid, p)
+    for pts in ranked_lists:
+        for rank, p in enumerate(pts):
+            pid = str(p.id)
+            fused[pid] = fused.get(pid, 0.0) + 1.0 / (_RRF_K + rank + 1)
+            by_id.setdefault(pid, p)
 
     candidates = []
     for pid in sorted(fused, key=lambda x: fused[x], reverse=True):
@@ -205,22 +187,9 @@ def search_clusters(query: str, kind: str = "") -> dict[str, Any]:
         if not any(_net(m) > 0 for m in payload.get("members", [])):
             continue
         payload["score"] = fused[pid]
-        payload["dense_score"] = dense_score.get(pid, 0.0)
         candidates.append(payload)
-    more = len(candidates) > cfg.max_clusters
-    clusters = candidates[: cfg.max_clusters]
 
-    # PRD: the long-tail extras budget is global across the returned Clusters.
-    extras_left = cfg.max_extra_members
-    for payload in clusters:
-        all_members = payload.get("members", [])
-        shown, payload["hidden_count"] = _select_members(
-            all_members, query, cfg.summary_size, extras_left
-        )
-        payload["members"] = shown
-        n_top = min(cfg.summary_size, sum(1 for m in all_members if _net(m) > 0))
-        extras_left -= len(shown) - n_top
-
+    clusters, more = _merge_members(candidates, query, cfg)
     if not clusters:
         return {"no_results": True, "formatted": NO_RESULTS_MESSAGE}
     return {
@@ -231,6 +200,100 @@ def search_clusters(query: str, kind: str = "") -> dict[str, Any]:
         + AVAILABILITY_REMINDER,
         "top_score": max(c["score"] for c in clusters),
     }
+
+
+def _kind_filter(kind: str) -> qmodels.Filter:
+    return qmodels.Filter(
+        must=[qmodels.FieldCondition(key="kind", match=qmodels.MatchValue(value=kind))]
+    )
+
+
+def _norm_key(name: str) -> str:
+    return " ".join(strip_accents(name).lower().split())
+
+
+def _merge_members(
+    candidates: list[dict], query: str, cfg: Any
+) -> tuple[list[dict], bool]:
+    """Member-level merge over the candidate Clusters (best first).
+
+    The same business is often split across several Clusters, so members are
+    deduped by name and their votes and Cluster scores pooled: a member named in
+    several relevant Clusters outranks one named in a single Cluster. Ranking is
+    pooled Cluster score weighted by log net votes; the top `max_members` are shown, each
+    under the best Cluster that contains it. Returns (clusters, more).
+    """
+    words = set(strip_accents(query).lower().split()) - _STOPWORDS
+    pooled: dict[str, dict] = {}
+    for rank, payload in enumerate(candidates):
+        for m in payload.get("members", []):
+            key = _norm_key(m.get("name", ""))
+            e = pooled.get(key)
+            if e is None:
+                e = pooled[key] = {
+                    "member": dict(m),
+                    "score": 0.0,
+                    "home": payload,
+                    "match": bool(
+                        words
+                        & (
+                            _tokens(m.get("name", ""))
+                            | {w for i in m.get("items", []) for w in _tokens(i)}
+                        )
+                    ),
+                }
+            else:
+                mm = e["member"]
+                mm["thumbs_up"] = int(mm["thumbs_up"]) + int(m.get("thumbs_up", 0))
+                mm["thumbs_down"] = int(mm["thumbs_down"]) + int(
+                    m.get("thumbs_down", 0)
+                )
+                mm["last_date"] = max(mm.get("last_date", ""), m.get("last_date", ""))
+                mm["items"] = list(
+                    dict.fromkeys([*mm.get("items", []), *m.get("items", [])])
+                )
+            e["score"] += 1.0 / (rank + 1)
+    ranked = sorted(
+        (e for e in pooled.values() if _net(e["member"]) > 0),
+        key=lambda e: (
+            e["score"] * math.log2(2 + _net(e["member"])),
+            e["member"].get("last_date", ""),
+        ),
+        reverse=True,
+    )
+    top = ranked[: cfg.max_members]
+    out: list[dict] = []
+    homes: dict[int, dict] = {}
+    for e in top:
+        home = e["home"]
+        if id(home) not in homes:
+            if len(homes) >= cfg.max_clusters:
+                continue
+            homes[id(home)] = home
+            home["all_members"] = home.get("members", [])
+            home["members"] = []
+            out.append(home)
+        home["members"].append(e["member"])
+    for home in out:
+        home["hidden_count"] = max(0, len(home["all_members"]) - len(home["members"]))
+    shown_n = sum(len(c["members"]) for c in out)
+    return out, len(ranked) > shown_n
+
+
+def infer_kinds(query: str) -> list[str]:
+    """Kinds whose Portuguese keywords appear in the query (words unique to one Kind)."""
+    from habitantes.domain.suggestions import KIND_KEYWORDS_PT
+
+    text = " " + strip_accents(query).lower() + " "
+    owners: dict[str, set[str]] = {}
+    for k, words in KIND_KEYWORDS_PT.items():
+        for w in words:
+            owners.setdefault(strip_accents(w).lower(), set()).add(k.value)
+    found: list[str] = []
+    for w, ks in owners.items():
+        if len(ks) == 1 and re.search(rf"\b{re.escape(w)}(s|es)?\b", text):
+            found.extend(k for k in ks if k not in found)
+    return found
 
 
 def _make_search_suggestions_tool():

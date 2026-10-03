@@ -157,11 +157,12 @@ suggestions:
   window_after_request: 15 # messages after a request ("quem indica...") trigger
   window_after_other: 5 # messages after any other trigger
   jev_cutoff: 0.92 # min P(yes) from Jev for a window; calibrated on proxy labels (docs/SUGGESTIONS_EVAL.md)
-  similarity_cutoff: 0.75 # min Item/Context similarity for Mentions to share a Cluster
+  similarity_cutoff: 0.5 # min Item/Context similarity for Mentions to share a Cluster
   ranking_half_life_years: 2.0 # Mentions older than this count half
   summary_size: 5 # top members named in a Cluster summary ("+K outras" for the rest)
-  max_clusters: 3 # Clusters returned by search_suggestions
-  max_extra_members: 3 # extra query-matching members returned beyond the top ones
+  max_clusters: 6 # max Clusters shown by search_suggestions (members are merged across them)
+  candidate_clusters: 10 # Clusters fetched per search branch, then merged member-by-member
+  max_members: 20 # total members shown across the returned Clusters (deduped by name)
   min_relevance: 0.55 # dense cosine floor for search_suggestions hits
 
 # ── Observability ───────────────────────────────────────────────────────────

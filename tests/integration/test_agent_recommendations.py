@@ -219,7 +219,7 @@ def test_community_business_is_disclosed(monkeypatch, qdrant, seeded_clusters):
     )
 
 
-def test_results_capped_at_three_clusters_with_five_members_each(monkeypatch, qdrant):
+def test_results_capped_at_max_members_across_clusters(monkeypatch, qdrant):
     def cluster(i: int) -> ClusterEntry:
         return ClusterEntry(
             kind=Kind.DENTISTS,
@@ -248,11 +248,9 @@ def test_results_capped_at_three_clusters_with_five_members_each(monkeypatch, qd
     )
     _run("indicação de dentista")
     (tool_msg,) = llm.tool_messages()
-    assert tool_msg.count("Grupo:") == 3
-    # 5 top members per cluster; the long tail only appears when its Items
-    # match the query (here every member's Items do) and the 3 extras are a
-    # global budget across clusters, not per cluster.
-    assert tool_msg.count("- Cabinet") == 3 * 5 + 3
+    assert tool_msg.count("Grupo:") <= 6
+    # members are merged across clusters and capped globally at max_members
+    assert tool_msg.count("- Cabinet") == 20
 
 
 def test_short_query_word_matches_long_tail_member(monkeypatch, qdrant):
@@ -416,22 +414,20 @@ def _tool_output(monkeypatch, qdrant, clusters, query="dentista limpeza") -> str
     return tool_msg
 
 
-def test_long_tail_matches_by_name_or_items_up_to_three_rest_as_outras(
+def test_same_business_in_several_clusters_is_shown_once_with_pooled_votes(
     monkeypatch, qdrant
 ):
-    top = [_m(f"Top{i}", 30 - i) for i in range(5)]
-    tail = [
-        _m("Dentista Lima", 4),  # matches by name ("dentista")
-        _m("Cabinet B", 3, items=["limpeza dental"]),  # matches by items
-        _m("Cabinet C", 2, items=["limpeza dental"]),
-        _m("Cabinet D", 1, items=["limpeza dental"]),  # 4th match: cut
-        _m("Outro E", 1, items=["ortodontia"]),  # no match
-    ]
-    out = _tool_output(monkeypatch, qdrant, [_big_cluster(top + tail)])
-    for shown in ("Top0", "Top4", "Dentista Lima", "Cabinet B", "Cabinet C"):
-        assert shown in out
-    assert "Cabinet D" not in out and "Outro E" not in out
-    assert "+2 outras" in out
+    out = _tool_output(
+        monkeypatch,
+        qdrant,
+        [
+            _big_cluster([_m("Cabinet Dup", 3), _m("Cabinet Solo", 2)], label="A"),
+            _big_cluster([_m("Cabinet Dup", 4)], label="B"),
+        ],
+    )
+    assert out.count("Cabinet Dup") == 1
+    assert "7👍/0👎" in out
+    assert "Cabinet Solo" in out
 
 
 def test_no_outras_when_everything_is_shown(monkeypatch, qdrant):
@@ -518,15 +514,16 @@ def test_output_bounded_regardless_of_members_and_items(monkeypatch, qdrant):
         for j in range(200)
     ]
     out = _tool_output(monkeypatch, qdrant, [_big_cluster(members)])
-    assert out.count("- Cabinet") == 8
-    assert "+192 outras" in out
+    assert out.count("- Cabinet") == 20
+    assert "+180 outras" in out
     assert len(out) < 4000
 
 
 def test_reminder_and_more_suggestions_note(monkeypatch, qdrant):
     clusters = [
         _big_cluster(
-            [_m("Cabinet A", 5, items=["limpeza dental"])], label=f"Dentista {i}"
+            [_m(f"Cabinet {i}-{j}", 5, items=["limpeza dental"]) for j in range(5)],
+            label=f"Dentista {i}",
         )
         for i in range(5)
     ]

@@ -157,13 +157,14 @@ class SuggestionsConfig(BaseModel):
     # Jev yes/no filter: min P(yes) for a window to be extracted.
     jev_cutoff: float = 0.92
     # Mention clustering: min similarity of Items+Context to join a Cluster.
-    similarity_cutoff: float = 0.75
+    similarity_cutoff: float = 0.5
     # Ranking: Mentions older than this count half (+1 per thumbs-up, -1 per down).
     ranking_half_life_years: float = 2.0
     summary_size: int = 5  # members listed in a Cluster summary
     # Agent result limits.
-    max_clusters: int = 3
-    max_extra_members: int = 3
+    max_clusters: int = 6  # max Clusters shown
+    candidate_clusters: int = 10  # Clusters fetched per search branch, then merged
+    max_members: int = 20  # total members shown across the returned Clusters
     # Dense cosine floor for search_suggestions hits (own threshold, not search.*).
     min_relevance: float = 0.55
 
