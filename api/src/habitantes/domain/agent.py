@@ -49,6 +49,7 @@ from habitantes.domain.tools import (
     get_list_subcategories_tool,
     get_search_tool,
     get_web_search_tool,
+    strip_accents,
 )
 
 logger = logging.getLogger(__name__)
@@ -327,9 +328,13 @@ def _classify_intent(state: AgentState) -> dict:
 
 _EMPTY_RESPONSE_MAX_RETRIES = 2
 _MAX_WEB_SEARCHES = 3
+# Nudges go in as a user-role message, which a weak model can take as a new
+# question — so each one restates the user's original question ({question}) and
+# names no topic of its own.
 _SEARCH_YOURSELF_NUDGE = (
-    "Você tem a ferramenta web_search_grenoble: faça você mesmo a busca agora (query em "
-    "francês) em vez de pedir ao usuário para pesquisar, e responda com o resultado."
+    "Você tem a ferramenta web_search_grenoble: faça você mesmo a busca agora sobre a "
+    'pergunta original do usuário ("{question}"), com query em francês, em vez de '
+    "pedir ao usuário para pesquisar, e responda a essa pergunta com o resultado."
 )
 _TELLS_USER_TO_SEARCH = re.compile(
     r"\b(buscar|busque|pesquisar|pesquise|procurar|procure)\s+(na\s+)?(web|internet|google)\b"
@@ -350,62 +355,34 @@ _ADMITS_KB_GAP = re.compile(
     r"(informa|indica|registro|men[çc]|dados|nenhum)",
     re.IGNORECASE,
 )
-# KB topics whose answers go stale (documents, rules, fees): always verify on the web.
+# KB topics whose answers go stale (documents, rules, fees): always verify on the
+# web when the question is about one of them. Housing & CAF is left out — it's
+# mostly lifestyle content; CAF rules are covered by the prompt's perishable-data
+# signals instead.
 _VERIFY_ON_WEB_CATEGORIES = frozenset(
     {
         "Documents & Bureaucracy",
         "Visa & Residency",
         "Banking & Finance",
-        "Housing & CAF",
     }
 )
 _VERIFY_ON_WEB_NUDGE = (
-    "Este tema (documentos, regras, valores) muda com o tempo. Complemente e confira "
-    "a resposta da base com a web: use web_search_grenoble (query em francês, "
-    "priorizando fontes oficiais como service-public.fr, ANEF, préfecture, CAF, "
-    "consulado) e responda em duas partes: o que a comunidade relata e o que as "
-    "fontes oficiais/web confirmam, com as URLs. Liste os itens/documentos "
-    "completos; se o resultado só apontar um link ou simulador, refine a busca."
+    "Antes de finalizar, confira na web sua resposta à pergunta original do usuário: "
+    '"{question}". Use web_search_grenoble (query em francês sobre essa mesma '
+    "pergunta, priorizando fontes oficiais) e responda a essa pergunta, sem mudar de "
+    "assunto, em duas partes: o que a comunidade relata e o que as fontes "
+    "oficiais/web confirmam, com as URLs. Se a pergunta pedir uma lista, liste os "
+    "itens completos; se o resultado só apontar um link ou simulador, refine a busca."
 )
 _GAP_NUDGE = (
-    "Sua resposta admite que a base não cobre parte da pergunta. Complete com "
-    "web_search_grenoble (query em francês) e apresente separadamente o que veio da "
-    "comunidade e o que veio da web, com as URLs."
+    "Sua resposta admite que a base não cobre parte da pergunta original do usuário "
+    '("{question}"). Complete com web_search_grenoble (query em francês sobre essa '
+    "mesma pergunta) e apresente separadamente o que veio da comunidade e o que veio "
+    "da web, com as URLs."
 )
-
-
-def _admits_kb_gap(text: str) -> bool:
-    return bool(_ADMITS_KB_GAP.search(text))
-
-
-# The reply admits the knowledge base didn't cover (part of) the question.
-_ADMITS_KB_GAP = re.compile(
-    r"n[ãa]o\s+(encontrei|h[áa]|possui|tenho|existem?)\s+"
-    r"(informa|indica|registro|men[çc]|dados|nenhum)",
-    re.IGNORECASE,
-)
-# KB topics whose answers go stale (documents, rules, fees): always verify on the web.
-_VERIFY_ON_WEB_CATEGORIES = frozenset(
-    {
-        "Documents & Bureaucracy",
-        "Visa & Residency",
-        "Banking & Finance",
-        "Housing & CAF",
-    }
-)
-_VERIFY_ON_WEB_NUDGE = (
-    "Este tema (documentos, regras, valores) muda com o tempo. Complemente e confira "
-    "a resposta da base com a web: use web_search_grenoble (query em francês, "
-    "priorizando fontes oficiais como service-public.fr, ANEF, préfecture, CAF, "
-    "consulado) e responda em duas partes: o que a comunidade relata e o que as "
-    "fontes oficiais/web confirmam, com as URLs. Liste os itens/documentos "
-    "completos; se o resultado só apontar um link ou simulador, refine a busca."
-)
-_GAP_NUDGE = (
-    "Sua resposta admite que a base não cobre parte da pergunta. Complete com "
-    "web_search_grenoble (query em francês) e apresente separadamente o que veio da "
-    "comunidade e o que veio da web, com as URLs."
-)
+# A verified answer that keeps less than this share of the draft's vocabulary
+# answered some other question; legit rewrites keep ~20-50%, drift ~10%.
+_MIN_VERIFIED_DRAFT_OVERLAP = 0.15
 _KB_FIRST_MESSAGE = (
     "Você precisa buscar na base de conhecimento antes de usar a web. Próximo passo: "
     "chame search_knowledge_base agora (não tem custo); depois, se a base não cobrir "
@@ -415,6 +392,20 @@ _KB_FIRST_MESSAGE = (
 
 def _admits_kb_gap(text: str) -> bool:
     return bool(_ADMITS_KB_GAP.search(text))
+
+
+def _content_words(text: str) -> set[str]:
+    return set(re.findall(r"[a-z]{5,}", strip_accents(text)))
+
+
+def _drifted_from_draft(draft: str, answer: str) -> bool:
+    """True if the verified answer kept almost none of the draft's vocabulary —
+    the web pass answered some other question instead of checking the draft."""
+    draft_words = _content_words(draft)
+    if not draft_words:
+        return False
+    kept = len(draft_words & _content_words(answer)) / len(draft_words)
+    return kept < _MIN_VERIFIED_DRAFT_OVERLAP
 
 
 def _tells_user_to_search_web(text: str) -> bool:
@@ -567,6 +558,10 @@ def _run_react_loop(state: AgentState) -> dict:
     web_calls = 0
     kb_searches = 0
     force_web = False
+    forced_web = False  # a forced web pass ran this turn (answer is not cached)
+    # The answer the verify-on-web nudge was asked to check — kept if the web
+    # pass comes back empty, finds nothing, or drifts off the question.
+    draft_answer = ""
     web_sources: list[dict] = []
     tokens_in = 0
     tokens_out = 0
@@ -583,6 +578,7 @@ def _run_react_loop(state: AgentState) -> dict:
             # the user to go search on their own.
             active_llm = llm.bind_tools([web_tool], tool_choice="required")
             force_web = False
+            forced_web = True
         else:
             active_llm = llm_with_tools
         response = active_llm.invoke(msgs)
@@ -625,18 +621,23 @@ def _run_react_loop(state: AgentState) -> dict:
                 and iteration < max_iters - 2
             ):
                 text = str(response.content)
+                # The question's topic — the selected category, else the majority
+                # category retrieved — never a stray chunk among many.
+                topic = state.get("category") or _derive_category_from_sources(
+                    context_chunks
+                )
                 nudge = None
                 if _tells_user_to_search_web(text):
                     nudge = _SEARCH_YOURSELF_NUDGE
-                elif any(
-                    c.get("category") in _VERIFY_ON_WEB_CATEGORIES
-                    for c in context_chunks
-                ):
+                elif topic in _VERIFY_ON_WEB_CATEGORIES:
                     nudge = _VERIFY_ON_WEB_NUDGE
+                    draft_answer = text
                 elif _admits_kb_gap(text):
                     nudge = _GAP_NUDGE
                 if nudge:
-                    msgs.append(HumanMessage(content=nudge))
+                    msgs.append(
+                        HumanMessage(content=nudge.format(question=state["message"]))
+                    )
                     force_web = True
                     continue
             break
@@ -811,6 +812,14 @@ def _run_react_loop(state: AgentState) -> dict:
             content = getattr(last, "content", None)
             if content:
                 answer = str(content)
+        if draft_answer and (
+            not answer or not web_used or _drifted_from_draft(draft_answer, answer)
+        ):
+            # The verification pass came back empty, found nothing on the web, or
+            # answered another question: keep the KB answer it was meant to check
+            # (KB-only, so no web notice or web sources on it).
+            answer = draft_answer
+            web_used = False
 
     if not answer and not search_error and not gated:
         # The model produced nothing (known Gemini failure mode): one last tool-free
@@ -865,6 +874,7 @@ def _run_react_loop(state: AgentState) -> dict:
         "tokens_in": tokens_in,
         "tokens_out": tokens_out,
         "timings": timings,
+        "forced_web": forced_web,
         "error": search_error,
     }
 
@@ -953,6 +963,7 @@ def run(
         "cost_usd": 0.0,
         "timings": {},
         "cached": False,
+        "forced_web": False,
         "error": None,
     }
 
@@ -966,7 +977,7 @@ def run(
     # Cache check (only for QA intent with sufficient length)
     cache = get_cache()
     if cache and initial_state["intent"] == "qa" and len(message.strip()) >= 10:
-        cached_result = cache.get(message, initial_state["category"])
+        cached_result = cache.get(chat_id, message, initial_state["category"])
         if cached_result:
             initial_state.update(cached_result)
             initial_state["cached"] = True
@@ -1002,14 +1013,17 @@ def run(
     initial_state["tokens_out"] = total_out
     initial_state["cost_usd"] = _compute_cost(total_in, total_out)
 
-    # Store in cache if successful
+    # Store in cache if successful. A forced web pass is where a weak model can
+    # drift off the question, so never replay one.
     if (
         cache
         and initial_state["intent"] == "qa"
         and initial_state.get("answer")
         and not initial_state.get("error")
+        and not initial_state.get("forced_web")
     ):
         cache.set(
+            chat_id,
             message,
             initial_state["category"],
             {

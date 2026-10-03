@@ -39,6 +39,7 @@ class TestAgentStateImport:
             "cost_usd",
             "timings",
             "cached",
+            "forced_web",
             "error",
         }
         assert expected == set(keys)

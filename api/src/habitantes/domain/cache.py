@@ -7,7 +7,11 @@ logger = logging.getLogger(__name__)
 
 
 class SimpleResponseCache:
-    """In-memory TTL+LRU cache for agent responses."""
+    """In-memory TTL+LRU cache for agent responses.
+
+    Keyed per chat: answers depend on that chat's history, so one user's answer
+    must never be replayed to another.
+    """
 
     def __init__(self, max_size: int = 256, ttl_seconds: int = 3600):
         self.max_size = max_size
@@ -17,12 +21,12 @@ class SimpleResponseCache:
     def _normalize_query(self, query: str) -> str:
         return query.strip().lower()
 
-    def _get_key(self, query: str, category: str) -> str:
-        return f"{self._normalize_query(query)}|{category}"
+    def _get_key(self, chat_id: str, query: str, category: str) -> str:
+        return f"{chat_id}|{self._normalize_query(query)}|{category}"
 
-    def get(self, query: str, category: str) -> Optional[dict[str, Any]]:
+    def get(self, chat_id: str, query: str, category: str) -> Optional[dict[str, Any]]:
         """Retrieve a cached response if it exists and is not expired."""
-        key = self._get_key(query, category)
+        key = self._get_key(chat_id, query, category)
         if key not in self.cache:
             return None
 
@@ -37,9 +41,9 @@ class SimpleResponseCache:
         logger.debug(f"Cache hit: {key}")
         return value
 
-    def set(self, query: str, category: str, value: dict[str, Any]):
+    def set(self, chat_id: str, query: str, category: str, value: dict[str, Any]):
         """Store a response in the cache with the current timestamp."""
-        key = self._get_key(query, category)
+        key = self._get_key(chat_id, query, category)
         if key in self.cache:
             del self.cache[key]
 
