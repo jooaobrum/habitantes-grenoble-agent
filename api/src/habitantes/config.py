@@ -142,6 +142,33 @@ class CacheConfig(BaseModel):
     ttl_seconds: int = 3600
 
 
+class SuggestionsConfig(BaseModel):
+    """Suggestions pipeline + `search_suggestions` tuning (yaml section `suggestions`).
+
+    Shared by ingestion (windows, Jev, clustering, ranking, load) and the agent
+    (result limits, relevance). Defaults mirror config/base.yaml.
+    """
+
+    collection_name: str = "habitantes_suggestions_kb"
+    # Candidate windows (messages around a trigger; never cross a Thread).
+    window_before: int = 5
+    window_after_request: int = 15
+    window_after_other: int = 5
+    # Jev yes/no filter: min P(yes) for a window to be extracted.
+    jev_cutoff: float = 0.92
+    # Mention clustering: min similarity of Items+Context to join a Cluster.
+    similarity_cutoff: float = 0.5
+    # Ranking: Mentions older than this count half (+1 per thumbs-up, -1 per down).
+    ranking_half_life_years: float = 2.0
+    summary_size: int = 5  # members listed in a Cluster summary
+    # Agent result limits.
+    max_clusters: int = 6  # max Clusters shown
+    candidate_clusters: int = 10  # Clusters fetched per search branch, then merged
+    max_members: int = 20  # total members shown across the returned Clusters
+    # Dense cosine floor for search_suggestions hits (own threshold, not search.*).
+    min_relevance: float = 0.55
+
+
 class LoggingConfig(BaseModel):
     interaction_path: str = "logs/interactions.jsonl"
     feedback_path: str = "logs/feedback.jsonl"
@@ -206,6 +233,7 @@ class Settings(BaseSettings):
     ranking: RankingConfig = RankingConfig()
     agent: AgentConfig = AgentConfig()
     cache: CacheConfig = CacheConfig()
+    suggestions: SuggestionsConfig = SuggestionsConfig()
     logging: LoggingConfig = LoggingConfig()
     admin: AdminConfig
     pricing: PricingConfig = PricingConfig()

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Knowledge-based chatbot serving Brazilian expats in Grenoble via Telegram and the official WhatsApp Cloud API. Handles ~100 users with 5-10 concurrent chats on a low-cost VPS (~$8-12/month).
+Knowledge-based chatbot serving Brazilian expats in Grenoble via Telegram and the official WhatsApp Cloud API. It answers procedural questions from a Q&A knowledge base and "who/where do you recommend?" requests from a separate Suggestions collection, both built offline from the same WhatsApp group export (see [Suggestions](#suggestions-community-recommendations)). Handles ~100 users with 5-10 concurrent chats on a low-cost VPS (~$8-12/month).
 
 ## System Diagram
 
@@ -20,18 +20,20 @@ flowchart TD
             ChatRouter["routers/chat.py<br>POST /chat, POST /chat/reset"]
 
             subgraph Agent["domain/agent.py — hand-rolled loop, NOT LangGraph"]
-                Intent["1. classify_intent()<br>number shortcut, else LLM<br>tool-call → greeting/qa/feedback/out_of_scope"]
+                Intent["1. classify_intent()<br>number shortcut, else LLM tool-call →<br>greeting/qa/recommendation/both/feedback/out_of_scope"]
                 React["2. _run_react_loop()<br>LLM + tool calling, up to<br>agent.max_react_iterations rounds"]
                 Memory[/"_memory: dict[chat_id] -> {messages, category}<br>in-process, capped at agent.max_history,<br>lost on restart"/]
             end
 
-            subgraph Tools["Tools bound to the ReAct loop"]
-                Search["search_knowledge_base<br>Dense: OpenAI text-embedding-3-small (1536d)<br>Sparse: Qdrant/bm25 (fastembed)<br>Fusion: weighted RRF, top_k=5"]
-                WebSearch["web_search_grenoble (optional)<br>Tavily, only bound if TAVILY_API_KEY set"]
+            subgraph Tools["Tools bound to the ReAct loop (chosen from the intent, ADR 0001)"]
+                Search["qa / both: search_knowledge_base (+ list/get-category tools)<br>Dense: OpenAI text-embedding-3-small (1536d)<br>Sparse: Qdrant/bm25 (fastembed)<br>Fusion: weighted RRF, top_k=5"]
+                SuggTool["recommendation / both: search_suggestions<br>Dense query over Clusters, own relevance floor"]
+                WebSearch["web_search_grenoble (optional, every tool-using intent)<br>Tavily, only bound if TAVILY_API_KEY set"]
             end
         end
 
-        DB[("Qdrant<br>collection: habitantes_qa_chat_kb<br>dense+sparse vectors + payload")]
+        DB[("Qdrant<br>Q&A collection: habitantes_qa_chat_kb<br>dense+sparse vectors + payload")]
+        SDB[("Qdrant<br>Suggestions collection: habitantes_suggestions_kb<br>one point per Cluster")]
     end
 
     OR["OpenRouter API<br>(chat model, default gemini-2.5-flash-lite)"]
@@ -50,8 +52,11 @@ flowchart TD
     Intent --> React
     React <--> Memory
     React --> Search
+    React --> SuggTool
     React -.-> WebSearch
     Search <--> DB
+    SuggTool <--> SDB
+    SuggTool <--> OAI
     Intent <--> OR
     React <--> OR
     Search <--> OAI
@@ -74,9 +79,11 @@ flowchart TD
     RunTurn -->|"kill switch off?"| Disabled([Disabled — canned PT message])
     RunTurn --> Classify["_classify_intent<br>number shortcut OR LLM tool-call"]
     Classify -->|greeting/out_of_scope/feedback| Direct["React loop answers directly<br>(no tools bound)"]
+    Classify -->|recommendation| ReactRec["_run_react_loop<br>search_suggestions + web<br>(not cached)"] --> Answer
+    Classify -->|both| ReactBoth["_run_react_loop<br>KB tools + search_suggestions + web<br>(not cached)"] --> Answer
     Classify -->|qa, message len >= 10| Cache{Response cache hit?}
     Cache -->|Hit| Answer
-    Cache -->|Miss| React["_run_react_loop<br>LLM decides whether to call<br>search_knowledge_base / web_search_grenoble"]
+    Cache -->|Miss| React["_run_react_loop<br>LLM decides whether to call the bound tools:<br>search_knowledge_base / web_search_grenoble"]
     React --> Gate{"Any KB chunk >=<br>search.min_relevance?"}
     Gate -->|No, web available & untried| NudgeWeb["Nudge LLM to try<br>web_search_grenoble"]
     Gate -->|No, and web unavailable/tried| Fallback(["No-results fallback<br>(no synthesis call)"])
@@ -90,7 +97,9 @@ flowchart TD
 
 Category is **not** a separate classifier step. `state["category"]` is set only by the numbered-menu shortcut (`resolve_number`); for free-text questions (most traffic) it stays `""` through the whole turn and is derived *after the fact*, for analytics only, from the categories of the source chunks the search tool actually returned (`_derive_category_from_sources` in `agent.py`).
 
-### 2. Retrieval flow (`domain/tools/search.py::hybrid_search`)
+### 2. Retrieval flow — Q&A knowledge base (`domain/tools/search.py::hybrid_search`)
+
+`search_suggestions` does not use this path; see [Suggestions](#suggestions-community-recommendations).
 
 ```mermaid
 flowchart TD
@@ -160,16 +169,79 @@ There is **no LangGraph dependency** in this codebase. The orchestration is a pl
 ```
 run(chat_id, message, ...)
   → _classify_intent(state)          # Layer 1
-  → cache check (qa intent only)
+  → cache check (qa intent only; keyed per chat)
   → _run_react_loop(state)           # Layer 2, skipped on cache hit
   → _update_memory(...)              # persists into the in-process dict
 ```
 
-- **Layer 1 — `_classify_intent`**: a bare digit 1–19 short-circuits straight to `intent="qa"` with the matching category, no LLM call. Otherwise a single LLM call, forced via OpenAI-style tool-calling (`bind_tools([IntentClassification], tool_choice="IntentClassification")`) to return structured `{"intent": ...}` — chosen specifically to avoid parsing free-form JSON out of model text. On any parse failure, defaults to `out_of_scope`.
-- **Layer 2 — `_run_react_loop`**: builds a system prompt (`REACT_SYSTEM_PROMPT` + intent-specific instructions), then loops up to `agent.max_react_iterations` times calling the LLM with tools bound (only for `qa` intent with a message ≥10 chars): `search_knowledge_base`, `list_knowledge_subcategories`, `get_chunks_by_category`, and — only if `web_search.enabled` and `TAVILY_API_KEY` is set — `web_search_grenoble`. Stops when the LLM returns no further tool calls.
+- **Layer 1 — `_classify_intent`**: a bare digit 1–19 short-circuits straight to `intent="qa"` with the matching category, no LLM call. Otherwise a single LLM call, forced via OpenAI-style tool-calling (`bind_tools([IntentClassification], tool_choice="IntentClassification")`) to return structured `{"intent": ...}` — chosen specifically to avoid parsing free-form JSON out of model text. The intent is one of `greeting | qa | recommendation | both | feedback | out_of_scope`: `qa` is a procedural/informational question, `recommendation` asks who or where to go to (a business, place, professional or product), `both` is one message with both parts (e.g. "como traduzir meus documentos e qual tradutor vocês indicam?"). On any parse failure, defaults to `out_of_scope`.
+- **Layer 2 — `_run_react_loop`**: builds a system prompt (`REACT_SYSTEM_PROMPT` + intent-specific instructions; `recommendation`/`both` add `RECOMMENDATION_INSTRUCTIONS`, `both` also `BOTH_INSTRUCTIONS`), then loops up to `agent.max_react_iterations` times calling the LLM with tools bound. **The tool set is derived from the intent, not chosen by the model** ([ADR 0001](adr/0001-tools-chosen-from-classified-intent.md)):
+
+  | intent | tools bound |
+  |---|---|
+  | `qa` | `search_knowledge_base`, `list_knowledge_subcategories`, `get_chunks_by_category` + web search |
+  | `recommendation` | `search_suggestions` + web search |
+  | `both` | the knowledge-base tools + `search_suggestions` + web search |
+  | `greeting`, `feedback`, `out_of_scope` | none |
+
+  `web_search_grenoble` is added only if `web_search.enabled` and `TAVILY_API_KEY` is set. Knowledge-base tools are only bound for a message of at least 10 characters (shorter gets a clarification request); a short recommendation ("dentista") is still a valid request. The model decides whether and how often to call a bound tool, but cannot reach one outside its intent's set, so a procedural question never sees `search_suggestions`. Adding a tool means extending `_KB_INTENTS` / `_SUGGESTION_INTENTS` in `agent.py`, not prompting. Stops when the LLM returns no further tool calls.
 - **State**: a plain `dict` (`AgentState` TypedDict-like structure in `domain/state.py`), not a LangGraph `StateGraph`.
 - **Memory**: `_memory: dict[str, dict]` in `agent.py`, keyed by `chat_id`, storing `{"messages": [...], "category": ...}`, capped at `agent.max_history` turns (default 5). Purely in-process — no Redis, no DB, no LangGraph checkpointer. Lost on every API restart/redeploy.
-- **Confidence**: `1.0` for greeting/out_of_scope/feedback; `0.5` for a too-short `qa` message (clarification, no search performed); the top dense cosine score (`min(1.0, top_dense)`) for a normal KB answer; `web_search.answer_confidence` (fixed, default `0.5`) for a web-only answer with no KB chunks; `0.0` on a search error.
+- **Confidence**: `1.0` for greeting/out_of_scope/feedback; `0.5` for a too-short `qa`/`both` message (clarification, no search performed); the top dense cosine score (`min(1.0, top_dense)`) for a normal KB answer, or the best Cluster score for a Suggestions answer; `web_search.answer_confidence` (fixed, default `0.5`) for a web-only answer with no KB chunks; `0.0` on a search error.
+
+## Suggestions (community recommendations)
+
+A second knowledge base next to the Q&A one. Q&A Pairs only capture messages parsed as questions that received answers, so most unprompted opinions never reach it; the Suggestions pipeline finds those opinions anywhere in the chat. Terms (Suggestion, Kind, Mention, Context, Item, Cluster, Community Business, Recommendation Request) are defined in [CONTEXT.md](../CONTEXT.md); the setup, configuration table and run commands are in the [README](../README.md#suggestions-community-recommendations).
+
+### Ingestion pipeline (offline, `ingestion/suggestions/`)
+
+```mermaid
+flowchart LR
+    Chat[WhatsApp export] --> Parse["shared parse + Thread split<br>(unchanged)"]
+    Parse --> Win["windows.py<br>keyword lexicon -> windows<br>(merged, never cross a Thread)"]
+    Win --> Jev["Jev yes/no per window<br>(jev_cutoff)"]
+    Jev --> Ext["extract.py<br>pseudonymise (M1, M2...) + scrub phones<br>LLM -> Mentions"]
+    Ext --> MF[("mentions.jsonl<br>author-free")]
+    MF --> Merge["exclusions.py + merge.py<br>opt-out list, normalise names,<br>per-Kind variant merge"]
+    Merge --> SF[("suggestions.jsonl<br>author-free")]
+    SF --> Clu["clusters.py<br>per-Kind similarity clustering,<br>rank, LLM label + summary"]
+    Clu --> Load["load/suggestions.py<br>rebuild collection"]
+    Load --> SDB[("Qdrant: habitantes_suggestions_kb")]
+```
+
+- **Windows** — a lexicon over every message regardless of its question/answer label (request phrases open a longer forward window, `window_after_request`; everything else `window_after_other`; `window_before` before). Overlapping windows merge; a window never crosses a Thread boundary. Keywords only select windows: no single keyword is precise.
+- **Jev filter** — `classify_window` in `preprocess/jev.py`, the same OpenRouter decisions endpoint and retry convention as the Q&A gate, asks one yes/no question ("does this contain a Suggestion?"). It does not assign the Kind. A window it cannot classify is not extracted.
+- **Extraction** — authors become M1, M2... before any text leaves the module and phone numbers are scrubbed; a JSON-schema LLM call returns Mentions (name, Kind, polarity, Items, Context, date, Community Business flag). The model also tags entity type; private individuals, banks, phone operators, apps, associations, public services and one-off events are dropped. A Community Business is flagged only when the text shows a business identity beyond the member's own name or number. The `Mention` model has no author field and forbids extra fields.
+- **Merge** — names normalised in code (`normalise_name`), a fixed exclusion list for banks/operators/apps/public services plus the maintained opt-out list (`config/suggestion_exclusions.txt`), then one LLM pass per Kind merges variants (a chain is one Suggestion whichever branch is named). Counting happens only after this. `Suggestion` = same normalised name + same Kind, with 👍/👎 counts, last date, all Items and Contexts.
+- **Clusters** — within a Kind, Mentions (not Suggestions) are grouped by cosine similarity of Items + Context with a greedy leader algorithm and `similarity_cutoff` (fewer than 4 Mentions form one Cluster); there is no fixed group count, and a Suggestion can sit in two Clusters. A Cluster collapses repeated Mentions into one member line per name. A Community Business advertiser's own post is stored but not counted, so it needs a Mention from another member to appear.
+- **Ranking and summary** — score = +1 per 👍, -1 per 👎, Mentions older than `ranking_half_life_years` count half; ties go to the most recent; members scoring 0 or less are left out of the summary; the top `summary_size` are named with "+K outras". An LLM writes the Cluster label and one reworded line per member. All members stay in the stored payload.
+- **Load** — only the Suggestions collection is deleted and recreated (the Q&A collection is never touched). One point per Cluster; point id = md5(`kind|label`). Dense vector from the summary plus every member's Items; sparse (`Qdrant/bm25`) vector from the Items plus every member name; payload = Topic, Kind, label, totals, last date, members (name, counts, last date, Items, Community Business flag), summary. Topic is derived from Kind via a fixed mapping in `api/src/habitantes/domain/suggestions.py` (`KIND_TOPIC`), never extracted, so it can be filtered by the same Topics as Q&A. It is a known simplification (a lawyer is under Daily Life & Services, not Visa & Residency).
+- **Kinds** — Restaurants & Bars, Markets & Groceries, Shops, Products, Salons & Beauty, Gyms & Sports, Doctors, Dentists, Translators, Professional Services, Courses & Teachers, Vets & Pets, Places & Outings, Other. No contacts, opening hours, prices or closure status are stored.
+- **CLI** — `make mentions` (stage `mentions`: parse, classify, windows, Jev, extraction -> `mentions.jsonl`) and `make suggestions` (stage `suggestions`: merge, opt-out, Clusters, load, from `mentions.jsonl`). `suggestions.jsonl` is written as the author-free on-disk source of the merge result; `build.py` can rebuild from it (`from_suggestions_file`) but that mode has no CLI flag. Both files are in the retention cleanup list in `ingestion/pipeline.py`.
+
+### Query side: `search_suggestions` (`domain/tools/suggestions.py`)
+
+```mermaid
+flowchart TD
+    Q([query + optional kind]) --> Emb["embed query (OpenAI dense + BM25 sparse, RRF)"]
+    Emb --> Qd["Qdrant query_points on the Suggestions collection<br>optional Kind filter, score_threshold = suggestions.min_relevance,<br>limit = candidate_clusters;<br>extra Kind-filtered lists when a Kind is inferred from the query"]
+    Qd --> Pick["merge members across Clusters: dedupe by name, pool votes,<br>net 👍-👎 > 0 only, rank by Cluster rank x log net votes,<br>top max_members under at most max_clusters Clusters"]
+    Pick --> Out["formatted block: label, Kind, totals, last date,<br>members with 👍/👎, last date, Items, Community Business label,<br>'+K outras', availability reminder"]
+    Qd -->|nothing clears the floor| None["no_results -> tell the user,<br>fall back to web_search_grenoble"]
+```
+
+- Shows at most `max_members` (20) members under at most `max_clusters` (6) Clusters; if more qualified, a note says more suggestions exist. Output size is bounded (names and Items are clipped, at most 3 Items per member). The final answer lists at most 7 picks (`_MAX_RENDERED_PICKS`, same number as the prompt), rendered in code from the tool data for the members the model named; see [ADR 0002](adr/0002-recommendation-retrieval-and-rendering.md).
+- Own relevance floor (`suggestions.min_relevance`, 0.55 dense cosine), independent of the Q&A gate (`search.min_relevance`); the Q&A gate operates only on `search_knowledge_base` results. The dense branch keeps the floor; the sparse (keyword) branch has none, so a place named for a specific item is still found. All lists are fused with RRF; when no `kind` is passed, Kinds are inferred from Portuguese category keywords (`KIND_KEYWORDS_PT`) and add Kind-filtered lists to the fusion. The same keywords are embedded with each Cluster at ingestion.
+- A member with more 👎 than 👍 (net <= 0) is never returned, so it is never offered. Looking a place up by name only works if it is a member of some Cluster; a place not retrievable falls through to web search.
+- Errors (embedding, Qdrant) come back as the same structured error shape as the KB tool.
+
+### Answering a Recommendation Request
+
+`RECOMMENDATION_INSTRUCTIONS` (`prompts/synthesis.py`): lead with the community's picks; one item per Suggestion with name, 👍/👎, latest Mention date (dd/mm/aaaa) and one reworded context line; negative opinions only as 👎 counts; Community Businesses labelled "negócio de membro do grupo — divulgação própria"; say these are community recommendations (a summary of the top picks, not exhaustive) and remind the user to confirm availability; never quote messages or name authors; only use names returned by the tools. If `search_suggestions` finds nothing, the agent says the community recommended nothing and a web search follows (the loop forces one web pass if the model does not make it), with the web results clearly separated. For `both`, `BOTH_INSTRUCTIONS` asks for one reply with the procedural part and the recommendations clearly separated. Recommendation and `both` turns are not cached.
+
+### Privacy properties
+
+Author names and numbers never reach the extraction LLM (pseudonyms, phone scrubbing), `mentions.jsonl`, `suggestions.jsonl` or the collection (the models forbid author fields). Because those files have no author, a member's entries cannot be picked out: `ingestion/erase.py` deletes them and, unless `--skip-rebuild`, rebuilds from the redacted export. See [PRIVACIDADE.md](PRIVACIDADE.md).
 
 ## Question Categories
 
@@ -210,15 +282,19 @@ Classify the user's message into EXACTLY one of the following intents:
 
 - greeting     : The user is greeting the bot (...)
 - qa           : The user is asking a question about Grenoble or expat life there. (...)
+- recommendation : The user asks WHO or WHERE to go to for something: a business, place,
+                 professional or product (e.g., "indicação de dentista", "onde compro
+                 massa de pastel?"). Only the request for names/places.
+- both         : One message with BOTH a procedural question AND a who/where request.
 - feedback     : The user is giving positive or negative feedback about a previous answer (...)
 - out_of_scope : The user is sending a message NOT about Grenoble (...)
 ```
 
-Note the docstring/prompt text still says "Respond ONLY with valid JSON" — in practice the model's answer is never parsed as free text; `_classify_intent` forces tool-calling (`tool_choice="IntentClassification"`) and reads `response.tool_calls[0]["args"]` instead, which is what actually enforces valid structured output.
+"Best of"/recommendation questions are no longer filed under `qa`; they are `recommendation`. Note the docstring/prompt text still says "Respond ONLY with valid JSON" — in practice the model's answer is never parsed as free text; `_classify_intent` forces tool-calling (`tool_choice="IntentClassification"`) and reads `response.tool_calls[0]["args"]` instead, which is what actually enforces valid structured output.
 
 ## Web search (Tavily) — role and limitations
 
-`domain/tools/web_search.py` + `WebSearchConfig` (`config.py` / `config/base.yaml`'s `web_search:` block). A **lower-priority, optional secondary source** — the KB (Qdrant) is always preferred; the ReAct loop's system prompt and tool docstring both frame it as a fallback for current/factual/generalist info, or to double-check a KB answer in a "perishable data" category (prices, schedules, official procedure rules).
+`domain/tools/web_search.py` + `WebSearchConfig` (`config.py` / `config/base.yaml`'s `web_search:` block). A **lower-priority, optional secondary source** — the Qdrant collections (Q&A and Suggestions) are preferred; the ReAct loop's system prompt and tool docstring both frame it as a fallback for current/factual/generalist info, or to double-check a KB answer in a "perishable data" category (prices, schedules, official procedure rules).
 
 Known limitations, verified against the current code and config:
 
@@ -230,7 +306,7 @@ Known limitations, verified against the current code and config:
 6. **Snippets only, never full pages.** Tavily is called with `max_results=3` and `search_depth="basic"` — the tool only ever sees titles/URLs/short `content` snippets from Tavily's own response; nothing is fetched or scraped beyond that.
 7. **Published date is frequently empty.** `published_date` is read straight from Tavily's response with `r.get("published_date", "")` — Tavily commonly omits it, so recency often can't be verified even when the query was explicitly about "current" info.
 8. **Fixed confidence, independent of result quality.** A web-only answer (no KB chunks used) always gets `web_search.answer_confidence` (default `0.5`) as its confidence score, regardless of how relevant or well-matched the actual Tavily results were — Tavily's own per-result `score` field is carried through the data but never used for this.
-9. **Bypasses the KB relevance gate entirely.** `search.min_relevance` only filters `search_knowledge_base` results (`agent.py`'s gating block checks for a `"chunks"` key in the tool result); web results arrive as a `{"results": [...]}` dict and go straight into `sources`/`web_used` with no equivalent quality floor.
+9. **Bypasses the KB relevance gate entirely.** `search.min_relevance` only filters `search_knowledge_base` results (and `search_suggestions` has its own `suggestions.min_relevance`) (`agent.py`'s gating block checks for a `"chunks"` key in the tool result); web results arrive as a `{"results": [...]}` dict and go straight into `sources`/`web_used` with no equivalent quality floor.
 10. **Errors collapse into three coarse categories.** `_classify_web_error` maps any raised exception to `WEB_SEARCH_TIMEOUT` (an `httpx.TimeoutException`) or `WEB_SEARCH_UNREACHABLE` (anything else); combined with `WEB_SEARCH_DISABLED` (missing key) that's the full error taxonomy. All three are further collapsed into a single generic Portuguese string ("Busca web indisponível no momento.") before reaching the ReAct loop — a web failure never surfaces its specific cause and never hard-fails the turn.
 
 ## Control Center — Ops Dashboard, Kill Switch & Cost Alerting

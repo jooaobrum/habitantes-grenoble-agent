@@ -1,6 +1,8 @@
 # Prompt-engineering eval loop — checkpoint
 
-Resumable log for the prompt-refinement loop against `golden_dataset_v2.json` (67 cases).
+Resumable log for the prompt-refinement loop against `golden_dataset_v2.json` (67 cases at the
+time of this round; the dataset now has 105, including the Suggestions `rec-*`/`v1reg-*` cases
+and 2 `neg-privacy-*` cases, so the counts below are historical).
 If this session gets interrupted, read this file top to bottom before doing anything else —
 it says exactly what's been tried, what worked, and what's next.
 
