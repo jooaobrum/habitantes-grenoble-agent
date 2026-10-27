@@ -16,11 +16,18 @@ v2 dataset (--dataset tests/eval/golden_dataset_v2.json):
   per Anthropic's "capability evals start low, aren't a merge gate" guidance). Writes
   tests/eval/report_v2.json — does not touch the v1 report.
 
+Suggestions evaluation (issue #59): v2 cases carry a `suite` tag ("recommendation"
+capability cases with expected_source "suggestions", and "v1_regression" cases lifted
+from the v1 set). `--suite` runs one suite and `--report-out` keeps a baseline run and a
+feature run in separate files; `tests/eval/compare_reports.py` compares them.
+
 Usage:
     python tests/eval/run_eval.py
     python tests/eval/run_eval.py --case-index 3
     python tests/eval/run_eval.py --limit 5
     python tests/eval/run_eval.py --dataset tests/eval/golden_dataset_v2.json
+    python tests/eval/run_eval.py --dataset tests/eval/golden_dataset_v2.json \\
+        --suite recommendation --suite v1_regression --report-out /tmp/feature.json
 """
 
 import argparse
@@ -75,6 +82,18 @@ REGRESSION_TARGETS_V2 = {
     "answer_relevance": 0.75,
     "non_fabrication": 0.85,
 }
+
+
+THUMBS_UP = "\U0001f44d"  # the Suggestions answer format always shows 👍 counts
+
+
+def cites_community_counts(answer: str) -> bool:
+    """True if the answer shows community 👍 counts (marker of a Suggestions answer).
+
+    Deterministic. Plain Q&A or web answers never carry the 👍/👎 counts that the
+    recommendation answer rules require, so a bot without the feature fails this.
+    """
+    return THUMBS_UP in (answer or "")
 
 
 def _extract_thread_ids(chunks: list[dict]) -> list[str]:
@@ -246,7 +265,7 @@ def run_case_v2(case: dict, use_category: bool = False) -> dict:
     if state.get("generation_error"):
         result["generation_error"] = state["generation_error"]
 
-    if source in ("kb", "kb_web", "web"):
+    if source in ("kb", "kb_web", "web", "suggestions"):
         result["keyword_coverage"] = keyword_coverage(answer, keywords)
         result["semantic_similarity"] = (
             semantic_similarity(answer, reference) if reference else 0.0
@@ -264,6 +283,8 @@ def run_case_v2(case: dict, use_category: bool = False) -> dict:
             result["used_web_source"] = used_web_source(sources)
         if source == "web":
             result["used_web_source"] = used_web_source(sources)
+        if source == "suggestions":
+            result["cites_community_counts"] = cites_community_counts(answer)
     elif source == "none":
         result["non_fabrication"] = non_fabrication(question, answer, context_texts)
 
@@ -276,6 +297,10 @@ def run_case_v2(case: dict, use_category: bool = False) -> dict:
             passed = False
     elif source == "web":
         passed = result["keyword_coverage"] >= 0.5
+    elif source == "suggestions":
+        # Keyword rule as for web, plus the answer must show 👍 counts (i.e. it came
+        # from search_suggestions, not from general knowledge or the web).
+        passed = result["keyword_coverage"] >= 0.5 and result["cites_community_counts"]
     else:  # none
         passed = result["non_fabrication"] >= 0.8
     result["case_passed"] = passed
@@ -288,11 +313,17 @@ def main_v2(
     case_index: int | None = None,
     limit: int | None = None,
     force_category: bool = False,
+    suites: list[str] | None = None,
+    report_out: Path | None = None,
 ) -> int:
     """Eval runner for the v2 dataset — see module docstring."""
     print(f"Loading v2 golden dataset from {dataset_path}")
     with open(dataset_path, "r", encoding="utf-8") as f:
         cases = json.load(f)
+
+    if suites:
+        cases = [c for c in cases if c.get("suite") in suites]
+        print(f"Keeping only suites {suites}: {len(cases)} cases")
 
     if case_index is not None:
         if 0 <= case_index < len(cases):
@@ -377,7 +408,7 @@ def main_v2(
     }
 
     by_bucket = {}
-    for source in ("kb", "kb_web", "web", "none"):
+    for source in ("kb", "kb_web", "web", "none", "suggestions"):
         subset = [c for c in case_results if c.get("expected_source") == source]
         if subset:
             by_bucket[source] = _aggregate(subset)
@@ -394,6 +425,11 @@ def main_v2(
             ),
         }
         for cat, subset in sorted(by_category.items())
+    }
+
+    by_suite = {
+        suite: _aggregate([c for c in case_results if c.get("suite") == suite])
+        for suite in sorted({c["suite"] for c in case_results if c.get("suite")})
     }
 
     # ── Gate: only regression-tagged cases' aggregated metrics vs REGRESSION_TARGETS_V2 ──
@@ -413,14 +449,16 @@ def main_v2(
         "num_cases": len(cases),
         "aggregated_metrics": aggregated,
         "by_bucket": by_bucket,
+        "by_suite": by_suite,
         "by_category": category_table,
         "gate_results": gate_results,
         "all_regression_targets_met": all_passed,
         "cases": case_results,
     }
 
-    REPORT_V2_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(REPORT_V2_PATH, "w", encoding="utf-8") as f:
+    out_path = Path(report_out) if report_out else REPORT_V2_PATH
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
 
     print("\n" + "=" * 70)
@@ -451,7 +489,11 @@ def main_v2(
     for cat, info in category_table.items():
         print(f"  {info['pass_rate']:>6.1%}  ({info['n_cases']:2d})  {cat}")
 
-    print(f"\nReport written to: {REPORT_V2_PATH}")
+    print("\n-- By suite --")
+    for suite, agg in by_suite.items():
+        print(f"  {suite:16s} n={agg['n_cases']:3d}  pass_rate={agg['pass_rate']:.2%}")
+
+    print(f"\nReport written to: {out_path}")
     print(f"All regression targets met: {'YES' if all_passed else 'NO'}")
 
     return 0 if all_passed else 1
@@ -663,6 +705,19 @@ if __name__ == "__main__":
         action="store_true",
         help="Force use of expected_category/category for ALL cases loaded",
     )
+    parser.add_argument(
+        "--suite",
+        action="append",
+        help=(
+            "v2 only: run just cases whose `suite` tag matches (repeatable), e.g. "
+            "--suite recommendation --suite v1_regression"
+        ),
+    )
+    parser.add_argument(
+        "--report-out",
+        type=str,
+        help="v2 only: write the report here instead of tests/eval/report_v2.json",
+    )
     args = parser.parse_args()
 
     dataset_path = Path(args.dataset) if args.dataset else GOLDEN_DATASET_PATH
@@ -677,6 +732,8 @@ if __name__ == "__main__":
                 case_index=args.case_index,
                 limit=args.limit,
                 force_category=args.force_category,
+                suites=args.suite,
+                report_out=Path(args.report_out) if args.report_out else None,
             )
         )
     else:

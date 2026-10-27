@@ -26,6 +26,8 @@ _INTERMEDIATE_GLOBS = (
     "qa_pairs*.json",
     "qa_pairs*.csv",
     "synthesis_results.jsonl",
+    "mentions.jsonl",
+    "suggestions.jsonl",
 )
 
 

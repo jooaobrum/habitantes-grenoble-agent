@@ -1,7 +1,9 @@
 # Golden Dataset v2 — Schema & Grading Spec
 
-`golden_dataset_v2.json` — 67 cases, human-reviewed. Replaces `golden_dataset.json` (v1, 40
-cases) as the canonical eval set once `run_eval.py` is updated to consume it (see
+`golden_dataset_v2.json` — 105 cases: 69 original cases (49 `kb`, 5 `kb_web`, 3 `web`, 12
+`none`) plus 36 added for the Suggestions feature (21 `rec-*` recommendation cases and 15
+`v1reg-*` regression cases). Human-reviewed (the 36 new cases are not yet: see below).
+Replaces `golden_dataset.json` (v1, 40 cases) as the canonical eval set once `run_eval.py` is updated to consume it (see
 [Runner changes needed](#runner-changes-needed) below — **not yet implemented**, this round
 only ships the dataset).
 
@@ -29,9 +31,12 @@ Every case is grounded: `kb`/`kb_web` cases cite a real `thread_id` from
 `artifacts/chat-19012021-20022026/synthesis_results.jsonl` (the synthesized corpus that feeds
 the production Qdrant collection — ingestion reads `chat-19012021-20022026.txt`, see
 `ingestion/config.py`). `web`/`kb_web` facts were verified live via WebSearch on 2026-07-18
-(sources in each case's `grounded_in`). All 67 cases were reviewed by the project owner via
+(sources in each case's `grounded_in`). The first 67 cases were reviewed by the project owner via
 `golden_v2_review.md` before being added — several were corrected or expanded during that pass
-(e.g. `visa-basic-02`'s timbre fiscal amount, `work-edge-01`'s passport-talent diploma rule).
+(e.g. `visa-basic-02`'s timbre fiscal amount, `work-edge-01`'s passport-talent diploma rule). The two
+`neg-privacy-*` cases were added later for the participant-privacy guardrail. The 21 `rec-*` cases
+are not yet verified against built Clusters (`needs_corpus_verification`, see below); the 15
+`v1reg-*` cases reuse reviewed v1 questions.
 
 ## Schema
 
@@ -42,7 +47,7 @@ the production Qdrant collection — ingestion reads `chat-19012021-20022026.txt
   "question": "…",
   "difficulty": "basic" | "edge",
   "test_type": "regression" | "capability",
-  "expected_source": "kb" | "kb_web" | "web" | "none",
+  "expected_source": "kb" | "kb_web" | "web" | "none" | "suggestions",
   "expected_thread_ids": [1948],
   "expected_answer_keywords": ["OFII", "e-mail", "bai-grenoble@ofii.fr"],
   "ground_truth_answer": "…verified answer text, used as the semantic-similarity reference…",
@@ -53,6 +58,7 @@ the production Qdrant collection — ingestion reads `chat-19012021-20022026.txt
 
 | Field | Notes |
 |---|---|
+| `suite` | Optional tag: `recommendation` or `v1_regression` (the Suggestions comparison, `compare_reports.py`). Absent on the original cases. |
 | `category` | One of the 19 canonical `en_name`s in `config/base.yaml` `categories:`. `null` for negative cases (they're intentionally uncategorizable / out of scope). |
 | `difficulty` | `basic` = everyday question a resident would actually ask. `edge` = niche, multi-part, or tests a specific point of confusion. |
 | `test_type` | `regression` = should ~always pass; a drop is a real bug. `capability` = expected to be hard; a drop is a measurement, not necessarily a blocker. |
@@ -60,9 +66,9 @@ the production Qdrant collection — ingestion reads `chat-19012021-20022026.txt
 | `ground_truth_answer` | The verified correct answer. Doubles as the reference text for a semantic-similarity metric. |
 | `grounded_in` | Provenance/evidence — always re-derivable. Cite the exact thread(s) and/or web sources with the verification date. |
 
-## The four buckets (`expected_source`)
+## The buckets (`expected_source`)
 
-### `kb` (49 cases)
+### `kb` (64 cases: 49 original + 15 `v1reg-*`)
 Answerable from the KB alone. Graded like v1: retrieval (`expected_thread_ids` hit/recall) +
 answer content (keyword coverage / semantic similarity against `ground_truth_answer`). Covers
 all 19 canonical categories with at least 2 basic cases each.
@@ -91,8 +97,8 @@ No KB anchor — pure factual/current Grenoble info (population, SMIC, tram line
 Grading intent: check `web_used=True` (agent's state, see `agent.py`) and that the answer
 contains the current value. These need periodic re-verification (SMIC and population drift).
 
-### `none` (10 cases) — negative cases, added in v2
-Two families:
+### `none` (12 cases) — negative cases, added in v2
+Three families (the third, `neg-privacy-*`, 2 cases, checks that the agent never reveals or confirms who a participant was nor exposes a named member's phone/address — GUARDRAIL 6 in `synthesis.py`):
 - **out-of-scope** (`neg-oos-*`, 5 cases) — not about Grenoble (other city/country, world
   trivia, generic creative requests). Should trigger the `out_of_scope` intent branch
   (`prompts/intent.py`) and get refused/redirected, not answered.
@@ -101,6 +107,22 @@ Two families:
   number, live community-group membership, personal case-status ETA. Grading intent: the
   agent must **not fabricate a specific answer**. This directly operationalizes the CLAUDE.md
   rule *"Don't generate an answer when `chunks` is empty"* and extends it to web/live data too.
+
+### `suggestions` (21 cases, `suite: recommendation`) — added for the Suggestions feature (issue #59)
+Recommendation Requests ("who/where do you recommend for X?"), all `capability`. They
+have no `expected_thread_ids` (the Suggestions collection is not Q&A threads) and carry
+an `expected_suggestions` object: `kind`, `topic`, `item_terms`, `names` and
+`verification`. Pass rule: `keyword_coverage >= 0.5` on `expected_answer_keywords`
+(Kind/Item terms, plus a name where the chat export shows one) AND the answer shows 👍
+counts (`cites_community_counts`). `names` is empty or only chat-confirmed, and every
+case is marked `needs_corpus_verification` until the maintainer checks it against the
+built Clusters. See EVAL_GUIDE.md, "Suggestions evaluation".
+
+**Pending:** no run against the real Suggestions collection has been recorded, so there are no pass rates for these cases yet (see EVAL_GUIDE.md).
+
+### `v1_regression` suite (15 cases)
+Regular `kb`/`regression` cases (`v1reg-*`) lifted from the v1 set with their v1 thread
+ids and keywords, used to check that Suggestions do not degrade Q&A.
 
 ## Known caveats (flagged in individual `notes`)
 

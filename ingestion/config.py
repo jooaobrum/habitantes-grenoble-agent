@@ -5,6 +5,8 @@ import yaml
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from habitantes.config import SuggestionsConfig
+
 
 class ParserConfig(BaseModel):
     timestamp_format: str = "%d/%m/%y, %H:%M:%S"
@@ -41,6 +43,16 @@ class JevConfig(BaseModel):
     retry_base_sleep_s: float = 1.5
 
 
+class MentionExtractionConfig(BaseModel):
+    """LLM that turns a pseudonymised window into Mentions."""
+
+    model: str = "google/gemini-2.5-flash-lite"
+    base_url: str = "https://openrouter.ai/api/v1"
+    temperature: float = 0.0
+    max_retries: int = 4
+    retry_base_sleep_s: float = 1.5
+
+
 class LoadConfig(BaseModel):
     collection_name: str = "habitantes_qa_chat_kb"
     dense_batch_size: int = 64
@@ -65,6 +77,9 @@ class IngestionSettings(BaseSettings):
     synthesis: SynthesisConfig = SynthesisConfig()
     jev: JevConfig = JevConfig()
     load: LoadConfig = LoadConfig()
+    suggestions: SuggestionsConfig = SuggestionsConfig()
+    mention_extraction: MentionExtractionConfig = MentionExtractionConfig()
+    suggestion_llm: MentionExtractionConfig = MentionExtractionConfig()  # merge + label
 
 
 def load_ingestion_settings() -> IngestionSettings:
@@ -103,6 +118,10 @@ def load_ingestion_settings() -> IngestionSettings:
             ingestion_data[k].update(v)
         else:
             ingestion_data[k] = v
+
+    # `suggestions` is a top-level section shared with the API (habitantes.config).
+    if "suggestions" in config_data:
+        ingestion_data["suggestions"] = config_data["suggestions"]
 
     return IngestionSettings(**ingestion_data)
 

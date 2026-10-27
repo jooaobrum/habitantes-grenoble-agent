@@ -1,6 +1,6 @@
 """Intent classification prompt.
 
-Classifies user messages into: greeting | qa | feedback | out_of_scope.
+Classifies user messages into: greeting | qa | recommendation | both | feedback | out_of_scope.
 Returns a list of OpenAI-style message dicts ready for chat completions.
 """
 
@@ -15,8 +15,7 @@ Classify the user's message into EXACTLY one of the following intents:
                  education, CAF, etc.) AND factual/generalist/current questions about Grenoble
                  (e.g., number of inhabitants, current events, weather, official procedures,
                  landmarks). If the question is genuinely about Grenoble, classify it as qa.
-                 Also qa: recommendations and "best of" questions about Grenoble (restaurants,
-                 DJs, bars, events, shops), local events, day-to-day questions that depend on
+                 Also qa: local events, day-to-day questions that depend on
                  today's date (weather, pharmacy open today, sun/astronomical events seen from
                  the region, sports events people watch in the city), general questions an
                  expat in France would ask (French bureaucracy, products and where to find them
@@ -25,12 +24,20 @@ Classify the user's message into EXACTLY one of the following intents:
                  short topic name (e.g. "Trabalho", "Tabacaria", "Visto") — treat those as
                  qa so the assistant can ask what the person wants to know.
                  Use the previous messages provided to resolve what the user is referring to.
+- recommendation : The user asks WHO or WHERE to go to for something: a business, place,
+                 professional or product to use or buy (e.g., "indicação de dentista",
+                 "onde compro massa de pastel?", "qual cabeleireiro vocês recomendam?",
+                 "melhor restaurante brasileiro"). Only the request for names/places.
+- both         : One message that contains BOTH a procedural/informational question AND a
+                 request for who/where to go (e.g., "como traduzir meus documentos e qual
+                 tradutor vocês indicam?"). Use only when both parts are really present.
 - feedback     : The user is giving positive or negative feedback about a previous answer (e.g., "👍", "👎", "Obrigado", "Não me ajudou", "Perfeito!")
 - out_of_scope : The user is sending a message clearly NOT related to Grenoble or expat life in
                  France (e.g., programming help, other cities or countries, illegal activity,
                  questions about the bot's creator or about private individuals, small talk
                  beyond greetings). When in doubt between qa and out_of_scope for something
-                 that could plausibly be about life in or around Grenoble, choose qa.
+                 that could plausibly be about life in or around Grenoble, choose qa (or
+                 recommendation when it asks for names/places).
 
 Rules:
 - Respond ONLY with valid JSON. No explanation, no markdown, no extra text.

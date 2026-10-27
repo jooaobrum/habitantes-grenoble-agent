@@ -1,0 +1,61 @@
+# Manual name decisions for the Suggestions name grouping (ingestion/suggestions/name_groups.py).
+# Applied after the automatic rules, on every rebuild.
+#
+# keep:      named businesses whose words look generic ("Snack Brasil"): never dropped.
+# same:      names (or regexes on the normalised name: lower case, no accents, no articles) that
+#            are ONE business. A name matched here is never dropped as generic.
+#            kind:  (optional) the Kind this business always gets, instead of the Kind where it
+#                   has the most Mentions.
+#            split: (optional) one name that is really several businesses: each Mention goes to
+#                   the first rule whose regex matches its name + items + context (normalised);
+#                   `default` takes the rest.
+# kinds:     Kind -> business names that always get that Kind (the Mention keeps its raw kind).
+# community: businesses run by a group member (disclosed as Community Business).
+# separate:  pairs that are different businesses even if their spellings are close.
+keep: ["Snack Brasil", "Pizza 51", "O'Tacos", "Thai Express", "C&A", "BK", "U", "U (supermercado)",
+       "Rodízio Brasil", "Tacos de Grenoble", "Tacos de Lyon"]
+same:
+  - canonical: "Kabuki Canton"
+    names: ["Kabuki", "Kabuki Canton"]
+  - canonical: "Bombay Talkies"
+    names: ["Bombay", "Bombay Talkies"]
+  - canonical: "O'Callaghan"
+    names: ["O'Callaghan", "O'Callaghan Irish Pub"]
+  - canonical: "Médecins 7/7"
+    names: ["Médecins 7/7", "Medecin 7/7", "médecin 7/7", "7/7"]
+  - canonical: "Casa Barriolatino"      # all these spellings are one business
+    names: ["Casa Barriolatino", "Barrio Latino", "Barril Latino", "Bairro Latino"]
+  - canonical: "TER"
+    kind: "Transport"
+    match: ["^ter\\b"]
+  - canonical: "TAP Air Portugal"
+    kind: "Transport"
+    names: ["TAP", "TAP Air Portugal"]
+  - canonical: "CHU Grenoble Alpes"     # hospital sites and spellings of the same CHU
+    kind: "Doctors"
+    match: ["^chu\\b", "^chuga\\b", "michallon", "^hopital (sud|couple enfant|garde)", "^hospital (sul|sud|em tronche|tronche|civil michallon)",
+            "^couple enfant", "^tronche( hopital)?$"]
+  - canonical: "Résidence Houille Blanche"
+    kind: "Housing"
+    names: ["Résidence Houille Blanche", "Houille Blanche"]
+  - canonical: "CROUS"
+    match: ["\\bcrous\\b", "\\bru\\b", "resto universitaire", "restaurante universitario", "restaurant universitaire"]
+    names: ["Diderot", "CROUS"]
+    split:
+      - canonical: "CROUS (alojamento)"
+        kind: "Housing"
+        context_match: ["alojamento", "residencia", "logement", "moradia", "quarto", "chambre", "cite u"]
+      - canonical: "CROUS (restaurante universitário)"
+        kind: "Restaurants & Bars"
+        context_match: ["restaurante", "\\bru\\b", "almoco", "refei", "tarif", "cardapio", "vegetarian", "cartao", "caixa", "carteirinha", "jantar", "comida", "diderot", "intermezzo", "minatec", "ense3", "phelma", "condillac"]
+    default: "CROUS (restaurante universitário)"
+kinds:
+  Transport: ["FlixBus", "Air France", "TAG", "LATAM", "BlaBlaCar", "blablabus", "Getaround", "Ouicar", "Citiz", "Metrovelo",
+              "SNCF", "TGV", "Ouigo", "Iberia", "Azul", "Ryanair", "Volotea", "easyJet", "Gol", "Lufthansa", "KLM",
+              "Bolt", "Transaltitude", "Tram A", "Tram B", "Tram C", "Tram E"]
+  Housing: ["Seloger", "Airbnb", "carte des colocs"]
+  Restaurants & Bars: ["Chez Pamella"]
+community: ["Chez Pamella"]
+separate:
+  - ["Come Va", "Come Prima"]
+  - ["Chez Marius", "Bouillon Archers Chez Marius"]

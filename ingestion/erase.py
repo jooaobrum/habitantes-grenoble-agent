@@ -6,7 +6,7 @@ import logging
 import re
 import sys
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 import pandas as pd
 
@@ -23,6 +23,8 @@ RAW_LINE_PATTERN = re.compile(
 )
 
 Matcher = Callable[[str], bool]
+
+SUGGESTION_DERIVED_FILES = ("mentions.jsonl", "suggestions.jsonl")
 
 
 # ── Identifier matching ─────────────────────────────────────────────────────
@@ -244,6 +246,7 @@ def erase_user_data(
     artifacts_dir: Path,
     collection_name: str,
     dry_run: bool = True,
+    rebuild_suggestions: Optional[Callable[[], Any]] = None,
 ) -> Dict[str, int]:
     """Right-to-erasure sweep: redacts a person's messages from the raw
     WhatsApp export, removes their records from every intermediate ingestion
@@ -256,6 +259,7 @@ def erase_user_data(
         "csv_rows_removed": 0,
         "json_records_removed": 0,
         "qdrant_points_removed": 0,
+        "suggestion_files_removed": 0,
     }
 
     for txt_file in sorted(data_dir.glob("*.txt")):
@@ -281,6 +285,16 @@ def erase_user_data(
         report["json_records_removed"] += purge_jsonl_records(
             jsonl_file, matches, dry_run=dry_run
         )
+
+    # Mentions/Suggestions files are author-free, so a member's entries cannot be
+    # picked out of them: drop them, then rebuild from the redacted export.
+    for name in SUGGESTION_DERIVED_FILES:
+        for derived in sorted(artifacts_dir.rglob(name)):
+            report["suggestion_files_removed"] += 1
+            if not dry_run:
+                derived.unlink()
+    if not dry_run and rebuild_suggestions is not None:
+        rebuild_suggestions()
 
     concat_dir = artifacts_dir / "concat"
     if concat_dir.exists():
@@ -328,9 +342,23 @@ def main() -> None:
         action="store_true",
         help="Actually write changes. Without this flag, only reports counts.",
     )
+    parser.add_argument(
+        "--skip-rebuild",
+        action="store_true",
+        help=(
+            "With --apply, do not rebuild the Suggestions collection from the "
+            "redacted export afterwards (derived files are still removed)."
+        ),
+    )
     args = parser.parse_args()
 
+    def rebuild() -> None:
+        from ingestion.suggestions.pipeline import rebuild_all
+
+        rebuild_all()
+
     report = erase_user_data(
+        rebuild_suggestions=None if args.skip_rebuild else rebuild,
         identifiers=args.identifier,
         data_dir=root_dir / settings.data_dir,
         artifacts_dir=root_dir / settings.artifacts_dir,

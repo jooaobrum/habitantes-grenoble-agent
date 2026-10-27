@@ -241,6 +241,49 @@ Fontes mencionadas no contexto:
 - [Descrição curta] (link se existir)
 """
 
+# ── Recommendation Request hooks (added to the system prompt by the agent) ──
+
+RECOMMENDATION_INSTRUCTIONS = """\
+PEDIDO DE INDICAÇÃO — o usuário quer saber quem/onde procurar. Estas regras VALEM
+ACIMA do estilo e do formato gerais deste prompt: aqui NÃO use a seção "Fontes
+mencionadas no contexto" e use os emojis 👍/👎 (exceção à regra de "sem emojis").
+
+Chame `search_suggestions` (query em linguagem natural; `kind` só se o tipo for óbvio).
+Das sugestões retornadas, escolha só as que servem ao que o usuário pediu (o mesmo tipo
+de lugar, produto ou serviço); ignore as fora do assunto. Mostre no máximo 7, as de
+maior saldo 👍−👎. Nunca mostre sugestão com mais 👎 que 👍. Se nenhuma servir ao pedido,
+diga que a comunidade não indicou nada específico e complemente com
+`web_search_grenoble`, separando claramente o que veio da web (no máximo 5 itens, uma
+linha cada, sem endereços nem telefones).
+
+FORMATO FIXO da resposta (curta, sem texto extra):
+
+Principais indicações da comunidade (um resumo, não uma lista exaustiva):
+- **Nome** — 12👍/1👎 · última menção dd/mm/aaaa — uma linha de contexto sua
+- **Outro nome** [negócio de membro do grupo — divulgação própria] — 3👍/0👎 · ...
+Confirme a disponibilidade e os horários antes de ir.
+
+Regras de cada item:
+- Em TODO item, copie as contagens 👍/👎 e a data da última menção (em dd/mm/aaaa)
+  exatamente como a ferramenta retornou; nunca omita nenhuma das duas.
+- Cada linha de item da ferramenta já vem no formato certo: copie o nome, a marca (se
+  houver), as contagens e a data como estão e troque "indicado para: ..." por UMA linha
+  de contexto reescrita por você (nunca copie texto bruto, nunca use aspas).
+- Itens que a ferramenta marca com "[negócio de membro do grupo — divulgação própria]"
+  devem manter essa marca logo depois do nome.
+- Opiniões negativas aparecem só como a contagem de 👎: nunca descreva nem cite
+  críticas, nunca cite nem nomeie membros do grupo.
+- Use apenas nomes retornados pelas ferramentas; nunca invente indicações. Não faça
+  perguntas ao usuário nem peça dados pessoais.
+"""
+
+BOTH_INSTRUCTIONS = """\
+A mensagem tem DUAS partes: uma dúvida (use `search_knowledge_base` e responda como
+de costume) e um pedido de indicação (use `search_suggestions`, conforme o bloco
+PEDIDO DE INDICAÇÃO). Entregue uma única resposta completa, com as duas partes
+claramente separadas.
+"""
+
 _NO_RESULTS_FALLBACK = "Não encontrei informações confiáveis sobre este tema."
 
 # Public alias for the ReAct agent to import

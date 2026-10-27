@@ -2,6 +2,13 @@
 
 An AI-powered assistant that helps Brazilian expats in Grenoble navigate daily life, bureaucracy, and housing. The bot leverages years of community knowledge from WhatsApp groups to provide instant, reliable, grounded answers in Portuguese.
 
+It draws on two knowledge bases built offline from the same group export:
+
+- **Q&A knowledge base** — Q&A Pairs (a question and the answers it received), for "how do I...?" questions.
+- **Suggestions** — businesses, places and products the community recommends (dentists, hairdressers, markets, shops...), consolidated from opinions found anywhere in the chat, for "who/where do you recommend for...?" requests. See [Suggestions](#suggestions-community-recommendations).
+
+Vocabulary used across the docs (Thread, Q&A Pair, Suggestion, Kind, Mention, Cluster, Community Business...) is defined in [CONTEXT.md](CONTEXT.md).
+
 ---
 
 ## Architecture
@@ -11,22 +18,26 @@ flowchart LR
     TG[Telegram Bot<br>long-polling process] --> API[FastAPI]
     WA[WhatsApp<br>Meta Cloud API] -->|webhook POST| CF[cloudflared<br>public HTTPS ingress] --> API
     API --> Agent[Hand-rolled agent loop<br>intent classify → ReAct]
-    Agent --> DB[(Qdrant<br>hybrid dense+sparse search)]
+    Agent --> DB[(Qdrant<br>Q&A collection: hybrid dense+sparse)]
+    Agent --> SDB[(Qdrant<br>Suggestions collection: one point per Cluster)]
     Agent -.->|optional secondary source| Web[Tavily web search]
     Admin[Control Center dashboard] -->|/admin/*| API
     Ingest[Ingestion pipeline<br>offline only] --> DB
+    SIngest[Suggestions pipeline<br>offline only] --> SDB
 ```
 
 - **Orchestration**: no LangGraph — a hand-rolled two-layer loop in `api/src/habitantes/domain/agent.py`:
-  1. `_classify_intent` — a numeric category shortcut (typed "1".."19"), or an LLM call forced (via OpenAI-style tool-calling) to return `greeting | qa | feedback | out_of_scope`.
-  2. `_run_react_loop` — an LLM + tool-calling loop (up to `agent.max_react_iterations` rounds) that calls `search_knowledge_base` (and, for `qa`, optionally `web_search_grenoble`) and synthesizes the final answer.
+  1. `_classify_intent` — a numeric category shortcut (typed "1".."19"), or an LLM call forced (via OpenAI-style tool-calling) to return `greeting | qa | recommendation | both | feedback | out_of_scope`. `qa` is a procedural question, `recommendation` a request for who/where to go to, `both` a message that is genuinely both.
+  2. `_run_react_loop` — an LLM + tool-calling loop (up to `agent.max_react_iterations` rounds) and synthesis of the final answer. The tools are chosen **from the classified intent**, not by the model ([ADR 0001](docs/adr/0001-tools-chosen-from-classified-intent.md)): `qa` binds the knowledge-base tools (`search_knowledge_base`, `list_knowledge_subcategories`, `get_chunks_by_category`), `recommendation` binds `search_suggestions`, `both` binds both sets, and `web_search_grenoble` is added in every tool-using case when web search is enabled and keyed. `greeting`, `feedback` and `out_of_scope` bind no tools.
   Short-term memory is a plain in-process `dict` keyed by `chat_id` (`_memory` in `agent.py`), capped at `agent.max_history` turns — it is **not** persisted and resets on process restart.
 - **Backend**: FastAPI (`api/src/habitantes/infrastructure/api/`)
-- **Vector store**: Qdrant, hybrid search — dense (OpenAI `text-embedding-3-small`, 1536‑d) + sparse (`Qdrant/bm25` via `fastembed`), fused with a weighted RRF, then date-decay + anchor rerank + thread-level dedup.
+- **Vector store**: Qdrant, two independent collections.
+  - Q&A (`habitantes_qa_chat_kb`): hybrid search — dense (OpenAI `text-embedding-3-small`, 1536‑d) + sparse (`Qdrant/bm25` via `fastembed`), fused with a weighted RRF, then date-decay + anchor rerank + thread-level dedup.
+  - Suggestions (`habitantes_suggestions_kb`, `suggestions.collection_name`): one point per Cluster; `search_suggestions` runs a hybrid query (dense with its own relevance floor `suggestions.min_relevance`, plus the sparse keyword vector, fused with RRF).
 - **Channels**:
   - **Telegram** (`app/telegram_bot.py`) — a separate long-polling process, calls the API over HTTP.
   - **WhatsApp** (official Meta Cloud API) — **not** a separate bot process. It's a webhook handled inside the FastAPI process itself (`infrastructure/whatsapp/{client,processor,guards}.py`, wired via `routers/webhooks.py`), fronted by a `cloudflared` container that gives the homelab a public HTTPS endpoint for Meta to POST to. See [docs/WHATSAPP_CLOUD_SETUP.md](docs/WHATSAPP_CLOUD_SETUP.md) for the manual Meta-panel setup.
-- **Web search**: Tavily, an optional lower-priority secondary source scoped to Grenoble — see `docs/ARCHITECTURE.md` for its limitations.
+- **Web search**: Tavily, an optional secondary source scoped to Grenoble, available to every tool-using intent and used as the fallback when the knowledge bases (including Suggestions) have no answer — see `docs/ARCHITECTURE.md` for its limitations.
 - **Control Center**: a token-gated admin dashboard (`app/admin/`, static HTML served at `/admin/ui`) plus `/admin/*` API routes — kill switch, cost/usage KPIs, health status, alert log. No extra container; it lives inside the `api` service.
 - **Config**: `config/base.yaml` + `.env` secrets + `APP_ENV` environment selector (`dev` / `prod`)
 
@@ -108,7 +119,7 @@ To add more per-environment overrides, edit the `environments:` block in [config
 
 ## Data ingestion
 
-Ingestion is **offline only** — never runs at query time. It parses raw WhatsApp exports, synthesizes QA pairs via LLM, and loads vectors into Qdrant.
+Ingestion is **offline only** — never runs at query time. It parses raw WhatsApp exports and builds two knowledge bases in Qdrant from them: the Q&A one (synthesized Q&A Pairs, below) and the Suggestions one ([next section](#suggestions-community-recommendations)). The two pipelines share parsing and Thread splitting but write to separate collections and never touch each other's data.
 
 ### Step 1 — Place the raw data
 
@@ -143,6 +154,73 @@ Use `load-only` when:
 
 ---
 
+## Suggestions (community recommendations)
+
+The Q&A pipeline only sees messages the parser labels as questions that received answers, so most unprompted opinions ("fui no X e gostei", "super recomendo Y") never reach it. The Suggestions pipeline runs in parallel, finds those opinions anywhere in the chat, and stores the community's picks in its own Qdrant collection, queried by the `search_suggestions` tool. The Q&A pipeline, its message classification and its collection are unchanged.
+
+### Pipeline
+
+```
+chat export -> shared parse + Thread split -> candidate windows (keyword lexicon)
+  -> Jev yes/no filter per window -> pseudonymised LLM extraction -> mentions.jsonl
+  -> opt-out list + name merge per Kind -> suggestions.jsonl
+  -> Clusters per Kind (similarity), ranking, label + summary -> Qdrant (one point per Cluster)
+```
+
+1. **Windows** (`ingestion/suggestions/windows.py`): a broad lexicon (request phrases, pointers to places, first-person opinions, map/social/booking links, recommendation words, negative phrases) marks trigger messages regardless of their question/answer label. Each trigger opens a window (`window_before` messages before; `window_after_request` after a request, `window_after_other` after anything else). Overlapping windows are merged and a window never crosses a Thread boundary.
+2. **Jev filter**: Jev (same OpenRouter mechanism as the Q&A gate) answers one yes/no question per window — "does this contain a Suggestion?" — with `jev_cutoff` as the P(yes) floor. A window Jev cannot classify is not extracted.
+3. **Extraction** (`extract.py`): authors are replaced by pseudonyms (M1, M2...) and phone numbers scrubbed before any text reaches the LLM. The structured output is a Mention: name, Kind, polarity, Items, Context, date, Community Business flag. Consecutive messages by one person about one place are one Mention. Private individuals, banks, phone operators, apps, associations, public services and one-off events are dropped. Output (`artifacts/<chat>/mentions.jsonl`) has no author or phone field.
+4. **Merge** (`merge.py`, `exclusions.py`): names are normalised in code (case, accents, punctuation, generic words), the opt-out list is applied, then one LLM pass per Kind maps variants to one canonical name (a chain is one Suggestion whichever branch is named). Counting happens only afterwards. Result: `artifacts/<chat>/suggestions.jsonl` (author-free).
+5. **Clusters** (`clusters.py`): within a Kind, Mentions are grouped by similarity of Items and Context (`similarity_cutoff`, no fixed number of groups), so one Suggestion can sit in two Clusters. Repeated Mentions of a Suggestion collapse to one member line (👍/👎 counts, last date, Items). A Community Business advertiser's own post is stored but not counted, so it only appears with at least one Mention from another member.
+6. **Rank and summarise**: +1 per 👍, -1 per 👎, Mentions older than `ranking_half_life_years` count half, ties to the most recent. Members scoring 0 or less are left out of the summary; the top `summary_size` are named, with "+K outras" for the rest. An LLM writes the Cluster label and one reworded line per member. Every member stays in the stored payload.
+7. **Load** (`ingestion/load/suggestions.py`): the Suggestions collection is deleted and recreated on each run (only that collection; the Q&A one is never touched). Dense vector = summary plus every member's Items; sparse vector = Items plus every member name. Payload: Topic, Kind, label, totals, last date, members, summary — no author data. Topic is derived from Kind, never extracted (Restaurants & Bars and Markets & Groceries -> Food & Restaurants; Doctors and Dentists -> Health & Insurance; Translators -> Documents & Bureaucracy; and so on, see `api/src/habitantes/domain/suggestions.py`).
+
+### Running it
+
+```bash
+make mentions      # parse + classify, then windows -> Jev -> extraction -> mentions.jsonl (needs OPENROUTER_API_KEY)
+make suggestions   # merge -> opt-out -> Clusters -> rebuild the Suggestions collection (needs Qdrant, OPENROUTER_API_KEY, OPENAI_API_KEY)
+```
+
+`make mentions` is the expensive step (Jev and extraction LLM calls per window); `make suggestions` rebuilds from `mentions.jsonl` without the chat. Qdrant must be running (`docker compose up -d qdrant`). Run `make ingest` separately for the Q&A collection. The pipeline script also accepts `--stage mentions|suggestions|all`.
+
+### Evaluating extraction
+
+`make labelling-sample` draws about 50 random Threads for hand-labelling and `make labelling-measure` reports window coverage, recall and wrong extractions per Kind. The labelled sample has **not been produced yet**, so no extraction numbers or tuned window sizes exist; see [docs/SUGGESTIONS_EVAL.md](docs/SUGGESTIONS_EVAL.md). Answer-level evaluation (golden recommendation cases and the baseline-vs-feature comparison) is in [tests/eval/EVAL_GUIDE.md](tests/eval/EVAL_GUIDE.md); its real run is also pending.
+
+### Configuration
+
+The `suggestions:` section of [config/base.yaml](config/base.yaml) is read by both ingestion and the API:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `collection_name` | `habitantes_suggestions_kb` | Suggestions Qdrant collection (independent of the Q&A one) |
+| `window_before` | 5 | Messages before a trigger message |
+| `window_after_request` | 15 | Messages after a request trigger |
+| `window_after_other` | 5 | Messages after any other trigger |
+| `jev_cutoff` | 0.92 | Minimum Jev P(yes) for a window to be extracted |
+| `similarity_cutoff` | 0.5 | Minimum Item/Context similarity for Mentions to share a Cluster |
+| `ranking_half_life_years` | 2.0 | Mentions older than this count half |
+| `summary_size` | 5 | Members named in a Cluster summary |
+| `max_clusters` | 6 | Max Clusters shown by `search_suggestions` |
+| `candidate_clusters` | 10 | Clusters fetched per search branch, then merged member by member |
+| `max_members` | 20 | Total members shown across the returned Clusters (deduped by name) |
+| `min_relevance` | 0.55 | Dense cosine floor for `search_suggestions` hits (separate from `search.min_relevance`) |
+
+The merge and label LLM calls reuse the ingestion model settings (`MentionExtractionConfig` defaults in `ingestion/config.py`: `mention_extraction` and `suggestion_llm`, both `google/gemini-2.5-flash-lite` via OpenRouter); they have no yaml keys unless you add them under `ingestion:`.
+
+### How the agent uses it
+
+`search_suggestions(query, kind="")` embeds the query and fetches `candidate_clusters` Clusters (a Kind filter is inferred from Portuguese category words in the query), merges their members by name (votes pooled, so a business split across Clusters counts once), and shows the top `max_members` (net 👍 minus 👎 above zero, so a Suggestion with more 👎 than 👍 is never offered) grouped under at most `max_clusters` Clusters, with a "+K outras" count. An empty result tells the model to say so and fall back to `web_search_grenoble`. Answers show name, 👍/👎, latest Mention date and a reworded one-line context; Community Businesses are labelled "negócio de membro do grupo — divulgação própria"; negative opinions appear only as counts; messages and authors are never quoted; users are reminded to confirm availability. The answer lists at most 7 picks, rendered in code from the tool data for the members the model names (details and known gaps: [ADR 0002](docs/adr/0002-recommendation-retrieval-and-rendering.md)). Only `qa` answers are response-cached; `recommendation` and `both` are not.
+
+### Opting out and removal
+
+- **A business that does not want to be listed**: add its name to [config/suggestion_exclusions.txt](config/suggestion_exclusions.txt) (one per line; case, accents, punctuation and generic words are ignored) and run `make suggestions`. The list is applied on every rebuild, before counting and clustering; if nothing is left the Suggestions collection is deleted rather than left stale.
+- **A member asking for their messages to be removed**: `ingestion/erase.py` redacts the raw export and removes the intermediate files, including `mentions.jsonl` and `suggestions.jsonl` (they hold no author, so one member's entries cannot be picked out). With `--apply` it then rebuilds Mentions and Suggestions from the redacted export; pass `--skip-rebuild` to only remove the derived files and rebuild later with `make mentions && make suggestions`. The Q&A side behaves as before.
+- Mentions and Suggestions files follow the same retention window as other intermediate artifacts (`ingestion.artifacts_retention_days`). See [docs/PRIVACIDADE.md](docs/PRIVACIDADE.md).
+
+---
+
 ## Full local workflow (step by step)
 
 If you want to run services individually without Docker:
@@ -152,9 +230,13 @@ If you want to run services individually without Docker:
 docker compose up -d qdrant
 
 # 2. Ingest data into Qdrant
-make ingest          # full pipeline
+make ingest          # full Q&A pipeline
 # or
-make load-only       # re-index existing artifacts
+make load-only       # re-index existing Q&A artifacts
+
+# 2b. (Optional) Build the Suggestions collection for recommendation requests
+make mentions        # extract Mentions from the chat
+make suggestions     # merge, cluster, rank and load
 
 # 3. Start the API
 make run-api          # FastAPI on http://localhost:8000 (local run — Docker Compose publishes it on host :8001, see below)
@@ -172,9 +254,11 @@ WhatsApp isn't part of this local workflow — its webhook needs a real public H
 ## Quality
 
 ```bash
-make test            # Run pytest suite (tests/unit + api/tests)
+make test            # Run pytest suite (tests/ incl. integration + api/tests)
 make lint-format      # Run pre-commit hooks (ruff, ruff-format, + basic hygiene hooks)
 make eval             # Run the RAG evaluation pipeline (tests/eval/run_eval.py)
+make labelling-sample   # Draw ~50 Threads to hand-label for Suggestion extraction
+make labelling-measure  # Window coverage / recall / wrong extractions from the labelled sample
 make setup-hooks      # Install pre-commit hooks (first time only)
 ```
 
@@ -187,19 +271,21 @@ CI (`.github/workflows/ci.yml`) runs `pre-commit` and the **unit test suite only
 ```
 ├── api/                       # FastAPI backend + domain logic
 │   └── src/habitantes/
-│       ├── domain/             # Agent loop, prompts, tools (search, web_search, embedding)
+│       ├── domain/             # Agent loop, prompts, tools (search, search_suggestions, web_search, embedding), Suggestion vocabulary (suggestions.py)
 │       ├── infrastructure/     # API routers, WhatsApp Cloud API client, control store, alerts
 │       └── config.py           # Pydantic Settings loader
 ├── app/
 │   ├── telegram_bot.py         # Telegram bot process (long-polling)
 │   └── admin/                  # Control Center static dashboard (served at /admin/ui)
 ├── config/
-│   └── base.yaml                # All tuning constants + env overrides
-├── ingestion/                   # Offline ETL pipeline (parse → synthesize → load)
+│   ├── base.yaml                # All tuning constants + env overrides (incl. `suggestions:`)
+│   └── suggestion_exclusions.txt # Opt-out list: businesses never offered as Suggestions
+├── ingestion/                   # Offline ETL pipelines
+│   └── suggestions/             # Suggestions pipeline (windows → Mentions → Clusters), labelling + measure scripts
 ├── data/                        # Raw WhatsApp exports (gitignored)
 ├── artifacts/                   # Ingestion outputs + Control Center SQLite db (gitignored)
 ├── infra/                       # Qdrant storage volume
-├── docs/                        # Architecture, WhatsApp setup runbook, legal/privacy notes
+├── docs/                        # Architecture, overview, WhatsApp setup runbook, legal/privacy notes, ADRs, Suggestions evaluation
 ├── .github/workflows/           # CI (lint + unit tests)
 └── tests/                       # unit / integration / eval suites
 ```
@@ -277,7 +363,11 @@ uv run python ingestion/load_only.py
 
 # Or run the full pipeline from scratch (parses + synthesizes + loads):
 uv run python ingestion/pipeline.py
+
+# Suggestions collection (separate from the Q&A one; needs OPENROUTER_API_KEY + OPENAI_API_KEY):
+make mentions && make suggestions
 ```
+Without the Suggestions collection, recommendation requests find nothing and fall back to web search.
 
 Alternatively, if you want to reuse vectors already stored in Qdrant from a previous local run:
 
@@ -358,10 +448,10 @@ The WhatsApp Cloud API channel as a whole (`WhatsAppCloudConfig.enabled`) only t
 |---|---|---|
 | `APP_ENV` | `dev` | Environment selector (`dev` or `prod`) |
 | `QDRANT_URL` | `http://qdrant:6333` | Override Qdrant URL. Forced back to `http://qdrant:6333` inside `docker-compose.yml`'s `api` service regardless of `.env`, so this override is mainly for running the API outside Docker against a different Qdrant |
-| `COLLECTION_NAME` | `habitantes_qa_chat_kb` (per `config/base.yaml`'s `environments:` block) | Qdrant collection name |
+| `COLLECTION_NAME` | `habitantes_qa_chat_kb` (per `config/base.yaml`'s `environments:` block) | Q&A Qdrant collection name. The Suggestions collection is set separately by `suggestions.collection_name` in `config/base.yaml` |
 | `MODEL_NAME` | `google/gemini-2.5-flash-lite` | Override the chat LLM (OpenRouter `provider/model` id) |
 | `EMBEDDING_MODEL_NAME` | `text-embedding-3-small` | Override the OpenAI embedding model |
 | `LOG_LEVEL` | `DEBUG`/`WARNING` (per env) | Override `api.log_level` |
 | `RATE_LIMIT_PER_HOUR` | `100` | Override `api.rate_limit_per_hour` |
 | `API_URL` | `http://api:8000` | Override the Telegram bot's target API URL |
-| `QDRANT_API_KEY` | unset | **Not read by the running API** — only by the standalone ingestion scripts (`ingestion/load/qdrant.py`, `ingestion/erase.py`) that talk to Qdrant directly |
+| `QDRANT_API_KEY` | unset | **Not read by the running API** — only by the standalone ingestion scripts (`ingestion/load/qdrant.py`, `ingestion/load/suggestions.py` via `ingestion/suggestions/build.py`, `ingestion/erase.py`) that talk to Qdrant directly |

@@ -54,7 +54,9 @@ class IntentClassification(BaseModel):
     `json.loads` on free-form model text.
     """
 
-    intent: Literal["greeting", "qa", "feedback", "out_of_scope"]
+    intent: Literal[
+        "greeting", "qa", "recommendation", "both", "feedback", "out_of_scope"
+    ]
 
 
 class HealthResponse(BaseModel):

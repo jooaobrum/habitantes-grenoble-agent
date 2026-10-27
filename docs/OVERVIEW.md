@@ -17,6 +17,7 @@ Brazilian expats in Grenoble repeatedly ask the same questions in WhatsApp group
 - *"Onde conseguir apartamento?"*
 - *"Como marcar consulta médica?"*
 - *"Qual banco abrir conta?"*
+- *"Alguém indica um dentista?"*, *"Onde compro massa de pastel?"*
 
 **Current pain points**:
 - ❌ Information is fragmented across hundreds of chat threads
@@ -25,6 +26,7 @@ Brazilian expats in Grenoble repeatedly ask the same questions in WhatsApp group
 - ❌ Information becomes outdated (bureaucracy changes)
 - ❌ New arrivals ask the same questions repeatedly
 - ❌ Group members get fatigued answering the same things
+- ❌ Recommendations ("fui no X e gostei") are scattered over years, repeated by many people and spelled differently, so nobody can say how widely a place is trusted
 
 **Impact**:
 - Hours wasted searching or waiting for answers
@@ -45,22 +47,40 @@ A **knowledge-based chatbot** that:
 4. **Understands Portuguese** - Native language support
 5. **Available 24/7** - Always ready to help
 6. **Categorizes topics** - Visa, housing, healthcare, banking, transport, education, CAF
+7. **Recommends who/where to go** - Businesses, places and products the community has recommended (dentists, hairdressers, markets, shops, translators...), with how many members recommended each, the date of the latest recommendation and a short reason
 
 ### How it works (simplified)
 ```mermaid
 flowchart TD
-    User([User asks question<br>via Telegram]) --> Intent["Layer 1: Classify intent<br>(greeting / qa / feedback / out_of_scope)"]
+    User([User asks question<br>via Telegram or WhatsApp]) --> Intent["Layer 1: Classify intent<br>(greeting / qa / recommendation / both / feedback / out_of_scope)"]
     Intent --> Agent["Layer 2: ReAct Agent<br>(LLM + tool calling loop)"]
 
-    Agent --> Cache{"Check response cache<br>(if QA)"}
+    Agent --> Cache{"Check response cache<br>(if qa)"}
     Cache -->|Hit| Resp([Returns response<br>in Portuguese])
 
-    Cache -->|Miss| Loop{"Tool calling loop<br>(max 5 iterations)"}
-    Loop --> Resp
+    Cache -->|Miss| Loop{"Tool calling loop<br>tools chosen from the intent"}
+    Loop -->|qa| KB[("Q&A knowledge base")]
+    Loop -->|recommendation| SG[("Suggestions<br>community picks")]
+    Loop -->|both| Both["both of the above"]
+    Loop -.->|gap in either| Web["Web search"]
+    KB --> Resp
+    SG --> Resp
+    Both --> Resp
+    Web --> Resp
 
-    Cache -->|Not QA| Direct["Responds directly<br>(no tool needed)"]
+    Cache -->|greeting / feedback / out of scope| Direct["Responds directly<br>(no tool needed)"]
     Direct --> Resp
 ```
+
+### Three kinds of question
+
+| The user asks... | Intent | What the bot does |
+|---|---|---|
+| A how-to / informational question ("Como renovar meu titre de séjour?") | `qa` | Answers from the Q&A knowledge base, unchanged by Suggestions, with web search as backup |
+| Who or where to go ("indicação de dentista", "onde compro massa de pastel?") | `recommendation` | Lists the community's picks from the Suggestions collection |
+| Both in one message ("como traduzir meus documentos e qual tradutor vocês indicam?") | `both` | One reply with the procedure and the recommendations, clearly separated |
+
+Which sources the bot can use is decided by the classified intent, not left to the model (see [ADR 0001](adr/0001-tools-chosen-from-classified-intent.md)), so a purely procedural question never sees recommendations.
 
 ### Example interaction
 
@@ -88,6 +108,28 @@ flowchart TD
 >
 > 📎 *Baseado em experiências recentes da comunidade (Jan-Fev 2025)*
 
+### Example: recommendation request
+
+**User**: Onde compro massa de pastel?
+
+**Bot** (shape of the reply; the names, counts and dates here are placeholders, not real data):
+> A comunidade do grupo indicou estes lugares:
+>
+> - **<Nome do lugar A>** — 7👍/0👎, última menção 12/03/2026: massa de pastel e produtos brasileiros
+> - **<Nome do lugar B>** — 3👍/1👎, última menção 02/11/2025: massa de pastel congelada
+> - **<Nome do lugar C>** *(negócio de membro do grupo — divulgação própria)* — 2👍/0👎, última menção 20/01/2026
+>
+> São indicações da comunidade (um resumo das principais, não uma lista exaustiva). Confirme disponibilidade e horários antes de ir.
+
+How recommendations behave:
+- Each pick shows how many members recommended it (👍), how many did not (👎), the date of the latest mention and a short reworded reason. Messages are never quoted and authors are never named.
+- Picks mentioned long ago count for less when ranking, so places that may have changed or closed rank lower.
+- Negative opinions appear only as a count, never described; a place with more 👎 than 👍 is never offered.
+- A business run by a group member is always labelled as such, and is only listed if it has a business identity (not just a member's name or number) and at least one other member recommended it.
+- The list is short even when the group named dozens of places, and the bot says when others exist. A place named once for a specific item (e.g. polvilho) can still be found by that item's name.
+- If nobody in the group recommended anything for the request, the bot says so and falls back to web search, kept clearly separate.
+- Businesses can ask not to be listed, and members can ask for their messages to be removed; see [PRIVACIDADE.md](PRIVACIDADE.md).
+
 ---
 
 ## 👥 Who is this for?
@@ -105,9 +147,9 @@ flowchart TD
 - **Interface**: Telegram and WhatsApp Bots
 - **AI Models**:
   - OpenRouter / Gemini (answer synthesis)
-  - `intfloat/multilingual-e5-large` (Dense embeddings)
+  - OpenAI `text-embedding-3-small` (Dense embeddings, 1536-d)
   - `Qdrant/bm25` via `fastembed` (Sparse embeddings)
-- **Knowledge Base**: Qdrant vector database (Hybrid Search + RRF)
+- **Knowledge Base**: Qdrant vector database with two collections: Q&A (Hybrid Search + RRF) and Suggestions (one point per Cluster of community recommendations)
 - **Web Search**: Tavily API (Grenoble-scoped fallback)
 - **Agent Architecture**: Two-Layer ReAct (LangChain tool calling)
 - **Backend**: FastAPI (Python)
@@ -117,14 +159,19 @@ flowchart TD
 - WhatsApp group export (Jan 2021 - Feb 2025)
 - ~5,000+ Q&A pairs extracted and curated
 - Categorized by topic (visa, housing, healthcare, etc.)
+- Community recommendations ("Suggestions"): businesses, places and products mentioned anywhere in the chat (including unprompted opinions that were never a question), consolidated into Clusters by kind of place and purpose
 - Web Search: Tavily API for current/factual information
 
 
 ## 📚 Documentation
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical architecture, components, and implementation details
-- **[IDEATION_BRIEF.md](IDEATION_BRIEF.md)** - Original problem definition and project scope
-- **README.md** *(coming soon)* - Setup instructions and developer guide
+- **[IDEATION.md](IDEATION.md)** - Original problem definition and project scope
+- **[../README.md](../README.md)** - Setup instructions, ingestion and the Suggestions pipeline
+- **[../CONTEXT.md](../CONTEXT.md)** - Domain glossary
+- **[PRIVACIDADE.md](PRIVACIDADE.md)** - Privacy notice (Portuguese)
+- **[SUGGESTIONS_EVAL.md](SUGGESTIONS_EVAL.md)** - How extraction of Suggestions is measured
+- **[adr/0001-tools-chosen-from-classified-intent.md](adr/0001-tools-chosen-from-classified-intent.md)** - Why tools come from the classified intent
 - **DEPLOYMENT.md** *(coming soon)* - Production deployment guide
 
 
@@ -133,11 +180,12 @@ flowchart TD
 ### ✅ In Scope
 - Telegram and WhatsApp bot interfaces
 - Question answering (single-turn)
+- Community recommendations (Suggestions) for "who/where do you recommend?" requests
 - Portuguese language support
 - 20 topic categories
 - Source attribution
 - Basic feedback (thumbs up/down)
-- Knowledge base from WhatsApp history
+- Knowledge bases from WhatsApp history: Q&A Pairs and Suggestions
 
 ### ❌ Out of Scope (for now)
 - Multi-turn conversations with memory persistence
@@ -166,7 +214,7 @@ flowchart TD
 - Implement response caching for repeated questions
 - Rate limit Telegram bot to prevent spam expenditure
 - Limit response length (max_tokens: 1024)
-- Use local embeddings (no paid embeddings API)
+- Cheap embeddings (OpenAI `text-embedding-3-small`; sparse BM25 runs locally)
 
 ---
 
